@@ -2,7 +2,7 @@
 
 
 [![conda](https://img.shields.io/conda/dn/ostrokach/pagnn.svg)](https://anaconda.org/ostrokach/pagnn/)
-[![docs](https://img.shields.io/badge/docs-v0.1.2.dev0-blue.svg)](https://ostrokach.gitlab.io/pagnn/)
+[![docs](https://img.shields.io/badge/docs-v0.1.2-blue.svg)](https://ostrokach.gitlab.io/pagnn/)
 [![build status](https://gitlab.com/ostrokach/pagnn/badges/master/build.svg)](https://gitlab.com/ostrokach/pagnn/commits/master/)
 [![coverage report](https://gitlab.com/ostrokach/pagnn/badges/master/coverage.svg)](https://gitlab.com/ostrokach/pagnn/commits/master/)
 
