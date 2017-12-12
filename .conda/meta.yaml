@@ -1,0 +1,28 @@
+package:
+  name: pagnn
+  version: 0.1.0
+
+source:
+  path: ../
+
+build:
+  script: $PYTHON setup.py install --single-version-externally-managed --record=record.txt
+  number: 0
+
+requirements:
+  build:
+    - python
+    - pandoc
+    - pypandoc
+  run:
+    - python
+    - click
+
+test:
+  imports:
+    - pagnn
+
+about:
+  home: http://gitlab.com/ostrokach/pagnn
+  license: MIT License
+  summary: "A neural network trained to select real proteins that fold to the provided adjacency matrix.""
