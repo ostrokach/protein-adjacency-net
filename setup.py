@@ -41,7 +41,7 @@ setup(
     name='pagnn',
     version='0.1.3.dev0',
     description=("A neural network trained to select real proteins that fold to the "
-    "provided adjacency matrix."),
+                 "provided adjacency matrix."),
     long_description=read_md('README.md') + '\n\n' + read_md('HISTORY.md'),
     author="Alexey Strokach",
     author_email='alex.strokach@utoronto.ca',
