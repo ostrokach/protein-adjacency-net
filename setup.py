@@ -40,17 +40,14 @@ test_requirements = [
 setup(
     name='pagnn',
     version='0.1.3.dev0',
-    description="A neural network trained to select real proteins that fold to the provided adjacency matrix."",
+    description=("A neural network trained to select real proteins that fold to the "
+    "provided adjacency matrix."),
     long_description=read_md('README.md') + '\n\n' + read_md('HISTORY.md'),
     author="Alexey Strokach",
     author_email='alex.strokach@utoronto.ca',
     url='https://gitlab.com/ostrokach/pagnn',
     packages=find_packages(include=['pagnn']),
-    entry_points={
-        'console_scripts': [
-            'pagnn=pagnn.cli:main'
-        ]
-    },
+    entry_points={'console_scripts': ['pagnn=pagnn.cli:main']},
     include_package_data=True,
     install_requires=requirements,
     zip_safe=False,
