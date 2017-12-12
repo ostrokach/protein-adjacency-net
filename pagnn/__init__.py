@@ -2,4 +2,4 @@
 
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
-__version__ = '0.1.2'
+__version__ = '0.1.3.dev0'
