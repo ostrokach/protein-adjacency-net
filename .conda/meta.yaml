@@ -23,6 +23,6 @@ test:
     - pagnn
 
 about:
-  home: http://gitlab.com/ostrokach/pagnn
+  home: http://gitlab.com/kimlab/pagnn
   license: MIT License
   summary: "A neural network trained to select real proteins that fold to the provided adjacency matrix."

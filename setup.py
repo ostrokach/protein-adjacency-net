@@ -45,7 +45,7 @@ setup(
     long_description=read_md('README.md') + '\n\n' + read_md('HISTORY.md'),
     author="Alexey Strokach",
     author_email='alex.strokach@utoronto.ca',
-    url='https://gitlab.com/ostrokach/pagnn',
+    url='https://gitlab.com/kimlab/pagnn',
     packages=find_packages(include=['pagnn']),
     entry_points={'console_scripts': ['pagnn=pagnn.cli:main']},
     include_package_data=True,
