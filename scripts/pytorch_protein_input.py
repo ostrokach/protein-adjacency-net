@@ -14,11 +14,9 @@ from numba import boolean, float32, float64, int32, int64, jit
 from scipy import signal, stats
 from sklearn import metrics
 from torch.autograd import Variable
-
 from tqdm import tqdm, tqdm_notebook
 
 # %matplotlib inline
-# %run pytorch_simple.py
 
 # %%
 
@@ -33,12 +31,60 @@ t1 = torch.FloatTensor([
     [40, 50, 60],
     [70, 80, 90]
 ])
-# adjacency @ t1
+adjacency @ t1
 
-# torch.mm(adjacency, t1)
+torch.mm(adjacency, t1)
 
-# torch.mm(Variable(adjacency), Variable(t1))
+torch.mm(Variable(adjacency), Variable(t1))
 
+# %%
+
+
+def expand_adjacency(adj):
+    """Convert adjacency matrix into a strided mask."""
+    new_adj = np.zeros((int(adj.sum() * 2), adj.shape[1]), dtype=adj.dtype)
+    idx = 0
+    for x, y in zip(*adj.nonzero()):
+        new_adj[idx, x] = 1
+        new_adj[idx + 1, y] = 1
+        idx += 2
+    return new_adj
+
+
+# %% Tests
+
+adj = np.array(
+    [
+        #
+        [1, 0, 1],
+        [0, 1, 1],
+        [1, 1, 1]
+    ],
+    dtype=np.int32)
+
+expanded_adj = np.array(
+    [
+        #
+        [1, 0, 0],
+        [1, 0, 0],
+        [1, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [0, 0, 1],
+        [1, 0, 0],
+        [0, 0, 1],
+        [0, 1, 0],
+        [0, 0, 1],
+        [0, 0, 1]
+    ],
+    dtype=np.int32)
+
+assert np.array_equal(expand_adjacency(adj), expanded_adj)
+
+# %%
 
 DOMAIN_SIZE = 600
 
@@ -50,6 +96,22 @@ adj_expanded.shape
 # %%
 
 
+class Net(nn.Module):
+
+    def __init__(self):
+        super(Net, self).__init__()
+        n_filters = 3
+        self.spatial_conv = nn.Conv1d(5, n_filters, 2, stride=2, bias=False)
+        self.combine_convs = nn.Linear(n_filters, 1, bias=False)
+
+    def forward(self, aa, adjacency):
+        x = aa @ adjacency.transpose(0, 1)
+        x = self.spatial_conv(x)
+        x = x @ adjacency[::2, :]
+        x = x.sum(dim=2) / adjacency.sum(dim=0)
+        x = self.combine_convs(x)
+        x = x.squeeze()
+        return F.sigmoid(x)
 
 
 # %% Generate training and test data

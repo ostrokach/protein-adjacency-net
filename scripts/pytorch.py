@@ -18,6 +18,95 @@ from tqdm import tqdm, tqdm_notebook
 %matplotlib inline
 
 
+# %% Functions
+
+@jit(float32[:, :](int64, int64), nopython=True)
+def generate_data(num_points, num_features) -> np.array:
+    data = np.zeros((num_points, num_features), dtype=np.float32)
+    feature_idxs = np.arange(num_features)
+    for i in np.arange(num_points):
+        data[i, np.random.choice(feature_idxs)] = 1.0
+    return data
+
+
+@jit(int32(float32[:, :], float32[:, :]), nopython=True)
+def count_matches(data, conv_filter):
+    """Count the number of times `conv_filter` is inside `data`."""
+    convs = []
+    for i in np.arange(0, data.shape[0], 2):
+        conv = (data[i:i+2, :] * conv_filter).sum()
+        convs.append(conv)
+    return convs.count(2)
+
+
+@jit(boolean(float32[:, :], float32[:, :], float32))
+def label_data(data, conv_filter, cutoff_proba):
+    """Classify data based on the number of occurences of `conv_filter`.
+
+    Note
+    ----
+    Effective `cutoff_proba` can be up to 5% less strict because of ``>=``.
+    """
+    num_matches = count_matches(data, conv_filter)
+    cutoff = stats.binom(data.shape[0] / 2, 1/25).ppf(1 - cutoff_proba)
+    return num_matches >= cutoff
+
+
+# %%
+
+filter_ = np.array([
+        [1, 0, 0, 0, 0],
+        [0, 1, 0, 0, 0]
+    ], dtype=np.float32)
+
+_cutoff = 0.7
+
+num_pos = 0
+for i in range(1_000):
+    data = generate_data(1_000, 5)
+    if label_data(data, filter_, _cutoff):
+        num_pos += 1
+print(num_pos / (i + 1))
+
+
+# %% Unit tests
+
+test_array_1 = np.array([
+    [1, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0],
+], dtype=np.float32)
+
+assert count_matches(test_array_1, filter_) == 1
+
+
+test_array_2 = np.array([
+    [1, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0],
+    [1, 0, 0, 0, 0],
+], dtype=np.float32)
+
+assert count_matches(test_array_2, filter_) == 1
+
+
+test_array_3 = np.array([
+    [1, 0, 0, 0, 0],
+    [1, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0],
+], dtype=np.float32)
+
+assert count_matches(test_array_3, filter_) == 0
+
+
+test_array_4 = np.array([
+    [1, 0, 0, 0, 0],
+    [0, 0, 1, 0, 0],
+    [1, 0, 0, 0, 0],
+    [0, 1, 0, 0, 0],
+], dtype=np.float32)
+
+assert count_matches(test_array_4, filter_) == 1
+
+
 # %% Parameters
 
 FRAC_NEGATIVE = 0.7
@@ -72,6 +161,45 @@ test_targets_ = np.array(
 
 # %% Define network
 
+class Net(nn.Module):
+
+    def __init__(self):
+        super(Net, self).__init__()
+
+        self.case = 3
+
+        n_filters = 3
+        self.conv = nn.Conv1d(5, n_filters, 2, stride=2, bias=False)
+        self.combine_filters = nn.Linear(n_filters, 1, bias=False)
+
+    def forward(self, input_):
+        x = self.conv(input_)
+        x = F.relu(x)
+
+        # x = F.avg_pool1d(x, x.size()[2]).sum(dim=1)
+        # x = x.sum(dim=2) / input_.size()[0]
+
+        batch_size, feature_size, data_size = x.size()
+
+        if self.case == 1:
+            x = x.sum(dim=2).sum(dim=1) / (data_size ** 1/2)
+        elif self.case == 2:
+            x = x.sum(dim=2) / (data_size ** 1/2)
+            x = self.combine_filters(x).squeeze()
+        elif self.case == 3:
+            x = x.sum(dim=2)
+            x = self.combine_filters(x).squeeze()
+        elif self.case == 4:
+            x = x.sum(dim=2)
+            x = torch.cat([x, Variable(torch.ones(batch_size, 1) * data_size)], 1)
+            x = self.combine_filters(x).squeeze()
+
+        # x = x.sum(dim=2)
+
+        # x = self.combine_filters(x).squeeze()
+
+        x = F.sigmoid(x)
+        return x
 
 # %%
 
