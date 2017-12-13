@@ -1,3 +1,4 @@
+# flake8: noqa
 import concurrent.futures
 import os
 import os.path as op
@@ -36,20 +37,6 @@ adjacency @ t1
 torch.mm(adjacency, t1)
 
 torch.mm(Variable(adjacency), Variable(t1))
-
-# %%
-
-
-def expand_adjacency(adj):
-    """Convert adjacency matrix into a strided mask."""
-    new_adj = np.zeros((int(adj.sum() * 2), adj.shape[1]), dtype=adj.dtype)
-    idx = 0
-    for x, y in zip(*adj.nonzero()):
-        new_adj[idx, x] = 1
-        new_adj[idx + 1, y] = 1
-        idx += 2
-    return new_adj
-
 
 # %% Tests
 

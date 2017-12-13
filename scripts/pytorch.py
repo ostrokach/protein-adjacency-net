@@ -1,56 +1,16 @@
-import os
-import os.path as op
+# flake8: noqa
 import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+from sklearn import metrics
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from numba import boolean, float32, int32, int64, jit
-from scipy import signal, stats
-from sklearn import metrics
 from torch.autograd import Variable
-from tqdm import tqdm, tqdm_notebook
-
-%matplotlib inline
-
-
-# %% Functions
-
-@jit(float32[:, :](int64, int64), nopython=True)
-def generate_data(num_points, num_features) -> np.array:
-    data = np.zeros((num_points, num_features), dtype=np.float32)
-    feature_idxs = np.arange(num_features)
-    for i in np.arange(num_points):
-        data[i, np.random.choice(feature_idxs)] = 1.0
-    return data
-
-
-@jit(int32(float32[:, :], float32[:, :]), nopython=True)
-def count_matches(data, conv_filter):
-    """Count the number of times `conv_filter` is inside `data`."""
-    convs = []
-    for i in np.arange(0, data.shape[0], 2):
-        conv = (data[i:i+2, :] * conv_filter).sum()
-        convs.append(conv)
-    return convs.count(2)
-
-
-@jit(boolean(float32[:, :], float32[:, :], float32))
-def label_data(data, conv_filter, cutoff_proba):
-    """Classify data based on the number of occurences of `conv_filter`.
-
-    Note
-    ----
-    Effective `cutoff_proba` can be up to 5% less strict because of ``>=``.
-    """
-    num_matches = count_matches(data, conv_filter)
-    cutoff = stats.binom(data.shape[0] / 2, 1/25).ppf(1 - cutoff_proba)
-    return num_matches >= cutoff
-
+from tqdm import tqdm
 
 # %%
 

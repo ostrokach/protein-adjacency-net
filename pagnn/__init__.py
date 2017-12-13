@@ -3,3 +3,6 @@
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.3.dev0'
+
+from .utils import *
+from .network import *

@@ -1,3 +1,9 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+
+
 class TestNet1(nn.Module):
 
     def __init__(self):
@@ -19,9 +25,9 @@ class TestNet1(nn.Module):
         batch_size, feature_size, data_size = x.size()
 
         if self.case == 1:
-            x = x.sum(dim=2).sum(dim=1) / (data_size ** 1/2)
+            x = x.sum(dim=2).sum(dim=1) / (data_size**1 / 2)
         elif self.case == 2:
-            x = x.sum(dim=2) / (data_size ** 1/2)
+            x = x.sum(dim=2) / (data_size**1 / 2)
             x = self.combine_filters(x).squeeze()
         elif self.case == 3:
             x = x.sum(dim=2)
@@ -39,7 +45,6 @@ class TestNet1(nn.Module):
         return x
 
 
-
 class Net(nn.Module):
 
     def __init__(self):
@@ -49,9 +54,9 @@ class Net(nn.Module):
         self.combine_convs = nn.Linear(n_filters, 1, bias=False)
 
     def forward(self, aa, adjacency):
-        x = aa @ adjacency.transpose(0, 1)
+        x = aa @adjacency.transpose(0, 1)
         x = self.spatial_conv(x)
-        x = x @ adjacency[::2, :]
+        x = x @adjacency[::2, :]
         x = x.sum(dim=2) / adjacency.sum(dim=0)
         x = self.combine_convs(x)
         x = x.squeeze()

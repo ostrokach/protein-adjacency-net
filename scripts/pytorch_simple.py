@@ -1,3 +1,4 @@
+# flake8: noqa
 import os
 import os.path as op
 import random
@@ -16,43 +17,6 @@ from torch.autograd import Variable
 from tqdm import tqdm, tqdm_notebook
 
 # %matplotlib inline
-
-print('hello')
-
-# %% Functions
-
-
-@jit(float32[:, :](int64, int64), nopython=True)
-def generate_data(num_points, num_features) -> np.array:
-    data = np.zeros((num_points, num_features), dtype=np.float32)
-    feature_idxs = np.arange(num_features)
-    for i in np.arange(num_points):
-        data[i, np.random.choice(feature_idxs)] = 1.0
-    return data
-
-
-@jit(int32(float32[:, :], float32[:, :]), nopython=True)
-def count_matches(data, conv_filter):
-    """Count the number of times `conv_filter` is inside `data`."""
-    convs = []
-    for i in np.arange(0, data.shape[0], 2):
-        conv = (data[i:i + 2, :] * conv_filter).sum()
-        convs.append(conv)
-    return convs.count(2)
-
-
-@jit(boolean(float32[:, :], float32[:, :], float32))
-def label_data(data, conv_filter, cutoff_proba):
-    """Classify data based on the number of occurences of `conv_filter`.
-
-    Note
-    ----
-    Effective `cutoff_proba` can be up to 5% less strict because of ``>=``.
-    """
-    num_matches = count_matches(data, conv_filter)
-    cutoff = stats.binom(data.shape[0] / 2, 1 / 25).ppf(cutoff_proba)
-    return num_matches >= cutoff
-
 
 # %%
 

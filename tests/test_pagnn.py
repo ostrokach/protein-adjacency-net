@@ -6,6 +6,7 @@ from click.testing import CliRunner
 import pagnn
 from pagnn import cli
 
+
 @pytest.mark.parametrize('attribute', ['__author__', '__email__', '__version__'])
 def test_attribute(attribute):
     assert getattr(pagnn, attribute)
