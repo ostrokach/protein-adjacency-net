@@ -5,4 +5,5 @@ __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.3.dev0'
 
 from .utils import *
+from .io import *
 from .network import *
