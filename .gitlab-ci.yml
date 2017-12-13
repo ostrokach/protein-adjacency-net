@@ -20,6 +20,7 @@ variables:
 .conda_configure: &conda_configure
   before_script:
     # Conda configure
+    - conda config --append channels pytorch
     - conda config --append channels kimlab-forge
     - case "${PACKAGE_VERSION}" in
       *dev*)

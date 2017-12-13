@@ -17,6 +17,9 @@ requirements:
   run:
     - python
     - click
+    - numpy
+    - pytorch
+    - torchvision
 
 test:
   imports:
