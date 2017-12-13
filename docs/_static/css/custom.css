@@ -1,0 +1,15 @@
+/*.wy-nav-content {
+    max-width: 1200px !important;
+}*/
+body {
+  padding: 0px !important;
+}
+h1 {
+  background-color: white
+}
+.rendered_html h1:first-child {
+  padding-left: 0 !important;
+}
+.text_cell.rendered .rendered_html {
+  overflow-x: hidden !important;
+}

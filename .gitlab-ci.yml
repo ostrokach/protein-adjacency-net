@@ -1,0 +1,63 @@
+image: condaforge/linux-anvil:latest
+
+stages:
+  - build
+  - test
+  - deploy
+
+
+# === Variables ===
+
+variables:
+  PYTHON_VERSION: "3.6"
+  SPARK_MASTER: "spark://192.168.6.210:7077"
+  DB_TYPE: "mysql"
+  DB_PORT: "8330"
+
+# === Conda ===
+
+.conda_configure: &conda_configure
+  before_script:
+    # Conda configure
+    - conda config --append channels bioconda
+    - conda config --append channels ostrokach-forge
+    - conda config --append channels kimlab
+    - conda config --append channels ostrokach
+
+
+# === Pages ===
+
+.docs: &docs
+  stage: test
+  script:
+    - conda install -yq jupyter nbconvert jupyter_contrib_nbextensions IPython ipykernel pandoc
+    - pip install -q sphinx sphinx_rtd_theme guzzle_sphinx_theme recommonmark nbsphinx
+    - mkdir -p docs/notebooks docs/_static/notebooks
+    - if [[ -e README.md ]] ; then 
+      sed 's|\.ipynb)|\.ipynb\.html)|g' README.md > docs/README.md ;
+      else echo "# README" > docs/README.md ;
+      fi
+    - (cd docs && ./convert_notebooks.sh)
+    - sphinx-build docs public/$DOCS_SECRET_KEY
+  after_script:
+    - if [[ -d /repo ]] ; then
+        sudo cp -rf public/* /repo/public ;
+        sudo chmod ugo+rwX -R /repo/public/* ;
+      fi
+
+test-pages:
+  <<: [*conda_configure, *docs]
+  except:
+    - master
+    - tags
+
+pages:
+  <<: [*conda_configure, *docs]
+  only:
+    - master
+    - tags
+  except:
+    - triggers
+  artifacts:
+    paths:
+    - public

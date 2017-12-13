@@ -1,0 +1,36 @@
+.*
+!.gitignore
+!.gitattributes
+!.gitlab-ci.yml
+
+# Documentation
+docs/_build
+docs/notebooks
+docs/README.md
+public
+
+# Keep downloads
+downloads/*
+!downloads/*.gz
+!downloads/*.zip
+
+# Batch output files
+notebooks/*
+!notebooks/*.ipynb
+!notebooks/*.py
+!notebooks/*/*.py
+
+# Keep output
+output/*
+# !output/*.parquet
+
+# Temporary files
+.~*
+*.bak
+
+# Other files
+.ipynb_checkpoints
+__pycache__
+
+# Big data
+output_mysql
