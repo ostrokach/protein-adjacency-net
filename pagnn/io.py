@@ -31,13 +31,13 @@ def iter_domain_rows(domain_folder: Path, columns=None,
     for filepath in parquet_files:
         df = pq.read_table(filepath.as_posix(), columns=columns).to_pandas()
         if subsample:
-            num_samples = min(len(df), subsample // len(parquet_files) + 1)
+            num_samples = min(len(df), subsample // len(parquet_files) + int(random.random() > 0.3))
             subsample_idxs = random.sample(range(len(df)), k=num_samples)
             df = df.iloc[subsample_idxs]
         for row in df.itertuples():
             yield row
             row_idx += 1
-            if subsample and row_idx > subsample:
+            if subsample and row_idx >= subsample:
                 return
 
 
