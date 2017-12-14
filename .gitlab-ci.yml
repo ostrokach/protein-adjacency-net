@@ -21,19 +21,19 @@ variables:
   before_script:
     # Conda configure
     - conda config --append channels pytorch
-    - conda config --append channels kimlab-forge
     - case "${PACKAGE_VERSION}" in
       *dev*)
         conda config --append channels kimlab/label/dev;
         conda config --append channels kimlab;
-        conda config --append channels kimlab/label/dev;
-        conda config --append channels kimlab;
+        conda config --append channels ostrokach/label/dev;
+        conda config --append channels ostrokach;
       ;;
       *)
         conda config --append channels kimlab;
-        conda config --append channels kimlab;
+        conda config --append channels ostrokach;
       ;;
       esac
+    - conda config --append channels ostrokach-forge
     - conda config --append channels bioconda
     - conda update -yq conda
 
