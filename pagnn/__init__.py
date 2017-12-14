@@ -6,4 +6,4 @@ __version__ = '0.1.3.dev0'
 
 from .utils import *
 from .io import *
-from .network import *
+from .models import *
