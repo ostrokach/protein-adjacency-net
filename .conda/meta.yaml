@@ -18,6 +18,7 @@ requirements:
     - python
     - click
     - numpy
+    - scipy
     - pytorch
     - torchvision
     - numba
