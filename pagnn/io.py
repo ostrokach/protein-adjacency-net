@@ -27,13 +27,20 @@ class DataRow(NamedTuple):
 def iter_domain_rows(domain_folder: Path, columns=None,
                      subsample=None) -> Generator[_DataFrameRow, None, None]:
     parquet_files = list(domain_folder.glob('*.parquet'))
+    random.shuffle(parquet_files)
     row_idx = 0
     for filepath in parquet_files:
         df = pq.read_table(filepath.as_posix(), columns=columns).to_pandas()
         if subsample:
-            num_samples = min(len(df), subsample // len(parquet_files) + int(random.random() > 0.3))
+            num_samples = min(
+                len(df),
+                subsample // len(parquet_files) + int(random.random() > 1 / len(parquet_files)))
             subsample_idxs = random.sample(range(len(df)), k=num_samples)
             df = df.iloc[subsample_idxs]
+        else:
+            _prev_length = len(df)
+            df = df.reindex(np.random.permutation(df.index))
+            assert len(df) == _prev_length
         for row in df.itertuples():
             yield row
             row_idx += 1
