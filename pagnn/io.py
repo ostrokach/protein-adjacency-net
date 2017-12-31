@@ -5,7 +5,7 @@ from typing import Generator, List, NamedTuple, Optional
 import numpy as np
 import pyarrow.parquet as pq
 
-from pagnn import permute_sequence, get_adjacency
+from pagnn import expand_adjacency, permute_sequence, get_adjacency
 
 
 class SequenceTooShortError(Exception):
@@ -26,7 +26,7 @@ class DataRow(NamedTuple):
 
 
 def iter_datasets(domain_folders: List[Path],
-                  max_seq_len: int=100_000) -> Generator[DataRow, None, None]:
+                  max_seq_len: int=10_000) -> Generator[DataRow, None, None]:
     """Generate datasets by randomly combining sequences from different domains.
 
     Args:
@@ -62,11 +62,21 @@ def rows_to_dataset(rows: List[_DataFrameRow]) -> DataRow:
         adj = get_adjacency(row.qseq, row.residue_idx_1_corrected, row.residue_idx_2_corrected)
         adj_list.append(adj)
     # Real and fake sequences
-    seq_pos = ''.join(seq_list)
+    seq_pos = 'XXXXX'.join(seq_list)
     seq_neg = permute_sequence(seq_pos)
+    seq_array = np.vstack([
+        np.array(
+            seq_pos, dtype=np.string_),
+        np.array(
+            seq_neg, dtype=np.string_),
+    ])
     # Combine data from all batches
-    seq_array = np.array([[seq_pos], [seq_neg]], dtype=np.string_)
-    adj = np.hstack(adj_list)
+    adj = np.zeros((len(seq_pos), len(seq_pos)), dtype=np.int8)
+    offset = 0
+    for subadj in adj_list:
+        adj[offset:offset + subadj.shape[0], offset:offset + subadj.shape[1]] = subadj
+        offset += subadj.shape[0] + 5
+    adj = expand_adjacency(adj)
     targets = np.array([1, 0] * len(seq_list))
     seq_lengths = np.array([len(seq) for seq in seq_list], dtype=np.int8)
     return DataRow(seq_array, adj, targets, seq_lengths)
