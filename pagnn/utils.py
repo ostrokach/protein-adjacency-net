@@ -1,5 +1,4 @@
 import logging
-
 from functools import singledispatch
 from typing import List
 
