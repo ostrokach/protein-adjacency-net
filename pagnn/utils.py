@@ -16,6 +16,12 @@ _AMINO_ACIDS: List[str] = [
 _AMINO_ACIDS_BYTEARRAY = bytearray(''.join(_AMINO_ACIDS).encode())
 
 
+def permute_sequence(seq):
+    offset = np.random.choice(np.arange(6, len(seq) - 6))
+    seq_neg = seq[offset:] + seq[:offset]
+    return seq_neg
+
+
 @singledispatch
 def get_seq_array(seq: str) -> np.array:
     """Convert amino acid sequence into a one-hot encoded array.
