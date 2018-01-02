@@ -6,6 +6,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from pagnn import GAP_LENGTH
+
 
 class SingleDomainNet(nn.Module):
     """A neural network that takes a single domain and adjacency matrix as input."""
@@ -33,34 +35,61 @@ class MultiDomainNet(nn.Module):
 
     def __init__(self):
         super().__init__()
+        n_aa = 20
         n_filters = 12
-        self.spatial_conv = nn.Conv1d(20, n_filters, 2, stride=2, bias=False)
+        self.spatial_conv = nn.Conv1d(n_aa, n_filters, 2, stride=2, bias=False)
         self.combine_convs = nn.Linear(n_filters, 1, bias=False)
 
-    def forward(self, aa: Variable, adjacency: Variable, domain_lengths: List[int]):
+    def forward(self, aa: Variable, adjs: Variable):
         """Forward pass through the network.
 
         Args:
             aa: PyTorch `Variable` containing the input sequence.
                 Size: [batch size (2), number of amino acids (20), sequence length].
-            adjacency: PyTorch `Variable` containing the adjacency matrix sequence.
+            adjs: PyTorch `Variable` containing the adjacency matrix sequence.
                 Size: [number of contacts * 2, sequence length].
-            domain_ranges: List of ranges for the different domains in `aa` and `adjacency`.
 
         Returns:
         """
-        x = aa @ adjacency.transpose(0, 1)
-        x = self.spatial_conv(x)
-        x = x @ adjacency[::2, :]
-        domains = []
-        cur_idx = 0
-        for domain_len in domain_lengths:
-            domain = x[:, :, cur_idx:cur_idx + domain_len]
-            # import pdb; pdb.set_trace()
-            domain, idx = (
-                domain / adjacency[:, cur_idx:cur_idx + domain_len].sum(dim=0)).max(dim=2)
-            domain = self.combine_convs(domain)
-            domain = domain.squeeze()
-            domains.append(domain)
-            cur_idx += domain_len
-        return F.sigmoid(torch.cat(domains))
+        # Apply convolutions in interaction space
+        aai = self._expand(aa, adjs)
+        aai = self.spatial_conv(aai)
+        aa = self._contract(aai, adjs)
+        # Aggregate by domain
+        domain_scores = self._agg_by_domain(aa, adjs)
+        return F.sigmoid(domain_scores)
+
+    def _expand(self, aa: Variable, adjs: List[Variable]) -> Variable:
+        aai_list = []
+        start = 0
+        for adj in adjs:
+            end = start + adj.size()[1]
+            aai = aa[:, :, start:end] @ adj.transpose(0, 1)
+            aai_list.append(aai)
+            start = end + GAP_LENGTH
+        assert len(aa) == end
+        return torch.cat(aai_list)
+
+    def _contract(self, aai: Variable, adjs: List[Variable]) -> Variable:
+        aa_list = []
+        start = 0
+        for adj in adjs:
+            end = start + adj.size()[0]
+            aa = aai[:, :, start:end] @ adj[::2, :]
+            aa_list.append(aa)
+            start = end + GAP_LENGTH
+        assert len(aai) == end
+        return torch.cat(aa_list)
+
+    def _agg_by_domain(self, aa: Variable, adjs: List[Variable]) -> Variable:
+        domain_scores = []
+        start = 0
+        for adj in adjs:
+            end = start + adj.size()[1]
+            aa_domain = aa[:, :, start:end]
+            aa_domain_max, idxs = (aa_domain / adj.sum(dim=0)).max(dim=2)
+            aa_domain_final = self.combine_convs(aa_domain_max).squeeze()
+            domain_scores.append(aa_domain_final)
+            start = end + GAP_LENGTH
+        assert len(aa) == end
+        return torch.cat(domain_scores)
