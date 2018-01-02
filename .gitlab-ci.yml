@@ -9,6 +9,9 @@ stages:
 # === Variables ===
 
 variables:
+  PACKAGE_VERSION: "0.1.0"
+  DOCS_SECRET_KEY: "QQRcgz67PxJNFopTWGygv1Y9iqKle0Mb2rxFh22a9cc/"
+  # Notebook environment variables
   PYTHON_VERSION: "3.6"
   SPARK_MASTER: "spark://192.168.6.210:7077"
   SPARK_ARGS:
@@ -20,50 +23,46 @@ variables:
   DB_PORT: "8331"
 
 
-# === Conda ===
-
-.conda_configure: &conda_configure
-  before_script:
-    # Conda configure
-    - conda config --append channels bioconda
-    - conda config --append channels ostrokach-forge
-    - conda config --append channels kimlab
-    - conda config --append channels ostrokach
-
-
 # === Pages ===
 
-.docs: &docs
-  stage: test
-  script:
-    - conda install -yq jupyter nbconvert jupyter_contrib_nbextensions IPython ipykernel pandoc
-    - pip install -q sphinx sphinx_rtd_theme guzzle_sphinx_theme recommonmark nbsphinx
-    - mkdir -p docs/notebooks docs/_static/notebooks
-    - if [[ -e README.md ]] ; then 
-      sed 's|\.ipynb)|\.ipynb\.html)|g' README.md > docs/README.md ;
-      else echo "# README" > docs/README.md ;
-      fi
-    - (cd docs && ./convert_notebooks.sh)
-    - sphinx-build docs public/$DOCS_SECRET_KEY
-  after_script:
-    - if [[ -d /repo ]] ; then
-        sudo cp -rf public/* /repo/public ;
-        sudo chmod ugo+rwX -R /repo/public/* ;
-      fi
-
-test-pages:
-  <<: [*conda_configure, *docs]
-  except:
-    - master
-    - tags
-
 pages:
-  <<: [*conda_configure, *docs]
-  only:
-    - master
-    - tags
-  except:
-    - triggers
-  artifacts:
-    paths:
-    - public
+  stage: test
+  before_script:
+    # Create conda environment
+    # (nice to use an environment in case we use `gitlab-runner exec shell`)
+    - conda remove -n pages --all -yq || true
+    - conda create -n pages -yq || true
+    - conda install -n pages -yq
+      git python pip ipython jupyter ipykernel pypandoc
+    - source activate pages
+    # Install pip packages
+    - pip install -q
+      git+https://github.com/arximboldi/sinusoidal-sphinx-theme.git
+      sphinx sphinx_rtd_theme guzzle_sphinx_theme recommonmark
+  script:
+    # Generate notebooks.csv
+    - ./scripts/create_notebook_table.py -i notebooks/ -o docs/notebooks.csv
+    # Build pages
+    - sphinx-build docs public/$DOCS_SECRET_KEY
+    # Convert notebooks
+    - mkdir -p public/$DOCS_SECRET_KEY/notebooks
+    - ./scripts/convert_notebooks.sh notebooks/ public/$DOCS_SECRET_KEY/notebooks/
+
+
+# === Deploy ===
+
+.exec-notebook: &exec-notebook
+  script:
+    - jupyter nbconvert "notebooks/{NOTEBOOK_NAME}.ipynb"
+      --to=html_ch
+      --output=$NOTEBOOK_NAME.html
+      --output-dir=logs/
+      --template=docs/output_toggle.tpl
+      --execute
+
+deploy:
+  stage: deploy
+  variables:
+    NOTEBOOK_NAME: deploy
+  <<: *exec-notebook
+  when: manual

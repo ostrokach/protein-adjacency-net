@@ -1,14 +1,18 @@
+Welcome to Adjacency Net's documentation!
+==============================================================================
 
-Welcome!
-========
+Contents:
 
 .. toctree::
    :maxdepth: 3
 
-   README
-   pipeline
+   readme
+   installation
+   usage
    notebooks
-
+   contributing
+   authors
+   history
 
 Indices and tables
 ==================
