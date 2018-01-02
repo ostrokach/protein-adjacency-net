@@ -92,12 +92,11 @@ def iter_domain_rows(domain_folder: Path) -> Generator[_DataFrameRow, None, None
 
     Args:
         domain_folder: Location where domain-specific *.parquet files are stored.
-        columns: Subset of the columns to load.
+
+    Yields:
+        NamedTuple containing domain rows.
     """
-    if domain_folder.is_file():
-        parquet_files = [domain_folder]
-    else:
-        parquet_files = list(domain_folder.glob('*.parquet'))
+    parquet_files = _get_domain_parquet_files(domain_folder)
     assert parquet_files
     random.shuffle(parquet_files)
     for filepath in parquet_files:
@@ -110,9 +109,17 @@ def iter_domain_rows(domain_folder: Path) -> Generator[_DataFrameRow, None, None
 
 
 def count_domain_rows(domain_folder: Path) -> int:
-    parquet_files = list(domain_folder.glob('*.parquet'))
+    parquet_files = _get_domain_parquet_files(domain_folder)
     num_rows = 0
     for filepath in parquet_files:
         df = pq.read_table(filepath.as_posix(), columns=['__index_level_0__']).to_pandas()
         num_rows += len(df)
     return num_rows
+
+
+def _get_domain_parquet_files(domain_folder: Path) -> List[Path]:
+    if domain_folder.is_file():
+        parquet_files = [domain_folder]
+    else:
+        parquet_files = list(domain_folder.glob('**/*.parquet'))
+    return parquet_files
