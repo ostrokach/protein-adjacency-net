@@ -47,6 +47,9 @@ pages:
     # Convert notebooks
     - mkdir -p public/$DOCS_SECRET_KEY/notebooks
     - ./scripts/convert_notebooks.sh notebooks/ public/$DOCS_SECRET_KEY/notebooks/
+  artifacts:
+    paths:
+    - public
 
 
 # === Deploy ===
