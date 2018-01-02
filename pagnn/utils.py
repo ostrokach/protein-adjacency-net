@@ -1,5 +1,4 @@
 import logging
-from functools import singledispatch
 from typing import List
 
 import numpy as np
@@ -22,8 +21,8 @@ def permute_sequence(seq):
     return seq_neg
 
 
-@singledispatch
-def get_seq_array(seq: str) -> np.array:
+# @jit(nopython=True)
+def get_seq_array(seq: bytes) -> np.ndarray:
     """Convert amino acid sequence into a one-hot encoded array.
 
     Args:
@@ -32,25 +31,13 @@ def get_seq_array(seq: str) -> np.array:
     Returns:
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
-    amino_acids = _AMINO_ACIDS
-    seq_array = np.zeros((20, len(seq)))
-    for i, aa in enumerate(seq):
-        try:
-            seq_array[amino_acids.index(aa), i] = 1
-        except ValueError as e:
-            if aa not in ['X']:
-                logger.error("Could not convert the following residue to one-hot encoding: %s", aa)
-    return seq_array
-
-
-@get_seq_array.register(bytes)
-def _(seq: bytes) -> np.array:
     amino_acids = _AMINO_ACIDS_BYTEARRAY
     seq_array = np.zeros((20, len(seq)))
     for i, aa in enumerate(seq):
         try:
             seq_array[amino_acids.index(aa), i] = 1
         except ValueError as e:
+            seq_array[:, i] = 1 / 20
             if aa not in bytearray(b'X'):
                 logger.error("Could not convert the following residue to one-hot encoding: %s", aa)
     return seq_array
