@@ -15,10 +15,10 @@ _AMINO_ACIDS: List[str] = [
 _AMINO_ACIDS_BYTEARRAY = bytearray(''.join(_AMINO_ACIDS).encode())
 
 
-def permute_sequence(seq):
+def permute_sequence(seq: bytes):
     offset = np.random.choice(np.arange(6, len(seq) - 6))
-    seq_neg = seq[offset:] + seq[:offset]
-    return seq_neg
+    seq_permuted = seq[offset:] + seq[:offset]
+    return seq_permuted
 
 
 # @jit(nopython=True)
@@ -43,13 +43,13 @@ def get_seq_array(seq: bytes) -> np.ndarray:
     return seq_array
 
 
-def get_adjacency(qseq: str, residue_idx_1_corrected: np.array,
+# @jit(int8[:, :](int64, float64[:], float64[:]), parallel=True)
+def get_adjacency(seq_len: int, residue_idx_1_corrected: np.array,
                   residue_idx_2_corrected: np.array) -> np.array:
     """Construct an adjacency matrix from the data available for each row in the DataFrame.
 
     Args:
-        qseq: Amino acid sequence from the alignment of the query sequence
-            (to the target PDB sequence).
+        seq_len:
         residue_idx_1_corrected: Indexes of the residues that are involved
             in intrachain interactions.
         residue_idx_2_corrected: Indexes of the residues that are involved
@@ -58,15 +58,13 @@ def get_adjacency(qseq: str, residue_idx_1_corrected: np.array,
     Returns:
         An adjacency matrix for the given sequence `qseq`.
     """
-    adj = np.eye(len(qseq.replace('-', '')))
-    nulls = []
-    for i, j in zip(residue_idx_1_corrected, residue_idx_2_corrected):
-        if np.isnan(i) or np.isnan(j):
-            nulls.append((i, j))
-            continue
-        adj[int(i), int(j)] = 1
-    # if nulls:
-    #     logger.error("Error, had %s tuples with nulls!" % len(nulls))
+    na_mask = (np.isnan(residue_idx_1_corrected) | np.isnan(residue_idx_2_corrected))
+    if na_mask.any():
+        logger.debug("Removing %s null indices.", na_mask.sum())
+    residue_idx_1_corrected = np.array(residue_idx_1_corrected[~na_mask], dtype=np.int_)
+    residue_idx_2_corrected = np.array(residue_idx_2_corrected[~na_mask], dtype=np.int_)
+    adj = np.eye(seq_len, dtype=np.int8)
+    adj[residue_idx_1_corrected, residue_idx_2_corrected] = 1
     return adj
 
 
@@ -80,12 +78,19 @@ def expand_adjacency(adj: np.array) -> np.array:
         Adjacency matrix converted to *two-rows-per-interaction* format.
     """
     new_adj = np.zeros((int(adj.sum() * 2), adj.shape[1]), dtype=adj.dtype)
-    idx = 0
-    for x, y in zip(*adj.nonzero()):
-        new_adj[idx, x] = 1
-        new_adj[idx + 1, y] = 1
-        idx += 2
+    a, b = adj.nonzero()
+    a_idx = np.arange(0, len(a) * 2, 2)
+    b_idx = np.arange(1, len(b) * 2, 2)
+    new_adj[a_idx, a] = 1
+    new_adj[b_idx, b] = 1
+    assert (new_adj.sum(axis=1) == 1).all(), new_adj
     return new_adj
+    # idx = 0
+    # for x, y in zip(*adj.nonzero()):
+    #     new_adj[idx, x] = 1
+    #     new_adj[idx + 1, y] = 1
+    #     idx += 2
+    # return new_adj
 
 
 # === Deprecated ===

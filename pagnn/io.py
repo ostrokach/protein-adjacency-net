@@ -53,10 +53,11 @@ def iter_datasets(rows: Iterable[_DataFrameRow], max_seq_len: int = 10_000
 
 def gen_dataset(rows: Iterable[_DataFrameRow]) -> Tuple[bytes, List[np.ndarray]]:
     """Combine one or more rows into a dataset."""
-    seq = (b'X' * GAP_LENGTH).join(row.qseq.replace('-', '').encode('ascii') for row in rows)
+    seqs = [row.qseq.replace('-', '').encode('ascii') for row in rows]
+    seq = (b'X' * GAP_LENGTH).join(seqs)
     adjs = [
-        get_adjacency(row.qseq, row.residue_idx_1_corrected, row.residue_idx_2_corrected)
-        for row in rows
+        get_adjacency(len(seq), row.residue_idx_1_corrected, row.residue_idx_2_corrected)
+        for seq, row in zip(seqs, rows)
     ]
     return seq, adjs
 

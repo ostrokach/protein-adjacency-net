@@ -67,8 +67,8 @@ class MultiDomainNet(nn.Module):
             aai = aa[:, :, start:end] @ adj.transpose(0, 1)
             aai_list.append(aai)
             start = end + GAP_LENGTH
-        assert len(aa) == end
-        return torch.cat(aai_list)
+        assert aa.size()[2] == end, (aa.size(), end)
+        return torch.cat(aai_list, dim=2)
 
     def _contract(self, aai: Variable, adjs: List[Variable]) -> Variable:
         aa_list = []
@@ -78,8 +78,8 @@ class MultiDomainNet(nn.Module):
             aa = aai[:, :, start:end] @ adj[::2, :]
             aa_list.append(aa)
             start = end + GAP_LENGTH
-        assert len(aai) == end
-        return torch.cat(aa_list)
+        assert aai.size()[2] == end, (aai.size(), end)
+        return torch.cat(aa_list, dim=2)
 
     def _agg_by_domain(self, aa: Variable, adjs: List[Variable]) -> Variable:
         domain_scores = []
@@ -91,5 +91,5 @@ class MultiDomainNet(nn.Module):
             aa_domain_final = self.combine_convs(aa_domain_max).squeeze()
             domain_scores.append(aa_domain_final)
             start = end + GAP_LENGTH
-        assert len(aa) == end
+        assert aa.size()[2] == end, (aa.size(), end)
         return torch.cat(domain_scores)
