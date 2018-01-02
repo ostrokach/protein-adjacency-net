@@ -11,8 +11,14 @@ stages:
 variables:
   PYTHON_VERSION: "3.6"
   SPARK_MASTER: "spark://192.168.6.210:7077"
+  SPARK_ARGS:
+    spark.executor.memory=128G,
+    spark.sql.broadcastTimeout=3600,
+    spark.driver.memory=16G,
+    spark.driver.maxResultSize=16G
   DB_TYPE: "mysql"
-  DB_PORT: "8330"
+  DB_PORT: "8331"
+
 
 # === Conda ===
 
