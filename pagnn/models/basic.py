@@ -74,7 +74,7 @@ class MultiDomainNet(nn.Module):
         aa_list = []
         start = 0
         for adj in adjs:
-            end = start + adj.size()[0]
+            end = start + adj.size()[0] // 2
             aa = aai[:, :, start:end] @ adj[::2, :]
             aa_list.append(aa)
             start = end + GAP_LENGTH

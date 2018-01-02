@@ -39,7 +39,8 @@ def get_seq_array(seq: bytes) -> np.ndarray:
         except ValueError as e:
             seq_array[:, i] = 1 / 20
             if aa not in bytearray(b'X'):
-                logger.error("Could not convert the following residue to one-hot encoding: %s", aa)
+                logger.debug("Could not convert the following residue to one-hot encoding: %s",
+                             chr(aa))
     return seq_array
 
 
