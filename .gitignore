@@ -63,3 +63,4 @@ target/
 
 # AS
 .mypy_cache/
+.vscode/
