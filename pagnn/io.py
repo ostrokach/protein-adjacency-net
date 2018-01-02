@@ -1,11 +1,14 @@
+import logging
 import random
 from pathlib import Path
-from typing import Generator, List, NamedTuple, Optional
+from typing import Generator, Iterable, List, NamedTuple, Optional, Tuple
 
 import numpy as np
 import pyarrow.parquet as pq
 
-from pagnn import expand_adjacency, permute_sequence, get_adjacency
+from pagnn import GAP_LENGTH, get_adjacency
+
+logger = logging.getLogger(__name__)
 
 
 class SequenceTooShortError(Exception):
@@ -20,73 +23,54 @@ class _DataFrameRow(NamedTuple):
 
 class DataRow(NamedTuple):
     seq: np.ndarray
-    adj: np.ndarray
+    adjs: List[np.ndarray]
     targets: np.ndarray
-    seq_lengths: np.ndarray
 
 
-def iter_datasets(domain_folders: List[Path],
-                  max_seq_len: int=10_000) -> Generator[DataRow, None, None]:
-    """Generate datasets by randomly combining sequences from different domains.
+def iter_datasets(rows: Iterable[_DataFrameRow], max_seq_len: int = 10_000
+                 ) -> Generator[Tuple[bytes, List[np.ndarray]], None, None]:
+    """Combine several rows into a single dataset.
 
     Args:
-        domain_folders: List of domain folders containing parquet files
-            with required columns.
+        rows: List or iterator of rows.
         max_seq_len: Maximum number of residues that a sequence example can have.
 
     Yields:
-        Datasets suitable for machine learning.
+        Inputs for machine learning.
     """
     batch: List[_DataFrameRow] = []
     batch_len = 0
-    for row in iter_dataset_rows(domain_folders):
-        row_len = len(row.qseq.replace('-', ''))
-        if batch_len + row_len <= max_seq_len:
-            batch.append(row)
-            batch_len += row_len
-        else:
-            dataset = rows_to_dataset(batch)
-            yield dataset
-            batch = [row]
-            batch_len = row_len
-
-
-def rows_to_dataset(rows: List[_DataFrameRow]) -> DataRow:
-    """Combine one or more rows into a dataset."""
-    seq_list: List[str] = []
-    adj_list: List[np.ndarray] = []
-    # Real sequence and adjacency matrix
     for row in rows:
-        seq = row.qseq.replace('-', '')
-        seq_list.append(seq)
-        adj = get_adjacency(row.qseq, row.residue_idx_1_corrected, row.residue_idx_2_corrected)
-        adj_list.append(adj)
-    # Real and fake sequences
-    seq_pos = 'XXXXX'.join(seq_list)
-    seq_neg = permute_sequence(seq_pos)
-    seq_array = np.vstack([
-        np.array(
-            seq_pos, dtype=np.string_),
-        np.array(
-            seq_neg, dtype=np.string_),
-    ])
-    # Combine data from all batches
-    adj = np.zeros((len(seq_pos), len(seq_pos)), dtype=np.int8)
-    offset = 0
-    for subadj in adj_list:
-        adj[offset:offset + subadj.shape[0], offset:offset + subadj.shape[1]] = subadj
-        offset += subadj.shape[0] + 5
-    adj = expand_adjacency(adj)
-    targets = np.array([1, 0] * len(seq_list))
-    seq_lengths = np.array([len(seq) for seq in seq_list], dtype=np.int8)
-    return DataRow(seq_array, adj, targets, seq_lengths)
+        if batch_len + len(row.qseq) <= max_seq_len:
+            batch.append(row)
+            batch_len += len(row.qseq)
+        else:
+            yield gen_dataset(batch)
+            batch = [row]
+            batch_len = len(row.qseq)
+    yield gen_dataset(batch)
 
 
-def iter_dataset_rows(domain_folders,
-                      weights: Optional[List[float]]=None) -> Generator[_DataFrameRow, None, None]:
+def gen_dataset(rows: Iterable[_DataFrameRow]) -> Tuple[bytes, List[np.ndarray]]:
+    """Combine one or more rows into a dataset."""
+    seq = (b'X' * GAP_LENGTH).join(row.qseq.replace('-', '').encode('ascii') for row in rows)
+    adjs = [
+        get_adjacency(row.qseq, row.residue_idx_1_corrected, row.residue_idx_2_corrected)
+        for row in rows
+    ]
+    return seq, adjs
+
+
+def iter_dataset_rows(domain_folders, weights: Optional[List[float]] = None
+                     ) -> Generator[_DataFrameRow, None, None]:
     # Get number of rows for each domain
     if weights is None:
-        weights = [count_domain_rows(domain_folder) for domain_folder in domain_folders]
+        logger.debug("Generating weights for domain folders...")
+        if len(domain_folders) > 1:
+            weights = [count_domain_rows(domain_folder) for domain_folder in domain_folders]
+        else:
+            weights = [1]
+        logger.debug("Done generating weights!")
     else:
         weights = weights[:]
     # Get generators that return one row at a time
@@ -110,7 +94,11 @@ def iter_domain_rows(domain_folder: Path) -> Generator[_DataFrameRow, None, None
         domain_folder: Location where domain-specific *.parquet files are stored.
         columns: Subset of the columns to load.
     """
-    parquet_files = list(domain_folder.glob('*.parquet'))
+    if domain_folder.is_file():
+        parquet_files = [domain_folder]
+    else:
+        parquet_files = list(domain_folder.glob('*.parquet'))
+    assert parquet_files
     random.shuffle(parquet_files)
     for filepath in parquet_files:
         df = pq.read_table(
