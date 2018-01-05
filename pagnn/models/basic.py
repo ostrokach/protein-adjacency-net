@@ -33,10 +33,9 @@ class SingleDomainNet(nn.Module):
 class MultiDomainNet(nn.Module):
     """A neural network that takes *multiple* domains and an adjacency matrix as input."""
 
-    def __init__(self):
+    def __init__(self, n_filters=12):
         super().__init__()
         n_aa = 20
-        n_filters = 12
         self.spatial_conv = nn.Conv1d(n_aa, n_filters, 2, stride=2, bias=False)
         self.combine_convs = nn.Linear(n_filters, 1, bias=False)
 
