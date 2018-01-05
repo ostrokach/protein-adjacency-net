@@ -62,10 +62,22 @@ def get_adjacency(seq_len: int, residue_idx_1_corrected: np.array,
     na_mask = (np.isnan(residue_idx_1_corrected) | np.isnan(residue_idx_2_corrected))
     if na_mask.any():
         logger.debug("Removing %s null indices.", na_mask.sum())
-    residue_idx_1_corrected = np.array(residue_idx_1_corrected[~na_mask], dtype=np.int_)
-    residue_idx_2_corrected = np.array(residue_idx_2_corrected[~na_mask], dtype=np.int_)
+        residue_idx_1_corrected = np.array(residue_idx_1_corrected[~na_mask], dtype=np.int_)
+        residue_idx_2_corrected = np.array(residue_idx_2_corrected[~na_mask], dtype=np.int_)
+
+    # There are no nulls, so should be safe to convert to integers now
+    residue_idx_1_corrected = residue_idx_1_corrected.astype(np.int_)
+    residue_idx_2_corrected = residue_idx_2_corrected.astype(np.int_)
+
+    too_close_mask = np.abs(residue_idx_1_corrected - residue_idx_2_corrected) <= 2
+    if too_close_mask.any():
+        logger.debug("Removing %s too close indices.", na_mask.sum())
+        residue_idx_1_corrected = np.array(residue_idx_1_corrected[~too_close_mask])
+        residue_idx_2_corrected = np.array(residue_idx_2_corrected[~too_close_mask])
+
     adj = np.eye(seq_len, dtype=np.int8)
     adj[residue_idx_1_corrected, residue_idx_2_corrected] = 1
+    assert (adj == adj.T).all().all(), adj
     return adj
 
 
