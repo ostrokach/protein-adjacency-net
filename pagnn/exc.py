@@ -1,0 +1,2 @@
+class SequenceTooShortError(Exception):
+    pass

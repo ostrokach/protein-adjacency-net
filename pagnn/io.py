@@ -1,116 +1,134 @@
 import logging
-import random
 from pathlib import Path
-from typing import Generator, Iterable, List, NamedTuple, Optional, Tuple
+from typing import Generator, List, NamedTuple, Optional, Union
 
 import numpy as np
 import pyarrow.parquet as pq
 
-from pagnn import GAP_LENGTH, get_adjacency
+from kmtools import py_tools
 
 logger = logging.getLogger(__name__)
 
 
-class SequenceTooShortError(Exception):
-    pass
-
-
-class _DataFrameRow(NamedTuple):
-    qseq: str
-    residue_idx_1_corrected: List[int]
-    residue_idx_2_corrected: List[int]
-
-
 class DataRow(NamedTuple):
-    seq: np.ndarray
-    adjs: List[np.ndarray]
-    targets: np.ndarray
+    sequence: str
+    adjacency_idx_1: List[int]
+    adjacency_idx_2: List[int]
 
 
-def iter_datasets(rows: Iterable[_DataFrameRow], max_seq_len: int = 10_000
-                 ) -> Generator[Tuple[bytes, List[np.ndarray]], None, None]:
-    """Combine several rows into a single dataset.
+def iter_dataset_rows(parquet_folders: List[Path],
+                      weights: Optional[np.ndarray] = None,
+                      columns: Union[dict, tuple] = DataRow._fields,
+                      filters: tuple = (),
+                      random_state: Optional[np.random.RandomState] = None,
+                      seq_length_constraint=None) -> Generator[DataRow, None, None]:
+    """Iterate over data from Parquet files in multiple `parquet_folders`.
+
+    Notes:
+        - Generating a training dataset from multiple domain folders
+          is better than preshuffling and storing all domains in a single
+          Parquet folder because it's easier to make each epoch trully random.
 
     Args:
-        rows: List or iterator of rows.
-        max_seq_len: Maximum number of residues that a sequence example can have.
+        parquet_folders: List of domain folders from which to obtain data.
+        weights: Number of rows in all Parquet files in each folder in `parquet_folders`.
 
-    Yields:
-        Inputs for machine learning.
+    Returns:
+        NamedTuple containing domain rows.
     """
-    batch: List[_DataFrameRow] = []
-    batch_len = 0
-    for row in rows:
-        if batch_len + len(row.qseq) <= max_seq_len:
-            batch.append(row)
-            batch_len += len(row.qseq)
-        else:
-            yield gen_dataset(batch)
-            batch = [row]
-            batch_len = len(row.qseq)
-    yield gen_dataset(batch)
+    if random_state is None:
+        random_state = np.random.RandomState()
 
+    weights = weights or _get_weights(parquet_folders)
+    assert weights.sum() == 1
 
-def gen_dataset(rows: Iterable[_DataFrameRow]) -> Tuple[bytes, List[np.ndarray]]:
-    """Combine one or more rows into a dataset."""
-    seqs = [row.qseq.replace('-', '').encode('ascii') for row in rows]
-    seq = (b'X' * GAP_LENGTH).join(seqs)
-    adjs = [
-        get_adjacency(len(seq), row.residue_idx_1_corrected, row.residue_idx_2_corrected)
-        for seq, row in zip(seqs, rows)
-    ]
-    return seq, adjs
+    generators = np.array([
+        py_tools.iter_forever(lambda: iter_domain_rows(parquet_folder, columns, filters))
+        for parquet_folder in parquet_folders
+    ])
 
-
-def iter_dataset_rows(domain_folders, weights: Optional[List[float]] = None
-                     ) -> Generator[_DataFrameRow, None, None]:
-    # Get number of rows for each domain
-    if weights is None:
-        logger.debug("Generating weights for domain folders...")
-        if len(domain_folders) > 1:
-            weights = [count_domain_rows(domain_folder) for domain_folder in domain_folders]
-        else:
-            weights = [1]
-        logger.debug("Done generating weights!")
+    if seq_length_constraint is None:
+        yield from _iter_dataset_rows(generators, weights, random_state)
     else:
-        weights = weights[:]
-    # Get generators that return one row at a time
-    domain_generators = [iter_domain_rows(domain_folder) for domain_folder in domain_folders]
-    # Yield one row at a time
-    while domain_generators:
-        cur_gen = random.choices(domain_generators, weights)[0]
-        try:
-            yield next(cur_gen)
-        except StopIteration:
-            # Remove exhausted generator from options
-            idx = domain_generators.index(cur_gen)
-            del weights[idx]
-            del domain_generators[idx]
+        seq_lengths = np.array(
+            [_get_min_sequence_size(parquet_folder) for parquet_folder in parquet_folders])
+        yield from _iter_dataset_rows_with_constraint(generators, weights, seq_lengths,
+                                                      random_state)
 
 
-def iter_domain_rows(domain_folder: Path) -> Generator[_DataFrameRow, None, None]:
-    """Iterate over parquet data in `domain_folder` row-by-row.
+def _get_weights(parquet_folders: List[Path]) -> np.ndarray:
+    logger.debug("Generating weights for domain folders...")
+    if len(parquet_folders) > 1:
+        weights = np.array(
+            [count_domain_rows(parquet_folder) for parquet_folder in parquet_folders])
+    else:
+        weights = np.array([1])
+    logger.debug("Done generating weights!")
+    weights = weights[:] / weights.sum()
+
+
+def _iter_dataset_rows(generators, weights, random_state):
+    while True:
+        yield next(random_state.choice(generators, replace=False, p=weights))
+
+
+def _iter_dataset_rows_with_constraint(generators, weights, constraint_array, random_state):
+    row = None
+    while True:
+        op, target_seq_length = (yield row)
+        idx = op(constraint_array, target_seq_length)
+        cur_generators = generators[idx]
+        cur_weights = weights[idx] / weights[idx].sum()
+        cur_gen = random_state.choice(cur_generators, replace=False, p=cur_weights)
+        row = next(cur_gen)
+
+
+def _get_min_sequence_size(parquet_folder: Path) -> int:
+    return int(parquet_folder.name[16:])
+
+
+def iter_domain_rows(
+        parquet_folder: Path,
+        columns: Union[dict, tuple] = DataRow._fields,
+        filters: tuple = (),
+        random_state: Optional[np.random.RandomState] = None) -> Generator[DataRow, None, None]:
+    """Iterate over parquet data in `parquet_folder` row-by-row.
 
     Args:
-        domain_folder: Location where domain-specific *.parquet files are stored.
+        parquet_folder: Location where domain-specific *.parquet files are stored.
+        columns: Additional columns that should be present in the returned `row` NamedTuples.
+        filters: Tuple of functions with take a single `row` as input and return `True`
+                 if that row should be kept.
 
     Yields:
         NamedTuple containing domain rows.
     """
-    parquet_files = _get_domain_parquet_files(domain_folder)
-    assert parquet_files
-    random.shuffle(parquet_files)
+    if random_state is None:
+        random_state = np.random.RandomState()
+    # Validate parameters
+    if isinstance(columns, dict):
+        column_renames = {c: c2 for c, c2 in columns.items() if c2 is not None}
+    else:
+        column_renames = {}
+    # Get a list of Parquet files from domain folder
+    parquet_files = _get_domain_parquet_files(parquet_folder)
+    assert parquet_files, parquet_folder
+    # Iterate over parquet files
+    random_state.shuffle(parquet_files)
     for filepath in parquet_files:
-        df = pq.read_table(
-            filepath.as_posix(),
-            columns=['qseq', 'residue_idx_1_corrected', 'residue_idx_2_corrected']).to_pandas()
-        df = df.reindex(np.random.permutation(df.index))
-        for row in df.itertuples():
-            yield row
+        parquet_file = pq.ParquetFile(filepath.as_posix())
+        for row_group_idx in range(parquet_file.num_row_groups):
+            df = parquet_file.read_row_group(row_group_idx, columns=list(columns)).to_pandas()
+            df = df.reindex(random_state.permutation(df.index)).rename(columns=column_renames)
+            assert not set(DataRow._fields) - set(df.columns)
+            for row in df.itertuples():
+                if not all(f(row) for f in filters):
+                    continue
+                yield row
 
 
-def count_domain_rows(domain_folder: Path) -> int:
-    parquet_files = _get_domain_parquet_files(domain_folder)
+def count_domain_rows(parquet_folder: Path) -> int:
+    parquet_files = _get_domain_parquet_files(parquet_folder)
     num_rows = 0
     for filepath in parquet_files:
         df = pq.read_table(filepath.as_posix(), columns=['__index_level_0__']).to_pandas()
@@ -118,9 +136,9 @@ def count_domain_rows(domain_folder: Path) -> int:
     return num_rows
 
 
-def _get_domain_parquet_files(domain_folder: Path) -> List[Path]:
-    if domain_folder.is_file():
-        parquet_files = [domain_folder]
+def _get_domain_parquet_files(parquet_folder: Path) -> List[Path]:
+    if parquet_folder.is_file():
+        parquet_files = [parquet_folder]
     else:
-        parquet_files = list(domain_folder.glob('**/*.parquet'))
+        parquet_files = list(parquet_folder.glob('**/*.parquet'))
     return parquet_files

@@ -9,4 +9,5 @@ from . import *
 from .config import *
 from .utils import *
 from .io import *
+from .dataset import *
 from .models import *

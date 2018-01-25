@@ -35,7 +35,6 @@ def init_gpu():
     """Select the least active GPU."""
     deviceIDs = GPUtil.getAvailable(order='first', limit=1, maxLoad=0.5, maxMemory=0.5)
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(i) for i in deviceIDs)
-    print(f"Using GPU: {os.environ['CUDA_VISIBLE_DEVICES']}")
     # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 
@@ -55,7 +54,7 @@ def init_network(network_name='MultiDomainNet',
     # criterion = nn.BCEWithLogitsLoss()
 
     # optimizer = optim.SGD(net.parameters(), lr=0.2, momentum=0.1)
-    optimizer = optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+    optimizer = optim.Adam(net.parameters(), lr=0.01, weight_decay=0.001)
 
     def str_(f):
         return str(f).replace('.', '_')
@@ -248,17 +247,12 @@ def external_validation_datagen(dataset_arrays):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--num-concurrent-jobs', type=int, default=1)
-
-    parser.add_argument('--logdir', type=str, default='../runs')
-    parser.add_argument('--workdir', type=str, default=os.getcwd())
-
-    parser.add_argument('--num-aa-to-process', type=int, default=None)
-    parser.add_argument('--max-seq-length', type=int, default=50_000)
-    parser.add_argument('--network_name', type=str, default='MultiDomainNet')
-    parser.add_argument('--loss_name', type=str, default='BCELoss')
-    parser.add_argument('--lr', type=float, default=0.01)
-    parser.add_argument('--weight_decay', type=float, default=0.001)
+    parser.add_argument('-n', '--num-aa-to-process', type=int, default=None)
+    parser.add_argument('-m', '--max-seq-length', type=int, default=50_000)
+    parser.add_argument('--net', type=str, default='MultiDomainNet')
+    parser.add_argument('--loss', type=str, default='BCELoss')
+    parser.add_argument('--lr', type=int, default=50_000)
+    parser.add_argument('--weight_decay', type=int, default=50_000)
     parser.add_argument('--n_filters', type=int, default=12)
     parser.add_argument('--working-path', type=str)
     args = parser.parse_args()
@@ -267,7 +261,6 @@ if __name__ == '__main__':
 
     random.seed(42)
     np.random.seed(42)
-    torch.cuda.manual_seed(42)
 
     working_path = Path(args.working_path).absolute()
 
@@ -307,13 +300,9 @@ if __name__ == '__main__':
     def humsavar_validation_datagen():
         yield from external_validation_datagen(humsavar_dataset_arrays)
 
-    logger.info("The protherm validation datagen has %s chunks.",
-                len(list(protherm_validation_datagen())))
-
     start_time = time.perf_counter()
-    init_gpu()
     net, criterion, optimizer, writer = init_network(
-        network_name=args.network_name,
+        network_name=args.net,
         loss_name=args.loss_name,
         lr=args.lr,
         weight_decay=args.weight_decay,
