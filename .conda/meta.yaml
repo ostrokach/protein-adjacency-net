@@ -1,6 +1,9 @@
+{% set name = "pagnn" %}
+{% set version = "0.1.3.dev0" %}
+
 package:
-  name: pagnn
-  version: "0.1.3.dev0"
+  name: {{ name }}
+  version: "{{ version }}"
 
 source:
   path: ../
