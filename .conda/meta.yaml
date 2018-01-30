@@ -28,6 +28,11 @@ test:
   imports:
     - pagnn
 
+outputs:
+  - name: {{ name }}
+    type: conda
+  - type: wheel
+
 about:
   home: http://gitlab.com/kimlab/pagnn
   license: MIT License

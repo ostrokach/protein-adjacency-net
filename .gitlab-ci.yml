@@ -125,14 +125,23 @@ pages:
 
 .deploy: &deploy
   stage: deploy
+  before_script:
+    - conda install twine -yq --no-channel-priority
   script:
-    # Conda configure
+    # Rename wheels from `-linux_x86_64.whl` to `-manylinux1_x86_64.whl`
+    # so that they can be uploaded to PyPI.
+    - for i in $CI_PROJECT_DIR/conda-bld/linux-64/*.whl ; do
+      echo $i;
+      mv "${i}" "${i%%-linux_x86_64.whl}-manylinux1_x86_64.whl";
+      done
+    # Upload package to Anaconda and PyPi repos.
     - case "${PACKAGE_VERSION}" in
       *dev*)
         anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u ${CI_PROJECT_NAMESPACE} --label dev --force
       ;;
       *)
         anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u ${CI_PROJECT_NAMESPACE}
+        twine upload $CI_PROJECT_DIR/conda-bld/linux-64/*.whl
       ;;
       esac
   only:
