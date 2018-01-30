@@ -56,37 +56,6 @@ def iter_dataset_rows(parquet_folders: List[Path],
                                                       random_state)
 
 
-def _get_weights(parquet_folders: List[Path]) -> np.ndarray:
-    logger.debug("Generating weights for domain folders...")
-    if len(parquet_folders) > 1:
-        weights = np.array(
-            [count_domain_rows(parquet_folder) for parquet_folder in parquet_folders])
-    else:
-        weights = np.array([1])
-    logger.debug("Done generating weights!")
-    weights = weights[:] / weights.sum()
-
-
-def _iter_dataset_rows(generators, weights, random_state):
-    while True:
-        yield next(random_state.choice(generators, replace=False, p=weights))
-
-
-def _iter_dataset_rows_with_constraint(generators, weights, constraint_array, random_state):
-    row = None
-    while True:
-        op, target_seq_length = (yield row)
-        idx = op(constraint_array, target_seq_length)
-        cur_generators = generators[idx]
-        cur_weights = weights[idx] / weights[idx].sum()
-        cur_gen = random_state.choice(cur_generators, replace=False, p=cur_weights)
-        row = next(cur_gen)
-
-
-def _get_min_sequence_size(parquet_folder: Path) -> int:
-    return int(parquet_folder.name[16:])
-
-
 def iter_domain_rows(
         parquet_folder: Path,
         columns: Union[dict, tuple] = DataRow._fields,
@@ -134,6 +103,37 @@ def count_domain_rows(parquet_folder: Path) -> int:
         df = pq.read_table(filepath.as_posix(), columns=['__index_level_0__']).to_pandas()
         num_rows += len(df)
     return num_rows
+
+
+def _get_weights(parquet_folders: List[Path]) -> np.ndarray:
+    logger.debug("Generating weights for domain folders...")
+    if len(parquet_folders) > 1:
+        weights = np.array(
+            [count_domain_rows(parquet_folder) for parquet_folder in parquet_folders])
+    else:
+        weights = np.array([1])
+    logger.debug("Done generating weights!")
+    weights = weights[:] / weights.sum()
+
+
+def _iter_dataset_rows(generators, weights, random_state):
+    while True:
+        yield next(random_state.choice(generators, replace=False, p=weights))
+
+
+def _iter_dataset_rows_with_constraint(generators, weights, constraint_array, random_state):
+    row = None
+    while True:
+        op, target_seq_length = (yield row)
+        idx = op(constraint_array, target_seq_length)
+        cur_generators = generators[idx]
+        cur_weights = weights[idx] / weights[idx].sum()
+        cur_gen = random_state.choice(cur_generators, replace=False, p=cur_weights)
+        row = next(cur_gen)
+
+
+def _get_min_sequence_size(parquet_folder: Path) -> int:
+    return int(parquet_folder.name[16:])
 
 
 def _get_domain_parquet_files(parquet_folder: Path) -> List[Path]:

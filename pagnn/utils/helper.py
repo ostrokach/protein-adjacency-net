@@ -1,7 +1,8 @@
+import logging
 from typing import List
 
 import numpy as np
-import logging
+from scipy import sparse
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ _AMINO_ACIDS: List[str] = [
 _AMINO_ACIDS_BYTEARRAY = bytearray(''.join(_AMINO_ACIDS).encode())
 
 
-def get_seq_array(seq: bytes) -> np.ndarray:
+def get_seq_array(seq: bytes) -> sparse.spmatrix:
     """Convert amino acid sequence into a one-hot encoded array.
 
     Args:
@@ -23,7 +24,7 @@ def get_seq_array(seq: bytes) -> np.ndarray:
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
     amino_acids = _AMINO_ACIDS_BYTEARRAY
-    seq_array = np.zeros((20, len(seq)))
+    seq_array = sparse.zeros((20, len(seq)))
     for i, aa in enumerate(seq):
         try:
             seq_array[amino_acids.index(aa), i] = 1
@@ -35,7 +36,8 @@ def get_seq_array(seq: bytes) -> np.ndarray:
     return seq_array
 
 
-def get_adjacency(seq_len: int, adjacency_idx_1: np.array, adjacency_idx_2: np.array) -> np.array:
+def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
+                  adjacency_idx_2: np.array) -> sparse.spmatrix:
     """Construct an adjacency matrix from the data available for each row in the DataFrame.
 
     Args:
@@ -62,13 +64,25 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array, adjacency_idx_2: np.a
         adjacency_idx_1 = np.array(adjacency_idx_1[~too_close_mask])
         adjacency_idx_2 = np.array(adjacency_idx_2[~too_close_mask])
 
-    adj = np.eye(seq_len, dtype=np.bool_)
-    adj[adjacency_idx_1, adjacency_idx_2] = 1
-    assert (adj == adj.T).all().all(), adj
+    # Add eye
+    # adjacency_idx_1 = np.hstack([np.arange(seq_len), adjacency_idx_1])
+    # adjacency_idx_2 = np.hstack([np.arange(seq_len), adjacency_idx_2])
+
+    assert adjacency_idx_1.shape == adjacency_idx_2.shape
+
+    adj = sparse.coo_matrix(
+        (np.array([True] * len(adjacency_idx_1)), (adjacency_idx_1, adjacency_idx_2)),
+        shape=(seq_len, seq_len),
+        dtype=np.bool_)
+
+    # Make sure that the matrix is symetrical
+    idx1 = {(r, c) for r, c in zip(adj.row, adj.col)}
+    idx2 = {(c, r) for r, c in zip(adj.row, adj.col)}
+    assert not idx1 ^ idx2
     return adj
 
 
-def expand_adjacency(adj: np.array) -> np.array:
+def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
     """Convert adjacency matrix into a strided mask.
 
     Args:
@@ -77,7 +91,7 @@ def expand_adjacency(adj: np.array) -> np.array:
     Returns:
         Adjacency matrix converted to *two-rows-per-interaction* format.
     """
-    new_adj = np.zeros((int(adj.sum() * 2), adj.shape[1]), dtype=adj.dtype)
+    new_adj = sparse.zeros((int(adj.sum() * 2), adj.shape[1]), dtype=np.int16)
     a, b = adj.nonzero()
     a_idx = np.arange(0, len(a) * 2, 2)
     b_idx = np.arange(1, len(b) * 2, 2)
@@ -104,25 +118,29 @@ def get_seq_identity(seq: bytes, other_seq: bytes) -> float:
     return sum(a == b for a, b in zip(seq, other_seq)) / len(seq)
 
 
-def get_adj_identity(adj, other_adj, min_distance=3) -> float:
+def get_adj_identity(adj: sparse.spmatrix, other_adj: sparse.spmatrix, min_distance=3) -> float:
     """Return the fraction of (distant) contacts that are the same in the two adjacency matrices.
 
     Examples:
-        >>> adj = np.eye(5) + np.eye(5, k=2) + np.eye(5, k=-2) + np.eye(5, k=4) + np.eye(5, k=-4)
-        >>> other_adj =  np.eye(5) + np.eye(5, k=2) + np.eye(5, k=-2)
+        >>> from scipy import sparse
+        >>> adj = sparse.coo_matrix((
+        ...     np.ones(9),
+        ...     (np.r_[range(7), [6, 0]],
+        ...      np.r_[range(7), [0, 6]]), ))
+        >>> other_adj = sparse.coo_matrix((
+        ...     np.ones(11),
+        ...     (np.r_[range(7), [5, 6, 0, 0]],
+        ...      np.r_[range(7), [0, 0, 5, 6]]), ))
         >>> get_adj_identity(adj, other_adj, 2)
-        0.75
+        0.5
     """
-    ones = (adj == 1) | (other_adj == 1)
-    for k in range(min_distance):
-        ones &= (~np.eye(adj.shape[0], k=k, dtype=bool) & ~np.eye(adj.shape[0], k=-k, dtype=bool))
-
-    if ones.sum() == 0:
+    adj_contacts = {tuple(x) for x in zip(adj.row, adj.col) if abs(x[0] - x[1]) >= min_distance}
+    other_adj_contacts = {
+        tuple(x)
+        for x in zip(other_adj.row, other_adj.col)
+        if abs(x[0] - x[1]) >= min_distance
+    }
+    if len(adj_contacts) == 0 or len(other_adj_contacts) == 0:
         return 0
 
-    same = {tuple(x) for x in zip(*np.where(ones & (adj == other_adj)))}
-    different = {tuple(x) for x in zip(*np.where(ones & (adj != other_adj)))}
-    assert not same & different
-    assert len(same) + len(different) == ones.sum()
-
-    return len(same) / ones.sum()
+    return len(adj_contacts & other_adj_contacts) / len(adj_contacts | other_adj_contacts)
