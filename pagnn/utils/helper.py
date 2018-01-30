@@ -90,13 +90,24 @@ def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
 
     Returns:
         Adjacency matrix converted to *two-rows-per-interaction* format.
+
+    Examples:
+        >>> from scipy import sparse
+        >>> adj = sparse.coo_matrix((np.ones(3), (np.arange(3), np.arange(3)), ))
+        >>> expanded_adj = expand_adjacency(adj)
+        >>> expanded_adj.row
+        array([0, 2, 4, 1, 3, 5], dtype=int32)
+        >>> expanded_adj.col
+        array([0, 1, 2, 0, 1, 2], dtype=int32)
     """
-    new_adj = sparse.zeros((int(adj.sum() * 2), adj.shape[1]), dtype=np.int16)
-    a, b = adj.nonzero()
-    a_idx = np.arange(0, len(a) * 2, 2)
-    b_idx = np.arange(1, len(b) * 2, 2)
-    new_adj[a_idx, a] = 1
-    new_adj[b_idx, b] = 1
+    row_idx = np.arange(0, len(adj.row) * 2, 2)
+    col_idx = np.arange(1, len(adj.col) * 2, 2)
+    new_adj = sparse.coo_matrix(
+        (
+            np.ones(len(adj.row) + len(adj.col)),
+            (np.r_[row_idx, col_idx], np.r_[adj.row, adj.col]),
+        ),
+        dtype=np.int16)
     assert (new_adj.sum(axis=1) == 1).all(), new_adj
     return new_adj
     # idx = 0

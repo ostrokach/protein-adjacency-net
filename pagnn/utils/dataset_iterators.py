@@ -1,5 +1,4 @@
 import logging
-from typing import List
 
 import numpy as np
 from numba import float32, int32, int64, jit
