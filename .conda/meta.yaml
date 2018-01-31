@@ -29,6 +29,11 @@ requirements:
     - kmtools
 
 test:
+  requirements:
+    - flake8
+    - pytest
+    - pytest-cov
+    - pytest-benchmark
   imports:
     - pagnn
 
