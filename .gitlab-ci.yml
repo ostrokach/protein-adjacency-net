@@ -5,6 +5,9 @@ stages:
   - test
   - deploy
 
+cache:
+  paths:
+    - conda-cache
 
 # === Variables ===
 
@@ -14,13 +17,17 @@ variables:
 .py36: &py36
   PYTHON_VERSION: "3.6"
 
-
-# === Build ===
+# === Configurations ===
 
 .conda_configure: &conda_configure
   before_script:
+    # Make conda cache and bld folders
+    - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CI_PROJECT_DIR}/conda-cache"
     # Conda configure
-    - conda config --append channels pytorch
+    - conda config --set channel_priority true
+    - conda config --append channels conda-forge
+    - conda config --append channels ostrokach-forge
+    - conda config --append channels bioconda
     - case "${PACKAGE_VERSION}" in
       *dev*)
         conda config --append channels kimlab/label/dev;
@@ -33,49 +40,51 @@ variables:
         conda config --append channels ostrokach;
       ;;
       esac
-    - conda config --append channels ostrokach-forge
-    - conda config --append channels bioconda
-    - conda update -yq conda
+    # Clear cache
+    - rm -rf /opt/conda/pkgs/*
+    # Update conda
+    - conda update -n root -yq conda --no-channel-priority
+    - conda update -n root -yq conda-build python --no-channel-priority
+
+# === Build ===
 
 .build: &build
   stage: build
-  <<: *conda_configure
   script:
     # Build conda packages
-    - cd $CI_PROJECT_DIR/.conda
-    - conda build --python $PYTHON_VERSION .
-    # Save built packages as artifacts
-    - mkdir $CI_PROJECT_DIR/conda-bld
-    - cp -r /opt/conda/conda-bld/{linux-64,noarch} $CI_PROJECT_DIR/conda-bld
+    - cd "${CI_PROJECT_DIR}/.conda"
+    - conda build .
+      --no-test
+      --python $PYTHON_VERSION
+      --cache-dir "${CI_PROJECT_DIR}/conda-cache"
+      --output-folder "${CI_PROJECT_DIR}/conda-bld"
   artifacts:
     paths:
-    - conda-bld
+      - conda-bld
 
 build-py36:
-  <<: *build
+  <<: [*conda_configure, *build]
   variables:
     <<: [*py36]
-
 
 # === Test ===
 
 .test: &test
   stage: test
   script:
-    # Install
+    # Restore built packages
     - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
     - conda index /opt/conda/conda-bld/
-    - conda install -yq --use-local "python=$PYTHON_VERSION" ${CI_PROJECT_NAME}
-    - SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
-    # Test
-    - pip install -q flake8 pytest pytest-cov pytest-benchmark hypothesis
-    - flake8
-    - py.test --cov="${SITE_PACKAGES}/${CI_PROJECT_NAME}"
-    - conda env export -f $CI_PROJECT_DIR/environment-py${PYTHON_VERSION/./}.yml
+    # Run tests
+    - cd $CI_PROJECT_DIR/.conda
+    - conda build .
+      --test
+      --python $PYTHON_VERSION
+      --cache-dir "${CI_PROJECT_DIR}/conda-cache"
   coverage: /^TOTAL.* (\d+\%)/
   artifacts:
     paths:
-    - environment-py${PYTHON_VERSION/./}.yml
+      - environment-py${PYTHON_VERSION/./}.yml
 
 test-py36:
   <<: [*conda_configure, *test]
@@ -84,33 +93,38 @@ test-py36:
   variables:
     <<: [*py36]
 
-
 # === Pages ===
 
-.pages: &pages
+.docs: &docs
   stage: test
   script:
-    # Conda install
+    # Restore built packages
     - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
     - conda index /opt/conda/conda-bld/
+    # Install required packages
     - conda install -yq --use-local "python=$PYTHON_VERSION" $CI_PROJECT_NAME
-    # Build docs
     - conda install -yq nbconvert ipython ipykernel pandoc
     - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx
+    # Build docs
+    - (cd docs && sphinx-apidoc ../kmbio -o api/generated -TeMP)
     - sphinx-build docs public
+
+test-pages:
+  <<: [*conda_configure, *docs]
   dependencies:
     - build-py36
   variables:
     <<: [*py36]
-
-test-pages:
-  <<: [*conda_configure, *pages]
   except:
     - master
     - tags
 
 pages:
-  <<: [*conda_configure, *pages]
+  <<: [*conda_configure, *docs]
+  dependencies:
+    - build-py36
+  variables:
+    <<: [*py36]
   only:
     - master
     - tags
@@ -118,8 +132,7 @@ pages:
     - triggers
   artifacts:
     paths:
-    - public
-
+      - public
 
 # === Deploy ===
 
