@@ -96,6 +96,7 @@ def add_negative_example(datasets: List[DataSet],
         for ds in datasets:
             # Find a negative sequence with low sequence identity
             n_tries = 0
+            seq_identity = 1.0
             adj_identity = 1.0
             while seq_identity > 0.2 or adj_identity > 0.2:
                 n_tries += 1
@@ -293,19 +294,25 @@ def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
     start = 0
     for length in lengths:
         stop = start + length
-        sub_adj = adj[start:stop, start:stop]
+        row = adj.row[(adj.row >= start) & (adj.row < stop)] - start
+        col = adj.col[(adj.col >= start) & (adj.col < stop)] - start
+        sub_adj = sparse.coo_matrix(
+            (
+                np.ones(len(row)),
+                (row, col),
+            ), shape=(length, length))
         adjs.append(sub_adj)
         start = stop
-    assert start == adj.shape[-1]
+    assert start == adj.shape[-1], (start, adj.shape[-1])
     return adjs
 
 
 def _permute_adjacency(adj: sparse.spmatrix, offset: int):
     row = adj.row - offset
-    row = np.where(row < 0, len(row) + row, row)
+    row = np.where(row < 0, adj.shape[0] + row, row)
     col = adj.col - offset
-    col = np.where(col < 0, len(col) + col, col)
-    adj_permuted = sparse.coo_matrix((adj.data, (row, col)), dtype=adj.dtype)
+    col = np.where(col < 0, adj.shape[1] + col, col)
+    adj_permuted = sparse.coo_matrix((adj.data, (row, col)), dtype=adj.dtype, shape=adj.shape)
     return adj_permuted
 
 
