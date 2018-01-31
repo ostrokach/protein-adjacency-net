@@ -26,6 +26,7 @@ requirements:
     - numba
     - pytorch
     - torchvision
+    - kmtools
 
 test:
   imports:
