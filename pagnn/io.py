@@ -39,12 +39,13 @@ def iter_dataset_rows(parquet_folders: List[Path],
     if random_state is None:
         random_state = np.random.RandomState()
 
-    weights = weights or _get_weights(parquet_folders)
-    assert weights.sum() == 1
+    weights = weights if weights is not None else get_weights(parquet_folders)
+    assert np.allclose(weights.sum(), 1)
 
     generators = np.array([
-        py_tools.iter_forever(lambda: iter_domain_rows(parquet_folder, columns, filters))
-        for parquet_folder in parquet_folders
+        py_tools.iter_forever(
+            lambda parquet_folder=parquet_folder: iter_domain_rows(parquet_folder, columns, filters)
+        ) for parquet_folder in parquet_folders
     ])
 
     if seq_length_constraint is None:
@@ -105,7 +106,7 @@ def count_domain_rows(parquet_folder: Path) -> int:
     return num_rows
 
 
-def _get_weights(parquet_folders: List[Path]) -> np.ndarray:
+def get_weights(parquet_folders: List[Path]) -> np.ndarray:
     logger.debug("Generating weights for domain folders...")
     if len(parquet_folders) > 1:
         weights = np.array(
@@ -114,6 +115,7 @@ def _get_weights(parquet_folders: List[Path]) -> np.ndarray:
         weights = np.array([1])
     logger.debug("Done generating weights!")
     weights = weights[:] / weights.sum()
+    return weights
 
 
 def _iter_dataset_rows(generators, weights, random_state):

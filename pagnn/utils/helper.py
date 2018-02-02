@@ -24,16 +24,28 @@ def get_seq_array(seq: bytes) -> sparse.spmatrix:
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
     amino_acids = _AMINO_ACIDS_BYTEARRAY
-    seq_array = sparse.zeros((20, len(seq)))
-    for i, aa in enumerate(seq):
+
+    data = []
+    x_idxs = []
+    y_idxs = []
+    for y, aa in enumerate(seq):
         try:
-            seq_array[amino_acids.index(aa), i] = 1
+            x = amino_acids.index(aa)
         except ValueError as e:
-            seq_array[:, i] = 1 / 20
-            if aa not in bytearray(b'X'):
-                logger.debug("Could not convert the following residue to one-hot encoding: %s",
-                             chr(aa))
-    return seq_array
+            logger.debug("Could not convert the following residue to one-hot encoding: %s", chr(aa))
+            for x in range(20):
+                x_idxs.append(x)
+                y_idxs.append(y)
+                data.append(1 / 20)
+        else:
+            x_idxs.append(x)
+            y_idxs.append(y)
+            data.append(1)
+    seq_matrix = sparse.coo_matrix(
+        (np.array(data), (np.array(x_idxs), np.array(y_idxs))),
+        dtype=np.int16,
+        shape=(20, len(seq)))
+    return seq_matrix
 
 
 def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
@@ -58,22 +70,22 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
     adjacency_idx_1 = adjacency_idx_1.astype(np.int_)
     adjacency_idx_2 = adjacency_idx_2.astype(np.int_)
 
-    too_close_mask = np.abs(adjacency_idx_1 - adjacency_idx_2) <= 2
+    too_close_mask = (np.abs(adjacency_idx_1 - adjacency_idx_2) <= 2)
     if too_close_mask.any():
-        logger.debug("Removing %s too close indices.", na_mask.sum())
+        logger.debug("Removing %s too close indices.", too_close_mask.sum())
         adjacency_idx_1 = np.array(adjacency_idx_1[~too_close_mask])
         adjacency_idx_2 = np.array(adjacency_idx_2[~too_close_mask])
 
     # Add eye
-    # adjacency_idx_1 = np.hstack([np.arange(seq_len), adjacency_idx_1])
-    # adjacency_idx_2 = np.hstack([np.arange(seq_len), adjacency_idx_2])
+    adjacency_idx_1 = np.hstack([np.arange(seq_len), adjacency_idx_1])
+    adjacency_idx_2 = np.hstack([np.arange(seq_len), adjacency_idx_2])
 
     assert adjacency_idx_1.shape == adjacency_idx_2.shape
 
     adj = sparse.coo_matrix(
-        (np.array([True] * len(adjacency_idx_1)), (adjacency_idx_1, adjacency_idx_2)),
+        (np.ones(len(adjacency_idx_1)), (adjacency_idx_1, adjacency_idx_2)),
         shape=(seq_len, seq_len),
-        dtype=np.bool_)
+        dtype=np.int16)
 
     # Make sure that the matrix is symetrical
     idx1 = {(r, c) for r, c in zip(adj.row, adj.col)}
@@ -107,7 +119,8 @@ def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
             np.ones(len(adj.row) + len(adj.col)),
             (np.r_[row_idx, col_idx], np.r_[adj.row, adj.col]),
         ),
-        dtype=np.int16)
+        dtype=np.int16,
+        shape=(len(adj.data) * 2, adj.shape[0]))
     assert (new_adj.sum(axis=1) == 1).all(), new_adj
     return new_adj
     # idx = 0

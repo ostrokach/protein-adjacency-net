@@ -7,8 +7,8 @@ from scipy import sparse
 
 from pagnn import DataRow, get_adj_identity, get_adjacency, get_seq_identity
 
-MAX_TRIES = 64
-MAX_TRIES_SEQLEN = 1024
+MAX_TRIES = 1024
+MAX_TRIES_SEQLEN = 8192
 
 
 class MaxNumberOfTriesExceededError(Exception):
@@ -67,7 +67,7 @@ def add_negative_example(datasets: List[DataSet],
                          method='permute',
                          datagen: Optional[Generator[DataRow, Tuple[Callable, int], None]] = None,
                          random_state: Optional[np.random.RandomState] = None) -> List[DataSet]:
-    assert method in ['permute', 'start', 'stop', 'middle', 'edges', 'exact']
+    assert method in ['permute', 'exact', 'start', 'stop', 'middle', 'edges']
 
     negative_datasets: List[DataSet] = []
     if method == 'permute':
@@ -80,7 +80,7 @@ def add_negative_example(datasets: List[DataSet],
         while seq_identity > 0.2 or adj_identity > 0.2:
             n_tries += 1
             if n_tries > MAX_TRIES:
-                raise MaxNumberOfTriesExceededError()
+                raise MaxNumberOfTriesExceededError(n_tries)
             offset = get_offset(len(combined_seq))
             # Permute sequence
             negative_seq = combined_seq[offset:] + combined_seq[:offset]
@@ -101,31 +101,29 @@ def add_negative_example(datasets: List[DataSet],
             while seq_identity > 0.2 or adj_identity > 0.2:
                 n_tries += 1
                 if n_tries > MAX_TRIES:
-                    raise MaxNumberOfTriesExceededError()
+                    raise MaxNumberOfTriesExceededError(n_tries)
                 if method == 'exact':
                     n_tries_seqlen = 0
                     while True:
                         n_tries_seqlen += 1
                         if n_tries_seqlen > MAX_TRIES_SEQLEN:
-                            raise MaxNumberOfTriesExceededError()
+                            raise MaxNumberOfTriesExceededError(n_tries_seqlen)
                         row = datagen.send((operator.eq, int(len(ds.seq) // 20 * 20)))
-                        if len(row.sequence.replace('-', '')) == len(ds.seq):
+                        negative_ds = row_to_dataset(row)
+                        if len(negative_ds.seq) == len(ds.seq):
                             break
                 else:
                     row = datagen.send((operator.ge, len(ds.seq) + 20))
-                template_seq = row.sequence.replace('-', '')
-                start, stop = get_indices(len(ds.seq), len(template_seq), method, random_state)
+                    negative_ds = row_to_dataset(row)
+                start, stop = get_indices(
+                    len(ds.seq), len(negative_ds.seq), method, random_state)
                 if method in ['exact', 'start', 'stop', 'middle']:
-                    negative_seq = (template_seq[start:stop]).encode('ascii')
-                    cut_adjacency_idx_1, cut_adjacency_idx_2 = _extract_adjacency_from_middle(
-                        start, stop, row.adjacency_idx_1, row.adjacency_idx_2)
+                    negative_seq = negative_ds.seq[start:stop]
+                    negative_adj = _extract_adjacency_from_middle(start, stop, negative_ds.adj)
                 else:
-                    negative_seq = (template_seq[:start] + template_seq[stop:]).encode('ascii')
-                    cut_adjacency_idx_1, cut_adjacency_idx_2 = _extract_adjacency_from_edges(
-                        start, stop, row.adjacency_idx_1, row.adjacency_idx_2)
+                    negative_seq = negative_ds.seq[:start] + negative_ds.seq[stop:]
+                    negative_adj = _extract_adjacency_from_edges(start, stop, negative_ds.adj)
                 seq_identity = get_seq_identity(ds.seq, negative_seq)
-                negative_adj = get_adjacency(ds.adj.shape[0], cut_adjacency_idx_1,
-                                             cut_adjacency_idx_2)
                 adj_identity = get_adj_identity(ds.adj, negative_adj)
             negative_datasets.append(DataSet(negative_seq, negative_adj, 0))
 
@@ -296,6 +294,7 @@ def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
         stop = start + length
         row = adj.row[(adj.row >= start) & (adj.row < stop)] - start
         col = adj.col[(adj.col >= start) & (adj.col < stop)] - start
+        assert len(row) == len(col)
         sub_adj = sparse.coo_matrix(
             (
                 np.ones(len(row)),
@@ -316,45 +315,56 @@ def _permute_adjacency(adj: sparse.spmatrix, offset: int):
     return adj_permuted
 
 
-def _extract_adjacency_from_middle(start: int, stop: int, adjacency_idx_1: List[int],
-                                   adjacency_idx_2: List[int]):
+def _extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
     """
     Examples:
-        >>> _extract_adjacency_from_middle(0, 3, [0, 1, 2, 2, 3, 4], [0, 1, 2, 3, 3, 4])
-        ([0, 1, 2], [0, 1, 2])
-        >>> _extract_adjacency_from_middle(2, 5, [0, 1, 2, 2, 3, 4], [0, 1, 2, 3, 3, 4])
-        ([0, 0, 1, 2], [0, 1, 1, 2])
+        >>> from scipy import sparse
+        >>> adj = sparse.coo_matrix((
+        ...     np.ones(6), (np.array([0, 1, 2, 2, 3, 4]), np.array([0, 1, 2, 3, 3, 4])), ))
+        >>> negative_adj = _extract_adjacency_from_middle(0, 3, adj)
+        >>> negative_adj.row
+        array([0, 1, 2], dtype=int32)
+        >>> negative_adj.col
+        array([0, 1, 2], dtype=int32)
+        >>> negative_adj = _extract_adjacency_from_middle(2, 5, adj)
+        >>> negative_adj.row
+        array([0, 0, 1, 2], dtype=int32)
+        >>> negative_adj.col
+        array([0, 1, 1, 2], dtype=int32)
     """
     keep_idx = [(pd.notnull(a) and pd.notnull(b) and start <= a < stop and start <= b < stop)
-                for a, b in zip(adjacency_idx_1, adjacency_idx_2)]
+                for a, b in zip(adj.row, adj.col)]
+    new_row = adj.row[keep_idx] - start
+    new_col = adj.col[keep_idx] - start
+    new_adj = sparse.coo_matrix(
+        (adj.data[keep_idx], (new_row, new_col)),
+        dtype=adj.dtype,
+        shape=((stop - start, stop - start)))
+    return new_adj
 
-    assert len(keep_idx) == len(adjacency_idx_1)
-    cut_adjacency_idx_1 = [(i - start) for i, k in zip(adjacency_idx_1, keep_idx) if k]
 
-    assert len(keep_idx) == len(adjacency_idx_2)
-    cut_adjacency_idx_2 = [(i - start) for i, k in zip(adjacency_idx_2, keep_idx) if k]
-
-    return cut_adjacency_idx_1, cut_adjacency_idx_2
-
-
-def _extract_adjacency_from_edges(stop: int, start: int, adjacency_idx_1: List[int],
-                                  adjacency_idx_2: List[int]):
+def _extract_adjacency_from_edges(stop: int, start: int, adj: sparse.spmatrix):
     """
     Examples:
-        >>> _extract_adjacency_from_edges(2, 4, [0, 1, 2, 2, 3, 4], [0, 1, 2, 3, 3, 4])
-        ([0, 1, 2], [0, 1, 2])
+        >>> from scipy import sparse
+        >>> adj = sparse.coo_matrix((
+        ...     np.ones(6), (np.array([0, 1, 2, 2, 3, 4]), np.array([0, 1, 2, 3, 3, 4])), ))
+        >>> negative_adj = _extract_adjacency_from_edges(2, 4, adj)
+        >>> negative_adj.row
+        array([0, 1, 2], dtype=int32)
+        >>> negative_adj.col
+        array([0, 1, 2], dtype=int32)
     """
     keep_idx = [(pd.notnull(a) and pd.notnull(b) and (a < stop or start <= a) and
-                 (b < stop or start <= b)) for a, b in zip(adjacency_idx_1, adjacency_idx_2)]
+                 (b < stop or start <= b)) for a, b in zip(adj.row, adj.col)]
+    new_row = adj.row[keep_idx]
+    new_row = np.where(new_row < stop, new_row, new_row - (start - stop))
 
-    assert len(keep_idx) == len(adjacency_idx_1)
-    cut_adjacency_idx_1 = [
-        (i if i < stop else (i - (start - stop))) for i, k in zip(adjacency_idx_1, keep_idx) if k
-    ]
+    new_col = adj.col[keep_idx]
+    new_col = np.where(new_col < stop, new_col, new_col - (start - stop))
 
-    assert len(keep_idx) == len(adjacency_idx_2)
-    cut_adjacency_idx_2 = [
-        (i if i < stop else (i - (start - stop))) for i, k in zip(adjacency_idx_2, keep_idx) if k
-    ]
-
-    return cut_adjacency_idx_1, cut_adjacency_idx_2
+    new_adj = sparse.coo_matrix(
+        (adj.data[keep_idx], (new_row, new_col)),
+        dtype=adj.dtype,
+        shape=((adj.shape[0] - (start - stop), adj.shape[1] - (start - stop))))
+    return new_adj

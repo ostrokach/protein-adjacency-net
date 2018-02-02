@@ -11,3 +11,4 @@ from .utils import *
 from .io import *
 from .dataset import *
 from .models import *
+from .training import *
