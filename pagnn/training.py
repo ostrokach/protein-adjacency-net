@@ -1,11 +1,9 @@
 import itertools
 import logging
-import os
 import pickle
 from pathlib import Path
 from typing import Callable, Generator, Iterator, List, NamedTuple, Tuple
 
-import GPUtil
 import numpy as np
 import torch
 import tqdm
@@ -17,8 +15,6 @@ from pagnn import DataRow, DataSet, expand_adjacency, get_seq_array
 
 logger = logging.getLogger(__name__)
 
-CUDA = torch.cuda.is_available()
-
 
 class DataVar(NamedTuple):
     seq: Variable
@@ -28,17 +24,9 @@ class DataVar(NamedTuple):
 DataGen = Callable[[], Iterator[Tuple[List[DataVar], List[DataVar]]]]
 
 
-def init_gpu() -> None:
-    """Select the least active GPU."""
-    deviceIDs = GPUtil.getAvailable(order='first', limit=1, maxLoad=0.5, maxMemory=0.5)
-    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join(str(i) for i in deviceIDs)
-    print(f"Using GPU: {os.environ['CUDA_VISIBLE_DEVICES']}")
-    # os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-
-
 def to_numpy(array: Variable) -> np.ndarray:
     """Convert PyTorch `Variable` to numpy array."""
-    if CUDA:
+    if pagnn.CUDA:
         return array.data.cpu().numpy()
     else:
         return array.data.numpy()
@@ -58,7 +46,7 @@ def to_sparse_tensor(sparray: sparse.spmatrix) -> torch.sparse.FloatTensor:
 def to_variable(array: np.ndarray) -> Variable:
     """Convert numpy array to PyTorch `Variable`."""
     tensor = torch.Tensor(array)
-    if CUDA:
+    if pagnn.CUDA:
         tensor = tensor.cuda()
     return Variable(tensor)
 
@@ -66,10 +54,10 @@ def to_variable(array: np.ndarray) -> Variable:
 def dataset_to_variable(ds: DataSet) -> DataVar:
     seq = to_sparse_tensor(get_seq_array(ds.seq))
     adj = to_sparse_tensor(expand_adjacency(ds.adj))
-    if CUDA:
+    if pagnn.CUDA:
         seq = seq.cuda()
         adj = adj.cuda()
-    datavar = DataVar(Variable(seq.to_dense()), Variable(adj.to_dense()))
+    datavar = DataVar(Variable(seq.to_dense().unsqueeze(0)), Variable(adj.to_dense()))
     return datavar
 
 
@@ -132,8 +120,7 @@ def get_validation_datagen(working_path: Path) -> DataGen:
     except FileNotFoundError:
         logger.info("Loading validation dataset from file failed. Recalculating...")
         datasets = []
-        # TODO: Increase validation dataset:
-        for row in tqdm.tqdm(itertools.islice(datagen_pos, 1_000), total=1_000):
+        for row in tqdm.tqdm(itertools.islice(datagen_pos, 1_000), total=100_000):
             dataset_pos = pagnn.row_to_dataset(row)
             try:
                 datasets_neg = pagnn.add_negative_example(
@@ -150,8 +137,6 @@ def get_validation_datagen(working_path: Path) -> DataGen:
 
     def validation_datagen():
         for pos, neg in datasets:
-            if len(pos.seq) < 20 or len(neg.seq) < 20:
-                continue
             yield ([dataset_to_variable(pos)], [dataset_to_variable(neg)])
 
     return validation_datagen

@@ -38,14 +38,13 @@ class ModernNet(nn.Module):
         """
         scores = []
         for seq, adj in inputs:
-            seq = seq.unsqueeze(0)
             x = seq @ adj.transpose(0, 1)
             x = self.spatial_conv(x)
             x = x @ adj[::2, :]
             x = x / adj.sum(dim=0)
             x, idxs = x.max(dim=2)
             x = self.combine_weights(x)
-            x = x.squeeze()
+            # x = x.squeeze()
             scores.append(x)
         scores = torch.cat(scores)
         scores = F.sigmoid(scores)

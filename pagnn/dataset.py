@@ -115,8 +115,7 @@ def add_negative_example(datasets: List[DataSet],
                 else:
                     row = datagen.send((operator.ge, len(ds.seq) + 20))
                     negative_ds = row_to_dataset(row)
-                start, stop = get_indices(
-                    len(ds.seq), len(negative_ds.seq), method, random_state)
+                start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
                 if method in ['exact', 'start', 'stop', 'middle']:
                     negative_seq = negative_ds.seq[start:stop]
                     negative_adj = _extract_adjacency_from_middle(start, stop, negative_ds.adj)
@@ -198,7 +197,9 @@ def interpolate_adjacencies(positive_adj: sparse.spmatrix,
         for i in range(interpolate):
             fp = fraction_positive[i]
             idxs = random_state.choice(
-                np.arange(mismatches.shape[0]), int(round(mismatches.shape[0] * fp)), replace=False)
+                np.arange(mismatches.shape[0]),
+                int(round(mismatches.shape[0] * fp)),
+                replace=False)
             adj = negative_adj.tocsr()
             idx_1, idx_2 = mismatches[:, idxs]
             adj[idx_1, idx_2] = positive_adj[idx_1, idx_2]
@@ -292,8 +293,9 @@ def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
     start = 0
     for length in lengths:
         stop = start + length
-        row = adj.row[(adj.row >= start) & (adj.row < stop)] - start
-        col = adj.col[(adj.col >= start) & (adj.col < stop)] - start
+        valid_idx = ((adj.row >= start) & (adj.row < stop) & (adj.col >= start) & (adj.col < stop))
+        row = adj.row[valid_idx] - start
+        col = adj.col[valid_idx] - start
         assert len(row) == len(col)
         sub_adj = sparse.coo_matrix(
             (

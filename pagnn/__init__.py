@@ -5,10 +5,11 @@ __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.3.dev0'
 __all__ = ['scripts']
 
-from . import *
-from .config import *
+from .settings import *
 from .utils import *
 from .io import *
 from .dataset import *
 from .models import *
+from .gpu import *
 from .training import *
+from . import *
