@@ -128,6 +128,9 @@ def _iter_dataset_rows_with_constraint(generators, weights, constraint_array, ra
     while True:
         op, target_seq_length = (yield row)
         idx = op(constraint_array, target_seq_length)
+        if idx.sum() == 0:
+            row = None
+            continue
         cur_generators = generators[idx]
         cur_weights = weights[idx] / weights[idx].sum()
         cur_gen = random_state.choice(cur_generators, replace=False, p=cur_weights)

@@ -7,12 +7,10 @@ from scipy import sparse
 
 from pagnn import DataRow, get_adj_identity, get_adjacency, get_seq_identity
 
+from .exc import MaxNumberOfTriesExceededError, SequenceTooLongError
+
 MAX_TRIES = 1024
 MAX_TRIES_SEQLEN = 8192
-
-
-class MaxNumberOfTriesExceededError(Exception):
-    pass
 
 
 class DataSet(NamedTuple):
@@ -20,6 +18,9 @@ class DataSet(NamedTuple):
     adj: sparse.spmatrix
     target: float
 
+
+DataSetCollection = Tuple[List[DataSet], List[DataSet]]
+"""A collection of +ive and -ive training examples."""
 
 # === Positive training examples ===
 
@@ -63,68 +64,76 @@ def iter_dataset_batches(rows: Iterable[DataRow],
 # === Negative training examples ===
 
 
-def add_negative_example(datasets: List[DataSet],
-                         method='permute',
-                         datagen: Optional[Generator[DataRow, Tuple[Callable, int], None]] = None,
-                         random_state: Optional[np.random.RandomState] = None) -> List[DataSet]:
-    assert method in ['permute', 'exact', 'start', 'stop', 'middle', 'edges']
+def add_negative_example(ds: DataSet,
+                         method: str,
+                         datagen: Generator[DataRow, Tuple[Callable, int], None],
+                         random_state: Optional[np.random.RandomState] = None) -> DataSet:
+    assert method in ['exact', 'start', 'stop', 'middle', 'edges'], method
+    n_tries = 0
+    seq_identity = 1.0
+    adj_identity = 1.0
+    while seq_identity > 0.2 or adj_identity > 0.3:
+        n_tries += 1
+        if n_tries > MAX_TRIES:
+            raise MaxNumberOfTriesExceededError(n_tries)
+        if method == 'exact':
+            n_tries_seqlen = 0
+            while True:
+                n_tries_seqlen += 1
+                if n_tries_seqlen > MAX_TRIES_SEQLEN:
+                    raise MaxNumberOfTriesExceededError(n_tries_seqlen)
+                row = datagen.send((operator.eq, int(len(ds.seq) // 20 * 20)))
+                if row is None:
+                    raise SequenceTooLongError(
+                        f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
+                negative_ds = row_to_dataset(row)
+                if len(negative_ds.seq) == len(ds.seq):
+                    break
+        else:
+            row = datagen.send((operator.ge, len(ds.seq) + 20))
+            if row is None:
+                raise SequenceTooLongError(
+                    f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
+            negative_ds = row_to_dataset(row)
+        start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
+        if method not in ['edges']:
+            negative_seq = negative_ds.seq[start:stop]
+            negative_adj = _extract_adjacency_from_middle(start, stop, negative_ds.adj)
+        else:
+            negative_seq = negative_ds.seq[:start] + negative_ds.seq[stop:]
+            negative_adj = _extract_adjacency_from_edges(start, stop, negative_ds.adj)
+        seq_identity = get_seq_identity(ds.seq, negative_seq)
+        adj_identity = get_adj_identity(ds.adj, negative_adj)
 
+    negative_dataset = DataSet(negative_seq, negative_adj, 0)
+    return negative_dataset
+
+
+def add_permuted_examples(datasets: List[DataSet],
+                          random_state: Optional[np.random.RandomState] = None) -> List[DataSet]:
+    """
+    Notes:
+        * Makes no sense to permute the combined adjacency matrix because the resulting
+          split adjacencies will have fewer contacts in total.
+    """
     negative_datasets: List[DataSet] = []
-    if method == 'permute':
-        combined_seq = b''.join(ds.seq for ds in datasets)
-        combined_adj = sparse.block_diag([ds.adj for ds in datasets])
-        # Permute a sequence until we find something with low sequence identity
-        n_tries = 0
-        seq_identity = 1.0
-        adj_identity = 1.0
-        while seq_identity > 0.2 or adj_identity > 0.2:
-            n_tries += 1
-            if n_tries > MAX_TRIES:
-                raise MaxNumberOfTriesExceededError(n_tries)
-            offset = get_offset(len(combined_seq))
-            # Permute sequence
-            negative_seq = combined_seq[offset:] + combined_seq[:offset]
-            seq_identity = get_seq_identity(combined_seq, negative_seq)
-            # Permute adjacencies
-            negative_adj = _permute_adjacency(combined_adj, offset)
-            adj_identity = get_adj_identity(combined_adj, negative_adj)
-        negative_seqs = _split_sequence(negative_seq, [len(ds.seq) for ds in datasets])
-        negative_adjs = _split_adjacency(negative_adj, [ds.adj.shape[-1] for ds in datasets])
-        for nseq, nadj in zip(negative_seqs, negative_adjs):
-            negative_datasets.append(DataSet(nseq, nadj, 0))
-    else:
-        for ds in datasets:
-            # Find a negative sequence with low sequence identity
-            n_tries = 0
-            seq_identity = 1.0
-            adj_identity = 1.0
-            while seq_identity > 0.2 or adj_identity > 0.2:
-                n_tries += 1
-                if n_tries > MAX_TRIES:
-                    raise MaxNumberOfTriesExceededError(n_tries)
-                if method == 'exact':
-                    n_tries_seqlen = 0
-                    while True:
-                        n_tries_seqlen += 1
-                        if n_tries_seqlen > MAX_TRIES_SEQLEN:
-                            raise MaxNumberOfTriesExceededError(n_tries_seqlen)
-                        row = datagen.send((operator.eq, int(len(ds.seq) // 20 * 20)))
-                        negative_ds = row_to_dataset(row)
-                        if len(negative_ds.seq) == len(ds.seq):
-                            break
-                else:
-                    row = datagen.send((operator.ge, len(ds.seq) + 20))
-                    negative_ds = row_to_dataset(row)
-                start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
-                if method in ['exact', 'start', 'stop', 'middle']:
-                    negative_seq = negative_ds.seq[start:stop]
-                    negative_adj = _extract_adjacency_from_middle(start, stop, negative_ds.adj)
-                else:
-                    negative_seq = negative_ds.seq[:start] + negative_ds.seq[stop:]
-                    negative_adj = _extract_adjacency_from_edges(start, stop, negative_ds.adj)
-                seq_identity = get_seq_identity(ds.seq, negative_seq)
-                adj_identity = get_adj_identity(ds.adj, negative_adj)
-            negative_datasets.append(DataSet(negative_seq, negative_adj, 0))
+
+    combined_seq = b''.join(ds.seq for ds in datasets)
+    # combined_adj = sparse.block_diag([ds.adj for ds in datasets])
+    # Permute a sequence until we find something with low sequence identity
+    n_tries = 0
+    seq_identity = 1.0
+    while seq_identity > 0.2:
+        n_tries += 1
+        if n_tries > MAX_TRIES:
+            raise MaxNumberOfTriesExceededError(n_tries)
+        offset = get_offset(len(combined_seq))
+        # Permute sequence
+        negative_seq = combined_seq[offset:] + combined_seq[:offset]
+        seq_identity = get_seq_identity(combined_seq, negative_seq)
+    negative_seqs = _split_sequence(negative_seq, [len(ds.seq) for ds in datasets])
+    for nseq in negative_seqs:
+        negative_datasets.append(DataSet(nseq, sparse.coo_matrix([]), 0))
 
     assert len(negative_datasets) == len(datasets)
 
@@ -197,9 +206,7 @@ def interpolate_adjacencies(positive_adj: sparse.spmatrix,
         for i in range(interpolate):
             fp = fraction_positive[i]
             idxs = random_state.choice(
-                np.arange(mismatches.shape[0]),
-                int(round(mismatches.shape[0] * fp)),
-                replace=False)
+                np.arange(mismatches.shape[0]), int(round(mismatches.shape[0] * fp)), replace=False)
             adj = negative_adj.tocsr()
             idx_1, idx_2 = mismatches[:, idxs]
             adj[idx_1, idx_2] = positive_adj[idx_1, idx_2]
@@ -238,7 +245,7 @@ def get_indices(length: int,
         >>> get_indices(10, 20, 'edges', np.random.RandomState(42))
         (5, 15)
     """
-    assert method in ['exact', 'start', 'stop', 'middle', 'edges']
+    assert method in ['exact', 'start', 'stop', 'middle', 'edges'], method
 
     if method in ['middle', 'edges'] and random_state is None:
         random_state = np.random.RandomState()
@@ -256,13 +263,18 @@ def get_indices(length: int,
         start = gap
         stop = start + length
     elif method == 'middle':
+        assert length >= 20
         start = random_state.randint(min(10, gap // 2), max(gap - 10, gap // 2) + 1)
         stop = start + length
     elif method == 'edges':
-        start = random_state.randint(min(10, gap // 2), max(length - 10, gap // 2) + 1)
+        assert length >= 20
+        start = random_state.randint(min(10, gap // 2), min(length - 10, gap) + 1)
         stop = full_length - (length - start)
 
-    assert start <= stop
+    assert start >= 0, (length, full_length, method, start, stop)
+    assert stop <= full_length, (length, full_length, method, start, stop)
+    assert start <= stop, (length, full_length, method, start, stop)
+
     return start, stop
 
 
@@ -289,6 +301,10 @@ def _split_sequence(seq: bytes, lengths: List[int]) -> List[bytes]:
 
 
 def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
+    """
+    .. warning::
+        Some of the contacts may be lost when the adjacency is divided into subadjacencies.
+    """
     adjs = []
     start = 0
     for length in lengths:
@@ -345,7 +361,7 @@ def _extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
     return new_adj
 
 
-def _extract_adjacency_from_edges(stop: int, start: int, adj: sparse.spmatrix):
+def _extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
     """
     Examples:
         >>> from scipy import sparse
@@ -357,16 +373,21 @@ def _extract_adjacency_from_edges(stop: int, start: int, adj: sparse.spmatrix):
         >>> negative_adj.col
         array([0, 1, 2], dtype=int32)
     """
-    keep_idx = [(pd.notnull(a) and pd.notnull(b) and (a < stop or start <= a) and
-                 (b < stop or start <= b)) for a, b in zip(adj.row, adj.col)]
+    keep_idx = [(pd.notnull(a) and pd.notnull(b) and (a < start or stop <= a) and
+                 (b < start or stop <= b)) for a, b in zip(adj.row, adj.col)]
+
+    keep_idx = ((adj.row < start) | (adj.row >= stop)) & ((adj.col < start) | (adj.col >= stop))
     new_row = adj.row[keep_idx]
-    new_row = np.where(new_row < stop, new_row, new_row - (start - stop))
+    new_row = np.where(new_row < start, new_row, new_row - (stop - start))
 
     new_col = adj.col[keep_idx]
-    new_col = np.where(new_col < stop, new_col, new_col - (start - stop))
-
-    new_adj = sparse.coo_matrix(
-        (adj.data[keep_idx], (new_row, new_col)),
-        dtype=adj.dtype,
-        shape=((adj.shape[0] - (start - stop), adj.shape[1] - (start - stop))))
+    new_col = np.where(new_col < stop, new_col, new_col - (stop - start))
+    try:
+        new_adj = sparse.coo_matrix(
+            (adj.data[keep_idx], (new_row, new_col)),
+            dtype=adj.dtype,
+            shape=((adj.shape[0] - (stop - start), adj.shape[1] - (stop - start))))
+    except ValueError as e:
+        import pdb
+        pdb.set_trace()
     return new_adj

@@ -5,6 +5,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from pagnn import DataVarCollection
+
 
 class ModernNet(nn.Module):
     """A neural network that takes multiple ``(sequence, adjacency_matrix)`` tuples."""
@@ -15,13 +17,12 @@ class ModernNet(nn.Module):
         self.spatial_conv = nn.Conv1d(n_aa, n_filters, 2, stride=2, bias=False)
         self.combine_weights = nn.Linear(n_filters, 1, bias=False)
 
-    def forward(self, pos: List[Tuple[Variable, Variable]],
-                neg: List[Tuple[Variable, Variable]]) -> List[Variable]:
+    def forward(self, dvc: DataVarCollection) -> List[Variable]:
+        pos, neg = dvc
         assert len(neg) == 0 or len(pos) == 1
-        # pos_seq = pos[0][0]
-        pos_adj = pos[0][1]
-        # inputs = pos + [(seq, pos[1]) for seq, _ in neg] + [(pos[0], adj) for _, adj in neg]
-        inputs = pos + [(seq, pos_adj) for seq, _ in neg]
+        keep_pos_adj = [(seq, pos[0][1]) for seq, _ in neg if seq is not None]
+        keep_pos_seq = [(pos[0][0], adj) for _, adj in neg if adj is not None]
+        inputs = pos + keep_pos_adj + keep_pos_seq
         return self._forward(inputs)
 
     def _forward(self, inputs: List[Tuple[Variable, Variable]]) -> List[Variable]:

@@ -6,10 +6,11 @@ __version__ = '0.1.3.dev0'
 __all__ = ['scripts']
 
 from .settings import *
+from .gpu import *
 from .utils import *
 from .io import *
 from .dataset import *
+from .datagen import *
+from .datavar import *
 from .models import *
-from .gpu import *
-from .training import *
 from . import *
