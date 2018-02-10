@@ -6,12 +6,12 @@ from scipy import sparse
 
 logger = logging.getLogger(__name__)
 
-_AMINO_ACIDS: List[str] = [
+AMINO_ACIDS: List[str] = [
     'G', 'V', 'A', 'L', 'I', 'C', 'M', 'F', 'W', 'P', 'D', 'E', 'S', 'T', 'Y', 'Q', 'N', 'K', 'R',
     'H'
 ]
 
-_AMINO_ACIDS_BYTEARRAY = bytearray(''.join(_AMINO_ACIDS).encode())
+AMINO_ACIDS_BYTEARRAY = bytearray(''.join(AMINO_ACIDS).encode())
 
 
 def get_seq_array(seq: bytes) -> sparse.spmatrix:
@@ -23,7 +23,7 @@ def get_seq_array(seq: bytes) -> sparse.spmatrix:
     Returns:
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
-    amino_acids = _AMINO_ACIDS_BYTEARRAY
+    amino_acids = AMINO_ACIDS_BYTEARRAY
 
     data = []
     x_idxs = []

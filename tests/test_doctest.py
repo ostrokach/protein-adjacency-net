@@ -1,10 +1,11 @@
 import doctest
+import logging
 import os
 import os.path as op
 import tempfile
-import logging
-import pytest
+
 import numpy as np
+import pytest
 
 import pagnn
 from kmtools import py_tools

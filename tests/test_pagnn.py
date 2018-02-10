@@ -1,6 +1,5 @@
 """Tests for `pagnn` package."""
 import pytest
-
 from click.testing import CliRunner
 
 import pagnn

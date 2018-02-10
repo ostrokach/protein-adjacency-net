@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from pagnn import GAP_LENGTH
+from pagnn import settings
 
 
 class SingleDomainNet(nn.Module):
@@ -66,7 +66,7 @@ class MultiDomainNet(nn.Module):
             end = start + adj.size()[1]
             aai = aa[:, :, start:end] @ adj.transpose(0, 1)
             aai_list.append(aai)
-            start = end + GAP_LENGTH
+            start = end + settings.GAP_LENGTH
         assert aa.size()[2] == end, (aa.size(), end)
         return torch.cat(aai_list, dim=2)
 
@@ -77,7 +77,7 @@ class MultiDomainNet(nn.Module):
             end = start + adj.size()[0] // 2
             aa = aai[:, :, start:end] @ adj[::2, :]
             aa_list.append(aa)
-            start = end + GAP_LENGTH
+            start = end + settings.GAP_LENGTH
         assert aai.size()[2] == end, (aai.size(), end)
         return torch.cat(aa_list, dim=2)
 
@@ -90,7 +90,7 @@ class MultiDomainNet(nn.Module):
             aa_domain_max, idxs = (aa_domain / adj.sum(dim=0)).max(dim=2)
             aa_domain_final = self.combine_convs(aa_domain_max).squeeze()
             domain_scores.append(aa_domain_final)
-            start = end + GAP_LENGTH
+            start = end + settings.GAP_LENGTH
         assert aa.size()[2] == end, (aa.size(), end)
         return torch.cat(domain_scores)
 
@@ -142,7 +142,7 @@ class MultiDomainNetNew(nn.Module):
                 print(adj)
                 print(aai)
             aai_list.append(aai)
-            start = end + GAP_LENGTH
+            start = end + settings.GAP_LENGTH
         assert aa.size()[2] == end, (aa.size(), end)
         return torch.cat(aai_list, dim=2)
 
@@ -158,7 +158,7 @@ class MultiDomainNetNew(nn.Module):
                 print(adj)
                 print(aa)
             aa_list.append(aa)
-            start = end + GAP_LENGTH
+            start = end + settings.GAP_LENGTH
         assert aai.size()[2] == end, (aai.size(), end)
         return torch.cat(aa_list, dim=2)
 
@@ -180,7 +180,7 @@ class MultiDomainNetNew(nn.Module):
             print(f"aa_domain_final: {count_nans(aa_domain_final)}")
 
             domain_scores.append(aa_domain_final)
-            start = end + GAP_LENGTH
+            start = end + settings.GAP_LENGTH
         assert aa.size()[2] == end, (aa.size(), end)
         return torch.cat(domain_scores)
 

@@ -1,19 +1,15 @@
 import logging
 from pathlib import Path
-from typing import Generator, List, NamedTuple, Optional, Union
+from typing import Generator, List, Optional, Union
 
 import numpy as np
 import pyarrow.parquet as pq
 
 from kmtools import py_tools
 
+from .types import DataRow
+
 logger = logging.getLogger(__name__)
-
-
-class DataRow(NamedTuple):
-    sequence: str
-    adjacency_idx_1: List[int]
-    adjacency_idx_2: List[int]
 
 
 def iter_dataset_rows(parquet_folders: List[Path],
@@ -93,6 +89,7 @@ def iter_domain_rows(
             assert not set(DataRow._fields) - set(df.columns)
             for row in df.itertuples():
                 if not all(f(row) for f in filters):
+                    # TODO: This is too slow for practical purposes
                     continue
                 yield row
 

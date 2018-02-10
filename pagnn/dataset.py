@@ -1,64 +1,29 @@
 import operator
-from typing import Callable, Generator, Iterable, Iterator, List, NamedTuple, Optional, Tuple
+from typing import Callable, Generator, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from scipy import sparse
 
-from pagnn import DataRow, get_adj_identity, get_adjacency, get_seq_identity
-
+from . import utils
 from .exc import MaxNumberOfTriesExceededError, SequenceTooLongError
+from .types import DataRow, DataSet
 
 MAX_TRIES = 1024
 MAX_TRIES_SEQLEN = 8192
 
-
-class DataSet(NamedTuple):
-    seq: bytes
-    adj: sparse.spmatrix
-    target: float
-
-
-DataSetCollection = Tuple[List[DataSet], List[DataSet]]
-"""A collection of +ive and -ive training examples."""
-
 # === Positive training examples ===
 
 
-def row_to_dataset(row: DataRow) -> DataSet:
+def row_to_dataset(row: DataRow, target: float) -> DataSet:
     seq = row.sequence.replace('-', '').encode('ascii')
-    return DataSet(seq, get_adjacency(len(seq), row.adjacency_idx_1, row.adjacency_idx_2), 1)
-
-
-def iter_datasets(rows: Iterable[DataRow]) -> Iterator[DataSet]:
-    """Convert an iterable over rows into an iterable over datasets."""
-    for row in rows:
-        yield row_to_dataset(row)
-
-
-def iter_dataset_batches(rows: Iterable[DataRow],
-                         max_seq_len: int = 50_000) -> Iterator[List[DataSet]]:
-    """Combine several rows into a single dataset.
-
-    Args:
-        rows: List or iterator of rows.
-        max_seq_len: Maximum number of residues that a sequence example can have.
-
-    Yields:
-        Inputs for machine learning.
-    """
-    batch: List[DataSet] = []
-    batch_len = 0
-    for row in rows:
-        dataset = row_to_dataset(row)
-        if batch_len + len(dataset.seq) <= max_seq_len:
-            batch.append(dataset)
-            batch_len += len(dataset.seq)
-        else:
-            yield batch
-            batch = [dataset]
-            batch_len = len(dataset.seq)
-    yield batch
+    adj = utils.get_adjacency(len(seq), row.adjacency_idx_1, row.adjacency_idx_2)
+    known_fields = {'Index', 'sequence', 'adjacency_idx_1', 'adjacency_idx_2', 'target'}
+    if set(row._fields) - set(known_fields):
+        meta = {k: v for k, v in row._asdict().items() if k not in known_fields}
+    else:
+        meta = None
+    return DataSet(seq, adj, target, meta)
 
 
 # === Negative training examples ===
@@ -86,7 +51,7 @@ def add_negative_example(ds: DataSet,
                 if row is None:
                     raise SequenceTooLongError(
                         f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
-                negative_ds = row_to_dataset(row)
+                negative_ds = row_to_dataset(row, target=0)
                 if len(negative_ds.seq) == len(ds.seq):
                     break
         else:
@@ -94,7 +59,7 @@ def add_negative_example(ds: DataSet,
             if row is None:
                 raise SequenceTooLongError(
                     f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
-            negative_ds = row_to_dataset(row)
+            negative_ds = row_to_dataset(row, target=0)
         start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
         if method not in ['edges']:
             negative_seq = negative_ds.seq[start:stop]
@@ -102,8 +67,8 @@ def add_negative_example(ds: DataSet,
         else:
             negative_seq = negative_ds.seq[:start] + negative_ds.seq[stop:]
             negative_adj = _extract_adjacency_from_edges(start, stop, negative_ds.adj)
-        seq_identity = get_seq_identity(ds.seq, negative_seq)
-        adj_identity = get_adj_identity(ds.adj, negative_adj)
+        seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
+        adj_identity = utils.get_adj_identity(ds.adj, negative_adj)
 
     negative_dataset = DataSet(negative_seq, negative_adj, 0)
     return negative_dataset
@@ -130,7 +95,7 @@ def add_permuted_examples(datasets: List[DataSet],
         offset = get_offset(len(combined_seq))
         # Permute sequence
         negative_seq = combined_seq[offset:] + combined_seq[:offset]
-        seq_identity = get_seq_identity(combined_seq, negative_seq)
+        seq_identity = utils.get_seq_identity(combined_seq, negative_seq)
     negative_seqs = _split_sequence(negative_seq, [len(ds.seq) for ds in datasets])
     for nseq in negative_seqs:
         negative_datasets.append(DataSet(nseq, sparse.coo_matrix([]), 0))

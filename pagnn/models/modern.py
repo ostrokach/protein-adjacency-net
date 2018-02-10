@@ -1,31 +1,31 @@
-from typing import List, Tuple
+from typing import Sequence, Tuple
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from pagnn import DataVarCollection
+from pagnn.types import DataVarCollection
 
 
 class ModernNet(nn.Module):
     """A neural network that takes multiple ``(sequence, adjacency_matrix)`` tuples."""
 
-    def __init__(self, n_filters: int = 64) -> None:
+    def __init__(self, n_filters: int) -> None:
         super().__init__()
         n_aa = 20
         self.spatial_conv = nn.Conv1d(n_aa, n_filters, 2, stride=2, bias=False)
         self.combine_weights = nn.Linear(n_filters, 1, bias=False)
 
-    def forward(self, dvc: DataVarCollection) -> List[Variable]:
+    def forward(self, dvc: DataVarCollection) -> Variable:
         pos, neg = dvc
         assert len(neg) == 0 or len(pos) == 1
         keep_pos_adj = [(seq, pos[0][1]) for seq, _ in neg if seq is not None]
         keep_pos_seq = [(pos[0][0], adj) for _, adj in neg if adj is not None]
-        inputs = pos + keep_pos_adj + keep_pos_seq
+        inputs = pos + keep_pos_adj + keep_pos_seq  # type: ignore
         return self._forward(inputs)
 
-    def _forward(self, inputs: List[Tuple[Variable, Variable]]) -> List[Variable]:
+    def _forward(self, inputs: Sequence[Tuple[Variable, Variable]]) -> Variable:
         """Forward pass through the network.
 
         Args:
