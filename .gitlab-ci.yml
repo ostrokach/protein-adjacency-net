@@ -106,7 +106,7 @@ test-py36:
     - conda install -yq nbconvert ipython ipykernel pandoc
     - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx
     # Build docs
-    - (cd docs && sphinx-apidoc ../kmbio -o api/generated -TeMP)
+    - (cd docs && sphinx-apidoc ../$CI_PROJECT_NAME -o api/generated -TeMP)
     - sphinx-build docs public
 
 test-pages:

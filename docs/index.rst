@@ -1,5 +1,5 @@
 Welcome to Protein Adjacency Graph Neural Network's documentation!
-======================================
+==================================================================
 
 Contents:
 
@@ -13,6 +13,7 @@ Contents:
    contributing
    authors
    history
+   api/generated/pagnn
 
 Indices and tables
 ==================
