@@ -1,3 +1,7 @@
+"""
+Not sure if its good practice to have all your types defined in a separate file,
+but it's the only way I've been able to get it to work with mypy.
+"""
 from typing import Callable, Iterator, List, NamedTuple, Optional, Tuple
 
 from scipy import sparse
@@ -5,6 +9,7 @@ from torch.autograd import Variable
 
 
 class DataRow(NamedTuple):
+    """Tuple for storing rows of data from an input table."""
     sequence: str
     adjacency_idx_1: List[int]
     adjacency_idx_2: List[int]
@@ -12,6 +17,9 @@ class DataRow(NamedTuple):
 
 
 class DataSet(NamedTuple):
+    """
+    Contains the sequence, the adjacency matric, and the label (target) of a protein domain.
+    """
     seq: bytes
     adj: sparse.spmatrix
     target: float
@@ -19,6 +27,7 @@ class DataSet(NamedTuple):
 
 
 class DataVar(NamedTuple):
+    """Input to the neural network."""
     seq: Variable
     adj: Variable
 
