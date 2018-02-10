@@ -205,10 +205,10 @@ def get_indices(length: int,
         (0, 3)
         >>> get_indices(3, 5, 'stop')
         (2, 5)
-        >>> get_indices(10, 20, 'middle', np.random.RandomState(42))
-        (5, 15)
-        >>> get_indices(10, 20, 'edges', np.random.RandomState(42))
-        (5, 15)
+        >>> get_indices(20, 30, 'middle', np.random.RandomState(42))
+        (5, 25)
+        >>> get_indices(20, 30, 'edges', np.random.RandomState(42))
+        (8, 18)
     """
     assert method in ['exact', 'start', 'stop', 'middle', 'edges'], method
 
