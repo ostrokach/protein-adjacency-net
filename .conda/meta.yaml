@@ -29,7 +29,7 @@ requirements:
     - kmtools
 
 test:
-  requirements:
+  requires:
     - flake8
     - isort
     - mypy
