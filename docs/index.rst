@@ -1,7 +1,6 @@
-Welcome to Protein Adjacency Graph Neural Network's documentation!
-==================================================================
-
-Contents:
+========
+Contents
+========
 
 .. toctree::
    :maxdepth: 2
