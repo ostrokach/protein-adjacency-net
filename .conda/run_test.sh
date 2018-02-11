@@ -3,6 +3,8 @@
 set -ev
 
 cd "${RECIPE_DIR}/.."
+pwd
+ls
 python -m isort -c
 python -m flake8
 python -m mypy -p ${PKG_NAME}
