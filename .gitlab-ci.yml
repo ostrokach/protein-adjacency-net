@@ -25,6 +25,7 @@ variables:
     - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CI_PROJECT_DIR}/conda-cache"
     # Conda configure
     - conda config --set channel_priority true
+    - conda config --append pkgs_dirs "${CI_PROJECT_DIR}/conda-cache"
     - conda config --append channels conda-forge
     - conda config --append channels ostrokach-forge
     - conda config --append channels bioconda
