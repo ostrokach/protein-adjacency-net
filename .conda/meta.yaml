@@ -36,9 +36,6 @@ requirements:
 
 test:
   requires:
-    - flake8
-    - isort
-    - mypy
     - pytest
     - pytest-cov
     - pytest-benchmark

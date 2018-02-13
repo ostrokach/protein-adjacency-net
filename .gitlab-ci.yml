@@ -1,6 +1,7 @@
 image: registry.gitlab.com/kimlab/linux-anvil:latest
 
 stages:
+  - lint
   - build
   - test
   - deploy
@@ -44,9 +45,19 @@ variables:
         conda config --append channels ostrokach;
       ;;
       esac
-    # Update conda
-    - conda update -n root -yq conda --no-channel-priority
-    - conda update -n root -yq conda-build python --no-channel-priority
+
+# === Lint ===
+
+lint:
+  stage: lint
+  <<: [*conda_configure]
+  variables:
+    <<: [*py36]
+  script:
+    - conda install -yq "python=${PYTHON_VERSION}" isort flake8 mypy
+    - python -m isort -c
+    - python -m flake8
+    - python -m mypy -p "${CI_PROJECT_NAME}"
 
 # === Build ===
 
@@ -88,10 +99,10 @@ build-py36:
 
 test-py36:
   <<: [*conda_configure, *test]
-  dependencies:
-    - build-py36
   variables:
     <<: [*py36]
+  dependencies:
+    - build-py36
 
 # === Pages ===
 
@@ -111,20 +122,20 @@ test-py36:
 
 test-pages:
   <<: [*conda_configure, *docs]
-  dependencies:
-    - build-py36
   variables:
     <<: [*py36]
+  dependencies:
+    - build-py36
   except:
     - master
     - tags
 
 pages:
   <<: [*conda_configure, *docs]
-  dependencies:
-    - build-py36
   variables:
     <<: [*py36]
+  dependencies:
+    - build-py36
   only:
     - master
     - tags
