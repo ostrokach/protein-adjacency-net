@@ -18,16 +18,21 @@ requirements:
     - pandoc
     - pypandoc
   run:
+    # Basic Python
     - python
     - click
+    - tqdm
+    # Numerical Python
     - numpy
     - scipy
+    - pandas
     - pyarrow
     - numba
     - pytorch
     - torchvision
+    - tensorboardx
+    # Our packages
     - kmtools
-    - tqdm
 
 test:
   requires:
