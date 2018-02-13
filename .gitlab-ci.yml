@@ -7,7 +7,8 @@ stages:
 
 cache:
   paths:
-    - conda-cache
+    - .conda_packages
+    - .conda_cache
 
 # === Variables ===
 
@@ -21,11 +22,14 @@ variables:
 
 .conda_configure: &conda_configure
   before_script:
+    # Conda environment variables
+    export CONDA_CACHE_DIR="${CI_PROJECT_DIR}/.conda_cache"
+    export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
     # Make conda cache and bld folders
-    - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CI_PROJECT_DIR}/conda-cache"
+    - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CONDA_CACHE_DIR}" "${CONDA_PKGS_DIRS}"
     # Conda configure
     - conda config --set channel_priority true
-    - conda config --append pkgs_dirs "${CI_PROJECT_DIR}/conda-cache"
+    - conda config --append pkgs_dirs "${CONDA_PKGS_DIRS"
     - conda config --append channels conda-forge
     - conda config --append channels ostrokach-forge
     - conda config --append channels bioconda
@@ -41,8 +45,6 @@ variables:
         conda config --append channels ostrokach;
       ;;
       esac
-    # Clear cache
-    - rm -rf /opt/conda/pkgs/*
     # Update conda
     - conda update -n root -yq conda --no-channel-priority
     - conda update -n root -yq conda-build python --no-channel-priority
@@ -57,7 +59,7 @@ variables:
     - conda build .
       --no-test
       --python $PYTHON_VERSION
-      --cache-dir "${CI_PROJECT_DIR}/conda-cache"
+      --cache-dir "${CONDA_CACHE_DIR}"
       --output-folder "${CI_PROJECT_DIR}/conda-bld"
   artifacts:
     paths:
@@ -81,7 +83,7 @@ build-py36:
     - conda build .
       --test
       --python $PYTHON_VERSION
-      --cache-dir "${CI_PROJECT_DIR}/conda-cache"
+      --cache-dir "${CONDA_CACHE_DIR}"
   coverage: /^TOTAL.* (\d+\%)/
   artifacts:
     paths:

@@ -64,3 +64,8 @@ target/
 # AS
 .mypy_cache/
 .vscode/
+
+# Conda
+conda-bld
+.conda_cache
+.conda_packages
