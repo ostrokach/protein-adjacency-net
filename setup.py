@@ -29,6 +29,17 @@ def read_md(file):
 
 requirements = [
     'Click>=6.0',
+    'numpy',
+    'click',
+    'scipy',
+    'pyarrow',
+    'pytest',
+    'torch',
+    'pandas',
+    'numba',
+    'sklearn',
+    'tensorboardX',
+    'tqdm',
     # TODO: put package requirements here
 ]
 
