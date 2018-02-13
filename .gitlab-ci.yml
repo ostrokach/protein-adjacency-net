@@ -32,6 +32,7 @@ variables:
     - conda config --set channel_priority true
     - conda config --append pkgs_dirs "${CONDA_PKGS_DIRS}"
     - conda config --append channels conda-forge
+    - conda config --append channels pytorch
     - conda config --append channels ostrokach-forge
     - conda config --append channels bioconda
     - case "${PACKAGE_VERSION}" in
