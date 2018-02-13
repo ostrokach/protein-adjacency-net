@@ -6,6 +6,7 @@ stages:
   - deploy
 
 cache:
+  key: ${CI_BUILD_REF_NAME}
   paths:
     - .conda_packages
     - .conda_cache
