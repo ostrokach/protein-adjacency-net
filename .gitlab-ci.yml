@@ -23,8 +23,8 @@ variables:
 .conda_configure: &conda_configure
   before_script:
     # Conda environment variables
-    export CONDA_CACHE_DIR="${CI_PROJECT_DIR}/.conda_cache"
-    export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
+    - export CONDA_CACHE_DIR="${CI_PROJECT_DIR}/.conda_cache"
+    - export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
     # Make conda cache and bld folders
     - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CONDA_CACHE_DIR}" "${CONDA_PKGS_DIRS}"
     # Conda configure
