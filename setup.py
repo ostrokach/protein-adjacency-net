@@ -50,7 +50,7 @@ test_requirements = [
 
 setup(
     name='pagnn',
-    version='0.1.3',
+    version='0.1.4',
     description=("A neural network trained to select real proteins that fold to the "
                  "provided adjacency matrix."),
     long_description=read_md('README.md') + '\n\n' + read_md('HISTORY.md'),
