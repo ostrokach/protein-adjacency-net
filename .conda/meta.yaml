@@ -27,6 +27,7 @@ requirements:
     - pytorch
     - torchvision
     - kmtools
+    - tqdm
 
 test:
   requires:
