@@ -28,7 +28,7 @@ requirements:
     - pandas
     - pyarrow
     - numba
-    - pytorch
+    - pytorch =0.3.*
     - torchvision
     - tensorboardx
     # Our packages
