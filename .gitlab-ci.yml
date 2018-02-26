@@ -7,7 +7,7 @@ stages:
   - deploy
 
 cache:
-  key: ${CI_COMMIT_REF_NAME}-1
+  key: ${CI_COMMIT_REF_NAME}-2
   paths:
     - .conda_packages
 
