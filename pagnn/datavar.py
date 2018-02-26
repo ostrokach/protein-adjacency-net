@@ -65,4 +65,5 @@ def push_dataset_collection(dsc: DataSetCollection, push_seq=True,
         targets += [ds.target for ds in neg_ds if ds.seq is not None]
     if push_adj:
         targets += [ds.target for ds in neg_ds if ds.adj is not None and ds.adj.nnz > 0]
+    targets = np.array(targets).astype(np.float64)
     return (pos, neg), Variable(to_tensor(targets).unsqueeze(1))
