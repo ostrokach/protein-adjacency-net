@@ -37,15 +37,13 @@ requirements = [
     'torch',
     'pandas',
     'numba',
-    'sklearn',
+    'scikit-learn',
     'tensorboardX',
     'tqdm',
-    # TODO: put package requirements here
 ]
 
 test_requirements = [
     'pytest',
-    # TODO: put package test requirements here
 ]
 
 setup(
