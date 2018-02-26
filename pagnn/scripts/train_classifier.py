@@ -314,8 +314,8 @@ if __name__ == '__main__':
             with cache_file.open('wb') as fout:
                 pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
 
-            def datagen_from_memory() -> Iterator[DataSetCollection]:
-                return dataset
+        def datagen_from_memory() -> Iterator[DataSetCollection]:
+            return dataset
 
         internal_validation_datagens[datagen_name] = datagen_from_memory
 

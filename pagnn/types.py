@@ -17,8 +17,10 @@ class DataRow(NamedTuple):
 
 
 class DataSet(NamedTuple):
-    """
-    Contains the sequence, the adjacency matric, and the label (target) of a protein domain.
+    """The main unit of training / validation data.
+
+    Contains the sequences, the adjacency matric, and the label (target)
+    of a protein domain.
     """
     seq: bytes
     adj: sparse.spmatrix

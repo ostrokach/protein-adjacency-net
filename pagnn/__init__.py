@@ -3,7 +3,9 @@
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.4'
-__all__ = ['settings', 'types', 'exc', 'models', 'scripts']
+__all__ = [
+    'settings', 'types', 'exc', 'models', 'scripts',
+]
 
 from . import *
 from .types import *
