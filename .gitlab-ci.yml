@@ -6,11 +6,6 @@ stages:
   - test
   - deploy
 
-cache:
-  key: ${CI_COMMIT_REF_NAME}-2
-  paths:
-    - .conda_packages
-
 # === Variables ===
 
 variables:
@@ -22,6 +17,10 @@ variables:
 # === Configurations ===
 
 .conda_configure: &conda_configure
+  cache:
+    key: ${CI_JOB_NAME}
+    paths:
+      - .conda_packages
   before_script:
     # Conda environment variables
     - export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
