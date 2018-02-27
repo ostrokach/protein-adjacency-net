@@ -174,7 +174,7 @@ pages:
       echo ${tag} ;
       curl --header "JOB-TOKEN: $CI_JOB_TOKEN" -L -o artifact-${tag}.zip
       "https://gitlab.com/${CI_PROJECT_NAME}/${CI_PROJECT_NAMESPACE}/-/jobs/artifacts/${tag}/download?job=docs" || continue ;
-      unzip artifact-${tag}.zip -d public ;
+      unzip artifact-${tag}.zip -d public || continue ;
       rm -rf public/${tag} ;
       mv public/public public/${tag} ;
       done'
