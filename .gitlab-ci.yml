@@ -103,10 +103,11 @@ test-py36:
   dependencies:
     - build-py36
 
-# === Pages ===
+# === Docs ===
 
-.docs: &docs
+docs:
   stage: test
+  <<: [*conda_configure]
   script:
     # Restore built packages
     - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
@@ -118,31 +119,15 @@ test-py36:
     # Build docs
     - (cd docs && sphinx-apidoc ../${CI_PROJECT_NAME} -o api/generated -TeMP)
     - sphinx-build docs public
-
-test-pages:
-  <<: [*conda_configure, *docs]
-  variables:
-    <<: [*py36]
   dependencies:
     - build-py36
-  except:
-    - master
-    - tags
-
-pages:
-  <<: [*conda_configure, *docs]
   variables:
     <<: [*py36]
-  dependencies:
-    - build-py36
-  only:
-    - master
-    - tags
-  except:
-    - triggers
   artifacts:
     paths:
       - public
+  except:
+    - triggers
 
 # === Deploy ===
 
