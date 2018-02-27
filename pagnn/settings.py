@@ -9,7 +9,7 @@ MIN_SEQUENCE_LENGTH = 20
 
 def _is_array_job():
     array_job_id = (os.getenv('SGE_TASK_ID') or os.getenv('PBS_ARRAYID') or
-                    os.getenv('SLURM_ARRAY_JOB_ID'))
+                    os.getenv('SLURM_ARRAY_TASK_ID'))
     return array_job_id is not None and int(array_job_id) > 1
 
 
