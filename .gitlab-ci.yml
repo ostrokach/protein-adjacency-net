@@ -6,6 +6,11 @@ stages:
   - test
   - deploy
 
+cache:
+  key: ${CI_COMMIT_REF_NAME}-2
+  paths:
+    - .conda_packages
+
 # === Variables ===
 
 variables:
@@ -18,8 +23,13 @@ variables:
 
 .conda_configure: &conda_configure
   before_script:
-    # Conda
+    # Conda environment variables
+    - export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
+    # Make conda cache and bld folders
+    - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CONDA_PKGS_DIRS}"
+    # Conda configure
     - conda config --set channel_priority true
+    - conda config --append pkgs_dirs "${CONDA_PKGS_DIRS}"
     - conda config --append channels pytorch
     - conda config --append channels ostrokach-forge
     - conda config --append channels bioconda
