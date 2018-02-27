@@ -162,12 +162,14 @@ deploy-py36:
 
 pages:
   stage: deploy
+  before_script:
+    - sudo yum install -y -q unzip
   script:
     # Create docs folder for the current version
     - mv public "v${PACKAGE_VERSION%.dev}"
     - mkdir public
     - mv "v${PACKAGE_VERSION%.dev}" public/
-    # Create docs folder for each  tag
+    # Create docs folder for each tag
     - 'for tag in $(git tag) ; do
       echo ${tag} ;
       curl --header "JOB-TOKEN: $CI_JOB_TOKEN" -L -o artifact-${tag}.zip
