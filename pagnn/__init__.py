@@ -5,6 +5,8 @@ __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.7.dev'
 __all__ = [
     'settings', 'types', 'exc', 'models', 'scripts',
+    # GAN
+    'datavar_gan',
 ]
 
 from . import *

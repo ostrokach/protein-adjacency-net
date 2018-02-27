@@ -33,6 +33,9 @@ def get_seq_array(seq: bytes) -> sparse.spmatrix:
             x = amino_acids.index(aa)
         except ValueError as e:
             logger.debug("Could not convert the following residue to one-hot encoding: %s", chr(aa))
+            if aa == ord('.'):
+                # We use '.' for padding sequences with 0s
+                continue
             for x in range(20):
                 x_idxs.append(x)
                 y_idxs.append(y)
