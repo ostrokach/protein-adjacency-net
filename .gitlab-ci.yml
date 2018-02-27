@@ -156,3 +156,31 @@ deploy-py36:
   <<: *deploy
   dependencies:
     - build-py36
+
+# === Pages ===
+
+pages:
+  stage: deploy
+  script:
+    # Create docs folder for the current version
+    - mv public "v${PACKAGE_VERSION%.dev}"
+    - mkdir public
+    - mv "v${PACKAGE_VERSION%.dev}" public/
+    # Create docs folder for each  tag
+    - 'for tag in $(git tag) ; do
+      echo ${tag} ;
+      curl --header "JOB-TOKEN: $CI_JOB_TOKEN" -L -o artifact-${tag}.zip
+      "https://gitlab.com/${CI_PROJECT_NAME}/${CI_PROJECT_NAMESPACE}/-/jobs/artifacts/${tag}/download?job=docs" || continue ;
+      unzip artifact-${tag}.zip -d public ;
+      rm -rf public/${tag} ;
+      mv public/public public/${tag} ;
+      done'
+    # Create index file
+    # TODO:
+  dependencies:
+    - docs
+  only:
+    - master
+    - tags
+  except:
+    - triggers
