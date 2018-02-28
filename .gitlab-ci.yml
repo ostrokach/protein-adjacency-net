@@ -175,12 +175,12 @@ pages:
     - mv "v${PACKAGE_VERSION%.dev}" public/
     # Create docs folder for each tag
     - |
-      curl -s -L --header "PRIVATE-TOKEN: ${GITLAB_CI_TOKEN}" \
+      curl -s -L --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
         "https://gitlab.com/api/v4/projects/kimlab%2Fpagnn/jobs?scope=success" |
       jq --raw-output '.[] | select(.tag == true) | select(.name == "docs") | "\(.ref) \(.id)"' |
       while read tag job_id ; do
         echo $tag $job_id ;
-        curl -s -L --header "PRIVATE-TOKEN: ${GITLAB_CI_TOKEN}" \
+        curl -s -L --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
           "https://gitlab.com/kimlab/pagnn/-/jobs/${job_id}/artifacts/download" \
           -o artifact-${tag}.zip || continue ;
         unzip -q artifact-${tag}.zip -d public || continue ;
