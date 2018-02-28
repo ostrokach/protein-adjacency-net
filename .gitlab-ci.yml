@@ -164,21 +164,29 @@ pages:
   stage: deploy
   before_script:
     - sudo yum install -y -q unzip
+    - curl -s https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -o jq &&
+      (md5sum jq | grep 6a342dbb17b2f2ea4ec0e64d2157614d) &&
+      mv jq /usr/local/bin/jq &&
+      chmod +x /usr/local/bin/jq
   script:
     # Create docs folder for the current version
     - mv public "v${PACKAGE_VERSION%.dev}"
     - mkdir public
     - mv "v${PACKAGE_VERSION%.dev}" public/
     # Create docs folder for each tag
-    - 'for tag in $(git tag) ; do
-      echo ${tag} ;
-      curl -L --header "JOB-TOKEN: $CI_JOB_TOKEN"
-      "https://gitlab.com/${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}/-/jobs/artifacts/${tag}/download?job=docs"
-      -o artifact-${tag}.zip || continue ;
-      unzip artifact-${tag}.zip -d public || continue ;
-      rm -rf public/${tag} ;
-      mv public/public public/${tag} ;
-      done'
+    - |
+      curl -s -L --header "PRIVATE-TOKEN: ${GITLAB_CI_TOKEN}" \
+        "https://gitlab.com/api/v4/projects/kimlab%2Fpagnn/jobs?scope=success" |
+      jq --raw-output '.[] | select(.tag == true) | select(.name == "docs") | "\(.ref) \(.id)"' |
+      while read tag job_id ; do
+        echo $tag $job_id ;
+        curl -s -L --header "PRIVATE-TOKEN: ${GITLAB_CI_TOKEN}" \
+          "https://gitlab.com/kimlab/pagnn/-/jobs/${job_id}/artifacts/download" \
+          -o artifact-${tag}.zip || continue ;
+        unzip -q artifact-${tag}.zip -d public || continue ;
+        rm -rf public/${tag} ;
+        mv public/public public/${tag} ;
+      done
     # Create index file
     # TODO:
   dependencies:
