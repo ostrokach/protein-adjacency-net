@@ -9,19 +9,20 @@ from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Mapping, Optional, Union
 
 import numpy as np
-import pagnn
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
-from pagnn import settings
-from pagnn.types import DataGen, DataSetCollection
 from scipy import stats
-# from memory_profiler import profile
+# from memory_profiler import profiles
 # from line_profiler import LineProfiler
 from sklearn import metrics
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
+
+import pagnn
+from pagnn import settings
+from pagnn.types import DataGen, DataSetCollection
 
 logger = logging.getLogger(__name__)
 
