@@ -178,7 +178,7 @@ pages:
     - |
       curl -s -L --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
         "https://gitlab.com/api/v4/projects/kimlab%2Fpagnn/jobs?scope=success" |
-      /usr/local/bin/jq --raw-output '.[] | select(.tag == true) | select(.name == "docs") | "\(.ref) \(.id)"' |
+      jq --raw-output '.[] | select(.tag == true) | select(.name == "docs") | "\(.ref) \(.id)"' |
       while read tag job_id ; do
         echo $tag $job_id ;
         curl -s -L --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
