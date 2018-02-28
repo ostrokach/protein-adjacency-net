@@ -1,6 +1,14 @@
 Module Documentation
 ====================
 
+Data types
+----------
+
+.. autosummary::
+   :toctree: _types
+
+   pagnn.types
+
 Data preparation pipeline
 -------------------------
 
