@@ -1,4 +1,5 @@
 import os
+import sys
 
 import torch
 
@@ -14,3 +15,10 @@ def _is_array_job():
 
 
 ARRAY_JOB: bool = _is_array_job()
+
+
+def _show_progressbar():
+    return sys.stderr.isatty()
+
+
+SHOW_PROGRESSBAR: bool = _show_progressbar()

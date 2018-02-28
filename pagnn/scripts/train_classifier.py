@@ -9,19 +9,19 @@ from pathlib import Path
 from typing import Callable, Dict, Iterator, List, Mapping, Optional, Union
 
 import numpy as np
+import pagnn
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
+from pagnn import settings
+from pagnn.types import DataGen, DataSetCollection
 from scipy import stats
 # from memory_profiler import profile
 # from line_profiler import LineProfiler
 from sklearn import metrics
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
-
-import pagnn
-from pagnn.types import DataGen, DataSetCollection
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,10 @@ def main(args: argparse.Namespace,
     num_aa_processed = 0
     validation_time = None
     for step, (pos, neg) in enumerate(
-            tqdm.tqdm(training_datagen(), initial=checkpoint.get('step', 0)),
+            tqdm.tqdm(
+                training_datagen(),
+                initial=checkpoint.get('step', 0),
+                disable=not settings.SHOW_PROGRESSBAR),
             start=checkpoint.get('step', 0)):
 
         # Validation score
@@ -241,6 +244,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--tag', type=str, default=None)
     parser.add_argument('--resume', action='store_true', default=pagnn.settings.ARRAY_JOB)
     parser.add_argument('--num-aa-to-process', type=int, default=None)
+    # Visuals
+    parser.add_argument('--progress', action='store_true', default=pagnn.settings.SHOW_PROGRESSBAR)
     # TODO(AS):
     parser.add_argument('-n', '--num-concurrent-jobs', type=int, default=1)
     args = parser.parse_args()
@@ -309,7 +314,8 @@ if __name__ == '__main__':
                 tqdm.tqdm(
                     itertools.islice(datagen(), args.validation_num_sequences),
                     total=args.validation_num_sequences,
-                    desc=cache_file.name))
+                    desc=cache_file.name,
+                    disable=not settings.SHOW_PROGRESSBAR))
             assert len(dataset) == args.validation_num_sequences
             with cache_file.open('wb') as fout:
                 pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
