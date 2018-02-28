@@ -15,14 +15,17 @@
 
 import sys
 import os
+
 import sphinx_rtd_theme
 from recommonmark.parser import CommonMarkParser
+
+import pagnn
 
 # If extensions (or modules to document with autodoc) are in another
 # directory, add these directories to sys.path here. If the directory is
 # relative to the documentation root, use os.path.abspath to make it
 # absolute, like shown here.
-#sys.path.insert(0, os.path.abspath('.'))
+# sys.path.insert(0, Path(pagnn.__file__).absolute().parent.as_posix())
 
 # Get the project root dir, which is the parent dir of this
 cwd = os.getcwd()
@@ -33,7 +36,6 @@ project_root = os.path.dirname(cwd)
 # version is used.
 sys.path.insert(0, project_root)
 
-import pagnn
 
 # -- General configuration ---------------------------------------------
 
@@ -57,6 +59,11 @@ extensions = [
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
+
+
+def setup(app):
+    app.add_stylesheet('css/custom.css')  # may also be an URL
+
 
 # The suffix of source filenames.
 source_suffix = ['.rst', '.md']
@@ -122,7 +129,6 @@ pygments_style = 'sphinx'
 # If true, keep warnings as "system message" paragraphs in the built
 # documents.
 #keep_warnings = False
-
 
 # -- Options for HTML output -------------------------------------------
 
@@ -210,7 +216,6 @@ html_static_path = ['_static']
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'pagnndoc'
 
-
 # -- Options for LaTeX output ------------------------------------------
 
 latex_elements = {
@@ -228,8 +233,7 @@ latex_elements = {
 # (source start file, target name, title, author, documentclass
 # [howto/manual]).
 latex_documents = [
-    ('index', 'pagnn.tex',
-     u'Protein Adjacency Graph Neural Network Documentation',
+    ('index', 'pagnn.tex', u'Protein Adjacency Graph Neural Network Documentation',
      u'Alexey Strokach', 'manual'),
 ]
 
@@ -253,20 +257,15 @@ latex_documents = [
 # If false, no module index is generated.
 #latex_domain_indices = True
 
-
 # -- Options for manual page output ------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    ('index', 'pagnn',
-     u'Protein Adjacency Graph Neural Network Documentation',
-     [u'Alexey Strokach'], 1)
-]
+man_pages = [('index', 'pagnn', u'Protein Adjacency Graph Neural Network Documentation',
+              [u'Alexey Strokach'], 1)]
 
 # If true, show URL addresses after external links.
 #man_show_urls = False
-
 
 # -- Options for Texinfo output ----------------------------------------
 
@@ -274,12 +273,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    ('index', 'pagnn',
-     u'Protein Adjacency Graph Neural Network Documentation',
-     u'Alexey Strokach',
-     'pagnn',
-     'One line description of project.',
-     'Miscellaneous'),
+    ('index', 'pagnn', u'Protein Adjacency Graph Neural Network Documentation', u'Alexey Strokach',
+     'pagnn', 'One line description of project.', 'Miscellaneous'),
 ]
 
 # Documents to append as an appendix to all manuals.
@@ -300,12 +295,14 @@ locales = 'en'
 # Napoleon settings
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
-napoleon_include_init_with_doc = True
+napoleon_include_init_with_doc = False
 napoleon_include_private_with_doc = False
-napoleon_include_special_with_doc = True
+napoleon_include_special_with_doc = False
 napoleon_use_admonition_for_examples = False
 napoleon_use_admonition_for_notes = False
 napoleon_use_admonition_for_references = False
 napoleon_use_ivar = True
 napoleon_use_param = True
 napoleon_use_rtype = True
+
+autodoc_member_order = 'bysource'

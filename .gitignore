@@ -69,3 +69,8 @@ target/
 conda-bld
 .conda_cache
 .conda_packages
+
+docs/_*
+!docs/_static
+!docs/_templates
+public/
