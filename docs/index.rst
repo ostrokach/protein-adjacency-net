@@ -12,7 +12,7 @@ Contents
    contributing
    authors
    history
-   api/generated/pagnn
+   modules
 
 Indices and tables
 ==================
