@@ -6,9 +6,9 @@ import tempfile
 
 import numpy as np
 import pytest
+from kmtools import py_tools
 
 import pagnn
-from kmtools import py_tools
 
 logger = logging.getLogger(__name__)
 

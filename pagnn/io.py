@@ -4,7 +4,6 @@ from typing import Generator, List, Optional, Union
 
 import numpy as np
 import pyarrow.parquet as pq
-
 from kmtools import py_tools
 
 from .types import DataRow
