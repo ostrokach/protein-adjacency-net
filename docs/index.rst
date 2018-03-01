@@ -13,16 +13,15 @@ Contents
    contributing
    authors
    history
+   networks
 
 .. toctree::
    :caption: Modules
    :name: modules
-   :maxdepth: 2
+   :maxdepth: 3
 
-   data_types
-   data_pipeline
-   models
-   scripts
+   modules
+
 
 Indices and tables
 ==================
