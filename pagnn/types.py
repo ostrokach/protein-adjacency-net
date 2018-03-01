@@ -1,4 +1,5 @@
-"""
+"""Data types used throughout this project.
+
 Not sure if its good practice to have all your types defined in a separate file,
 but it's the only way I've been able to get it to work with mypy.
 """
@@ -9,7 +10,11 @@ from torch.autograd import Variable
 
 
 class DataRow(NamedTuple):
-    """Tuple for storing rows of data from an input table."""
+    """Tuple for storing rows of data from an input table.
+
+    Notes:
+        * This data structure can contain other attributes as neccessary.
+    """
     sequence: str
     adjacency_idx_1: List[int]
     adjacency_idx_2: List[int]
@@ -23,14 +28,33 @@ class DataSet(NamedTuple):
     of a protein domain.
     """
     seq: bytes
+    """Sequence."""
     adj: sparse.spmatrix
     target: float
+    meta: Optional[dict] = None
+
+
+class DataSetGAN(NamedTuple):
+    """The main storage unit of training / validation data.
+
+    Contains one or more sequences, the adjacency matric, and the label (target)
+    of a protein domain.
+    """
+    seqs: List[bytes]
+    adj: sparse.spmatrix
+    targets: List[float]
     meta: Optional[dict] = None
 
 
 class DataVar(NamedTuple):
     """Input to the neural network."""
     seq: Variable
+    adj: Variable
+
+
+class DataVarGAN(NamedTuple):
+    """Input variables for the neural network."""
+    seqs: Variable
     adj: Variable
 
 

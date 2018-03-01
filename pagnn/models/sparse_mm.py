@@ -30,7 +30,9 @@ class LeftMatMulSparseFixedWeights(Function):
 
     No gradient computed on the sparse weights.
 
-    - https://discuss.pytorch.org/t/autograd-for-sparse-matmul-getting-either-cuda-memory-leak-or-buffers-have-already-been-freed-error/3806
+    References:
+        * https://discuss.pytorch.org/t/autograd-for-sparse-matmul-getting-either-cuda-memory-\
+leak-or-buffers-have-already-been-freed-error/3806
     """
 
     @staticmethod

@@ -56,7 +56,7 @@ def get_mutation_datagen(mutation_class: str, data_path: Path) -> DataGen:
         parquet_file = (
             data_path.joinpath('mutation_datasets').joinpath('humsavar_validaton_dataset.parquet'))
 
-    mutation_datarows = io.iter_domain_rows(
+    mutation_datarows = io.iter_datarows(
         parquet_file,
         columns={
             'qseq': 'sequence',
@@ -97,13 +97,13 @@ def permute_and_slice_datagen(datagen_pos: Iterator[DataRow],
             continue
         batch_pos.append(dataset_pos)
         if (i + 1) % 256 == 0:
-            batch_neg = dataset.add_permuted_examples(batch_pos)
+            batch_neg = dataset.get_permuted_examples(batch_pos)
             for pos, neg in zip(batch_pos, batch_neg):
                 pos_list = [pos]
                 neg_list = [neg]
                 for method in slice_methods:
                     try:
-                        other_neg = dataset.add_negative_example(
+                        other_neg = dataset.get_negative_example(
                             pos,
                             method=method,
                             datagen=datagen_neg,
@@ -125,7 +125,7 @@ def slice_datagen(datagen_pos: Iterator[DataRow], datagen_neg: Generator[DataRow
         datasets_neg = []
         try:
             for method in methods:
-                dataset_neg = dataset.add_negative_example(
+                dataset_neg = dataset.get_negative_example(
                     dataset_pos,
                     method=method,
                     datagen=datagen_neg,
@@ -149,7 +149,7 @@ def _get_rowgen_pos(root_folder_name: str,
     parquet_folder_weights = _load_parquet_weights(parquet_folder_weights_file, parquet_folders)
     assert len(parquet_folders) == len(parquet_folder_weights)
 
-    datagen_pos = io.iter_dataset_rows(
+    datagen_pos = io.iter_datarows_shuffled(
         parquet_folders,
         parquet_folder_weights,
         columns={
@@ -175,7 +175,7 @@ def _get_rowgen_neg(root_folder_name: str,
     parquet_folder_weights = _load_parquet_weights(parquet_folder_weights_file, parquet_folders)
     assert len(parquet_folders) == len(parquet_folder_weights)
 
-    datagen_neg = io.iter_dataset_rows(
+    datagen_neg = io.iter_datarows_shuffled(
         parquet_folders,
         parquet_folder_weights,
         columns={
@@ -198,7 +198,7 @@ def _load_parquet_weights(filepath: Path, parquet_folders: List[Path]) -> np.nda
         logger.info("Loaded folder weights from file: '%s'", filepath)
     except FileNotFoundError:
         logger.info("Generating folder weights for parquet folder: '%s'.", parquet_folders)
-        parquet_folder_weights = io.get_weights(parquet_folders)
+        parquet_folder_weights = io.get_folder_weights(parquet_folders)
         d = {p.name: w for p, w in zip(parquet_folders, parquet_folder_weights)}
         with filepath.open('wb') as fout:
             pickle.dump(d, fout, pickle.HIGHEST_PROTOCOL)

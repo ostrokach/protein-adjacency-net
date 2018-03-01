@@ -6,17 +6,17 @@ import logging
 import pickle
 import time
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Mapping, Optional, Union
+from typing import Dict, Iterator, Optional, Union
 
 import numpy as np
 import torch
-import torch.nn as nn
+# import torch.nn as nn
 import torch.optim as optim
 import tqdm
-from scipy import stats
+# from scipy import stats
 # from memory_profiler import profile
 # from line_profiler import LineProfiler
-from sklearn import metrics
+# from sklearn import metrics
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 
@@ -132,11 +132,12 @@ def parse_args() -> argparse.Namespace:
     # # Location of the `adjacency-net` databin folder.
     parser.add_argument('--datadir', type=str, default='.')
     # Network parameters
-    parser.add_argument('--network_name', type=str, default='ModernNet')
     parser.add_argument('--loss_name', type=str, default='BCELoss')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.001)
     parser.add_argument('--n_filters', type=int, default=64)
+    # Training parameters
+    parser.add_argument('--batch-size', type=int, default=64)
     # Training set arguments
     parser.add_argument('--training-methods', type=str, default='permute')
     parser.add_argument('--training-min-seq-identity', type=int, default=0)
@@ -151,7 +152,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument('--tag', type=str, default=None)
     parser.add_argument('--resume', action='store_true', default=pagnn.settings.ARRAY_JOB)
     parser.add_argument('--num-aa-to-process', type=int, default=None)
-    # TODO(AS):
+    # TODO(AS): Run concurrent jobs in the computer has multiple GPUs
     parser.add_argument('-n', '--num-concurrent-jobs', type=int, default=1)
     args = parser.parse_args()
     return args
@@ -194,8 +195,8 @@ if __name__ == '__main__':
 
     # === Training ===
     logger.info("Setting up training datagen...")
-    training_datagen = pagnn.get_datagen('training', data_path, args.training_min_seq_identity,
-                                         args.training_methods.split('.'))
+    training_datagen = pagnn.get_datagen_gan('training', data_path, args.training_min_seq_identity,
+                                             args.training_methods.split('.'))
 
     # === Internal Validation ===
     logger.info("Setting up validation datagen...")
@@ -212,8 +213,8 @@ if __name__ == '__main__':
             assert len(dataset) == args.validation_num_sequences
         except FileNotFoundError:
             logger.info("Generating validation datagen: '%s'.", datagen_name)
-            datagen: DataGen = pagnn.get_datagen('validation', data_path, 80, [method],
-                                                 np.random.RandomState(42))
+            datagen: DataGen = pagnn.get_datagen_gan('validation', data_path, 80, [method],
+                                                     np.random.RandomState(42))
             dataset = list(
                 tqdm.tqdm(
                     itertools.islice(datagen(), args.validation_num_sequences),
@@ -223,16 +224,17 @@ if __name__ == '__main__':
             with cache_file.open('wb') as fout:
                 pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
 
-            def datagen_from_memory() -> Iterator[DataSetCollection]:
-                return dataset
+        def datagen_from_memory() -> Iterator[DataSetCollection]:
+            return dataset
 
         internal_validation_datagens[datagen_name] = datagen_from_memory
 
     # === Mutation Validation ===
     external_validation_datagens: Dict[str, DataGen] = {}
     for mutation_class in ['protherm', 'humsavar']:
-        external_validation_datagens[f'validation_{mutation_class}'] = pagnn.get_mutation_datagen(
-            mutation_class, data_path)
+        external_validation_datagens[
+            f'validation_{mutation_class}'] = pagnn.get_mutation_datagen_gan(
+                mutation_class, data_path)
 
     # === Train ===
     start_time = time.perf_counter()

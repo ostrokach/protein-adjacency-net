@@ -4,8 +4,9 @@ import numpy as np
 from scipy import sparse
 from torch.nn import Module
 
-from .datavar import push_dataset_collection, to_numpy
-from .types import DataGen, DataSet
+from pagnn.datavar import push_dataset_collection
+from pagnn.types import DataGen, DataSet
+from pagnn.utils import to_numpy
 
 # DataGen = Callable[[], Iterator[DataSetCollection]]
 

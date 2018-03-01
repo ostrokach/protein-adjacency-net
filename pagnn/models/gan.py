@@ -3,7 +3,8 @@
 Sources:
 
 - https://github.com/martinarjovsky/WassersteinGAN/blob/master/models/dcgan.py
-- https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/deep_convolutional_gan/model.py
+- https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/\
+deep_convolutional_gan/model.py
 """
 from collections import OrderedDict
 from typing import List
@@ -11,7 +12,7 @@ from typing import List
 import torch.nn as nn
 from torch.autograd import Variable
 
-from pagnn.types_gan import DataVar
+from pagnn.types import DataVarGAN
 
 from .adjacency_conv import AdjacencyConv
 
@@ -65,7 +66,7 @@ class Discriminator(nn.Module):
         model[f'conv_{i}'] = nn.Conv1d(in_feat, 1, 4, 1, 0, bias=False)
         self.model = model
 
-    def forward(self, dv: DataVar):
+    def forward(self, dv: DataVarGAN):
         """
         Args:
             seq: A sequence of 512 amino acids (if your sequence is shorter, pad it with zeros).

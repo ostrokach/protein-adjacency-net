@@ -1,5 +1,7 @@
-import numpy as np
 from contextlib import contextmanager
+
+import numpy as np
+
 from pagnn import settings
 from pagnn.datavar_gan import push_seqs
 

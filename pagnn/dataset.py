@@ -1,3 +1,4 @@
+"""Functions for generating and manipulating DataSets."""
 import operator
 from typing import Callable, Generator, List, Optional, Tuple
 
@@ -5,9 +6,9 @@ import numpy as np
 import pandas as pd
 from scipy import sparse
 
-from . import utils
-from .exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from .types import DataRow, DataSet
+from pagnn import utils
+from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
+from pagnn.types import DataRow, DataSet
 
 MAX_TRIES = 1024
 MAX_TRIES_SEQLEN = 8192
@@ -16,6 +17,7 @@ MAX_TRIES_SEQLEN = 8192
 
 
 def row_to_dataset(row: DataRow, target: float) -> DataSet:
+    """Convert a `DataRow` into a `DataSet`."""
     seq = row.sequence.replace('-', '').encode('ascii')
     adj = utils.get_adjacency(len(seq), row.adjacency_idx_1, row.adjacency_idx_2)
     known_fields = {'Index', 'sequence', 'adjacency_idx_1', 'adjacency_idx_2', 'target'}
@@ -29,11 +31,16 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
 # === Negative training examples ===
 
 
-def add_negative_example(ds: DataSet,
+def get_negative_example(ds: DataSet,
                          method: str,
                          datagen: Generator[DataRow, Tuple[Callable, int], None],
                          random_state: Optional[np.random.RandomState] = None) -> DataSet:
-    assert method in ['exact', 'start', 'stop', 'middle', 'edges'], method
+    """Find a valid negative control for a given `ds`.
+
+    Raises:
+        MaxNumberOfTriesExceededError
+    """
+    assert method in ['permute', 'exact', 'start', 'stop', 'middle', 'edges'], method
     n_tries = 0
     seq_identity = 1.0
     adj_identity = 1.0
@@ -41,7 +48,14 @@ def add_negative_example(ds: DataSet,
         n_tries += 1
         if n_tries > MAX_TRIES:
             raise MaxNumberOfTriesExceededError(n_tries)
-        if method == 'exact':
+        if method == 'permute':
+            offset = get_offset(len(ds.seq))
+            negative_seq = ds.seq[offset:] + ds.seq[:offset]
+            negative_adj = None
+            seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
+            adj_identity = 0
+            break
+        elif method == 'exact':
             n_tries_seqlen = 0
             while True:
                 n_tries_seqlen += 1
@@ -74,9 +88,11 @@ def add_negative_example(ds: DataSet,
     return negative_dataset
 
 
-def add_permuted_examples(datasets: List[DataSet],
+def get_permuted_examples(datasets: List[DataSet],
                           random_state: Optional[np.random.RandomState] = None) -> List[DataSet]:
     """
+    Generate negative examples by permuting a list of sequences together.
+
     Notes:
         * Makes no sense to permute the combined adjacency matrix because the resulting
           split adjacencies will have fewer contacts in total.
@@ -105,83 +121,9 @@ def add_permuted_examples(datasets: List[DataSet],
     return negative_datasets
 
 
-def interpolate_sequences(
-        positive_seq: bytes,
-        negative_seq: bytes,
-        interpolate: int = 0,
-        random_state: Optional[np.random.RandomState] = None) -> Tuple[List[bytes], List[float]]:
-    """
-    Examples:
-        >>> interpolated_seqs, interpolated_targets = interpolate_sequences(
-        ...     b'AAAAA', b'BBBBB', 4,  np.random.RandomState(42))
-        >>> [round(f, 3) for f in interpolated_targets]
-        [0.8, 0.6, 0.4, 0.2]
-        >>> interpolated_seqs
-        [b'AAABA', b'BAAAB', b'AABBB', b'ABBBB']
-    """
-    if random_state is None:
-        random_state = np.random.RandomState()
-    interpolated_seqs = []
-    fraction_positive = np.linspace(1, 0, interpolate + 2)[1:-1]
-    if interpolate:
-        for i in range(interpolate):
-            fp = fraction_positive[i]
-            idx = random_state.choice(
-                np.arange(len(positive_seq)), int(round(fp * len(positive_seq))), replace=False)
-            seq = bytearray(negative_seq)
-            for i in idx:
-                seq[i] = positive_seq[i]
-            interpolated_seqs.append(bytes(seq))
-    return interpolated_seqs, fraction_positive.tolist()
-
-
-def interpolate_adjacencies(positive_adj: sparse.spmatrix,
-                            negative_adj: sparse.spmatrix,
-                            interpolate: int = 0,
-                            random_state: Optional[np.random.RandomState] = None
-                           ) -> Tuple[List[sparse.spmatrix], List[float]]:
-    """
-
-    Examples:
-        >>> from scipy import sparse
-        >>> positive_adj = sparse.coo_matrix((
-        ...     np.ones(11), (
-        ...         np.r_[np.arange(7), [0, 0, 5, 6]],
-        ...         np.r_[np.arange(7), [5, 6, 0, 0]]), ))
-        >>> negative_adj = sparse.coo_matrix((np.ones(7), (np.arange(7), np.arange(7)), ))
-        >>> interpolated_adjs, interpolated_targets = interpolate_adjacencies(
-        ...     positive_adj, negative_adj, 1, np.random.RandomState(42))
-        >>> interpolated_targets
-        [0.5]
-        >>> interpolated_adjs[0].row
-        array([0, 0, 1, 2, 3, 4, 5, 6, 6], dtype=int32)
-        >>> interpolated_adjs[0].col
-        array([0, 6, 1, 2, 3, 4, 5, 0, 6], dtype=int32)
-    """
-    if random_state is None:
-        random_state = np.random.RandomState()
-    interpolated_adjs = []
-    fraction_positive = np.linspace(1, 0, interpolate + 2)[1:-1]
-    if interpolate:
-        # TODO: This can be sped up significantly if we actually use it.
-        positive_adj = positive_adj.tocsr()
-        negative_adj = negative_adj.tocsr()
-        mismatches = np.array(np.where((positive_adj != negative_adj).todense()))
-        mismatches = mismatches[:, mismatches[0, :] <= mismatches[1, :]]
-        for i in range(interpolate):
-            fp = fraction_positive[i]
-            idxs = random_state.choice(
-                np.arange(mismatches.shape[0]), int(round(mismatches.shape[0] * fp)), replace=False)
-            adj = negative_adj.tocsr()
-            idx_1, idx_2 = mismatches[:, idxs]
-            adj[idx_1, idx_2] = positive_adj[idx_1, idx_2]
-            adj[idx_2, idx_1] = positive_adj[idx_2, idx_1]
-            interpolated_adjs.append(adj.tocoo())
-    return interpolated_adjs, fraction_positive.tolist()
-
-
 def get_offset(length: int, random_state: Optional[np.random.RandomState] = None):
-    """
+    """Chose a random offset (useful for permutations, etc).
+
     Examples:
         >>> get_offset(10, np.random.RandomState(42))
         5
@@ -198,6 +140,8 @@ def get_indices(length: int,
                 method: str,
                 random_state: Optional[np.random.RandomState] = None):
     """
+    Get `start` and `stop` indices for a given slice method.
+
     Examples:
         >>> get_indices(3, 3, 'exact')
         (0, 3)
