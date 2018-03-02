@@ -33,7 +33,7 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
 
 def get_negative_example(ds: DataSet,
                          method: str,
-                         datagen: Generator[DataRow, Tuple[Callable, int], None],
+                         rowgen: Generator[DataRow, Tuple[Callable, int], None],
                          random_state: Optional[np.random.RandomState] = None) -> DataSet:
     """Find a valid negative control for a given `ds`.
 
@@ -61,7 +61,7 @@ def get_negative_example(ds: DataSet,
                 n_tries_seqlen += 1
                 if n_tries_seqlen > MAX_TRIES_SEQLEN:
                     raise MaxNumberOfTriesExceededError(n_tries_seqlen)
-                row = datagen.send((operator.eq, int(len(ds.seq) // 20 * 20)))
+                row = rowgen.send((operator.eq, int(len(ds.seq) // 20 * 20)))
                 if row is None:
                     raise SequenceTooLongError(
                         f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
@@ -69,7 +69,7 @@ def get_negative_example(ds: DataSet,
                 if len(negative_ds.seq) == len(ds.seq):
                     break
         else:
-            row = datagen.send((operator.ge, len(ds.seq) + 20))
+            row = rowgen.send((operator.ge, len(ds.seq) + 20))
             if row is None:
                 raise SequenceTooLongError(
                     f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
