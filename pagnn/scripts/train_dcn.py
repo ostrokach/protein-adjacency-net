@@ -228,7 +228,7 @@ def parse_args() -> argparse.Namespace:
     # # Location of the `adjacency-net` databin folder.
     parser.add_argument('--datadir', type=str, default='.')
     # Network parameters
-    parser.add_argument('--network_name', type=str, default='ModernNet')
+    parser.add_argument('--network_name', type=str, default='Classifier')
     parser.add_argument('--loss_name', type=str, default='BCELoss')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.001)

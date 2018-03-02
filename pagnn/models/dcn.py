@@ -8,7 +8,7 @@ from torch.autograd import Variable
 from pagnn.types import DataVarCollection
 
 
-class ModernNet(nn.Module):
+class Classifier(nn.Module):
     """A neural network that takes multiple ``(sequence, adjacency_matrix)`` tuples."""
 
     def __init__(self, n_filters: int) -> None:
