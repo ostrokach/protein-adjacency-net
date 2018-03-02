@@ -6,9 +6,9 @@ import tempfile
 
 import numpy as np
 import pytest
-from kmtools import py_tools
 
 import pagnn
+from pagnn.utils import iter_submodules
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ DOCTEST_OPTIONFLAGS = (doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS |
 DOCTEST_EXTRAGLOBS = {'os': os, 'op': op, 'tempfile': tempfile, 'np': np}
 
 
-@pytest.mark.parametrize("module_name, module", py_tools.iter_submodules(pagnn))
+@pytest.mark.parametrize("module_name, module", iter_submodules(pagnn))
 def test_doctest(module_name, module):
     print(module_name, module)
     failure_count, test_count = doctest.testmod(
