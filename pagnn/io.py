@@ -97,6 +97,11 @@ def iter_datarows_shuffled(parquet_folders: List[Path],
                                                       random_state)
 
 
+def iter_mutations():
+    """TODO: Implement."""
+    ...
+
+
 def count_rows(parquet_folder: Path) -> int:
     """Count the number of rows in a single parquet folder."""
     parquet_files = _get_domain_parquet_files(parquet_folder)
@@ -111,8 +116,7 @@ def get_folder_weights(parquet_folders: List[Path]) -> np.ndarray:
     """Calculate the relative weights of multiple parquet folders."""
     logger.debug("Generating weights for domain folders...")
     if len(parquet_folders) > 1:
-        weights = np.array(
-            [count_rows(parquet_folder) for parquet_folder in parquet_folders])
+        weights = np.array([count_rows(parquet_folder) for parquet_folder in parquet_folders])
     else:
         weights = np.array([1])
     logger.debug("Done generating weights!")

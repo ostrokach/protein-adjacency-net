@@ -14,7 +14,7 @@ from torch.autograd import Variable
 
 from pagnn.types import DataVarGAN
 
-from .adjacency_conv import AdjacencyConv
+from .torch_adjacency_conv import AdjacencyConv
 
 
 class Discriminator(nn.Module):

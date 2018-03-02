@@ -16,6 +16,7 @@
    {% endif %}
    {% endblock %}
 
+
    {% block classes %}
    {% if classes %}
    .. rubric:: Classes
@@ -27,6 +28,7 @@
    {%- endfor %}
    {% endif %}
    {% endblock %}
+
 
    {% block exceptions %}
    {% if exceptions %}

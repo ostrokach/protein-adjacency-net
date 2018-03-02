@@ -20,6 +20,7 @@ DOCTEST_EXTRAGLOBS = {'os': os, 'op': op, 'tempfile': tempfile, 'np': np}
 
 @pytest.mark.parametrize("module_name, module", py_tools.iter_submodules(pagnn))
 def test_doctest(module_name, module):
+    print(module_name, module)
     failure_count, test_count = doctest.testmod(
         module, optionflags=DOCTEST_OPTIONFLAGS, extraglobs=DOCTEST_EXTRAGLOBS)
     assert failure_count == 0

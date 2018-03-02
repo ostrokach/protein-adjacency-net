@@ -36,7 +36,6 @@ project_root = os.path.dirname(cwd)
 # version is used.
 sys.path.insert(0, project_root)
 
-
 # -- General configuration ---------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
@@ -306,3 +305,4 @@ napoleon_use_param = True
 napoleon_use_rtype = True
 
 autodoc_member_order = 'bysource'
+imported_members = True

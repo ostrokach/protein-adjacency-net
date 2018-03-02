@@ -1,7 +1,8 @@
 """Data types used throughout this project.
 
-Not sure if its good practice to have all your types defined in a separate file,
-but it's the only way I've been able to get it to work with mypy.
+Notes:
+  * Not sure if its good practice to have all your types defined in a separate file,
+    but it's the only way I've been able to get it to work with mypy.
 """
 from typing import Callable, Iterator, List, NamedTuple, Optional, Tuple
 
@@ -40,22 +41,26 @@ class DataSetGAN(NamedTuple):
     Contains one or more sequences, the adjacency matric, and the label (target)
     of a protein domain.
     """
+    #: List of sequences that match a single adjacency.
     seqs: List[bytes]
-    adj: sparse.spmatrix
+    #: List of adjacencies, ranging from unpooled to 4x pooled.
+    adjs: sparse.spmatrix
+    #: Expected value for every sequence in `seqs`.
     targets: List[float]
+    #: Optional metadata.
     meta: Optional[dict] = None
 
 
 class DataVar(NamedTuple):
-    """Input to the neural network."""
+    """Input variables for the Dynamic Convolutional Neural Network."""
     seq: Variable
     adj: Variable
 
 
 class DataVarGAN(NamedTuple):
-    """Input variables for the neural network."""
+    """Input variables for the Generative Adverserial Neural Network."""
     seqs: Variable
-    adj: Variable
+    adjs: Variable
 
 
 DataSetCollection = Tuple[List[DataSet], List[DataSet]]

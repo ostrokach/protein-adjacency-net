@@ -1,14 +1,15 @@
+import logging
 from typing import List, Tuple
 
 import numpy as np
 from scipy import sparse
 from torch.nn import Module
 
-from pagnn.datavar import push_dataset_collection
+from pagnn.scripts._train_dcn import push_dataset_collection
 from pagnn.types import DataGen, DataSet
 from pagnn.utils import to_numpy
 
-# DataGen = Callable[[], Iterator[DataSetCollection]]
+logger = logging.getLogger(__name__)
 
 
 def evaluate_validation_dataset(net: Module,

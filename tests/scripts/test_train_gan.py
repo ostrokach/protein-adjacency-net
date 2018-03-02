@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import numpy as np
 
 from pagnn import settings
-from pagnn.datavar_gan import push_seqs
+from pagnn.scripts._train_gan import datavar
 
 
 @contextmanager
@@ -19,7 +19,7 @@ def no_cuda():
 def test_push_seq():
     seqs = [b'GGGGG', b'VVVVV', b'AAAAA']
     with no_cuda():
-        seqs_var = push_seqs(seqs).numpy()
+        seqs_var = datavar._push_seqs(seqs).data.numpy()
     # Ref
     seqs_var_ = np.zeros((3, 20, 5), dtype=float)
     seqs_var_[0, 0, :] = 1

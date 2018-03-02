@@ -1,14 +1,14 @@
 import functools
 import logging
-import pickle
 from pathlib import Path
 from typing import Any, Generator, Iterator, List, Optional, Tuple
 
 import numpy as np
 
-from . import dataset, io, settings
-from .exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from .types import DataGen, DataRow, DataSet, DataSetCollection
+from pagnn import dataset, io, settings
+from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
+from pagnn.scripts.common import get_rowgen_neg, get_rowgen_pos
+from pagnn.types import DataGen, DataRow, DataSet, DataSetCollection
 
 logger = logging.getLogger(__name__)
 
@@ -21,14 +21,14 @@ def get_datagen(subset: str,
     """Return a function which can generate positive or negative training examples."""
     assert subset in ['training', 'validation', 'test']
 
-    datagen_pos = _get_rowgen_pos(f'adjacency_matrix_{subset}_gt{min_seq_identity}.parquet',
-                                  data_path, random_state)
+    datagen_pos = get_rowgen_pos(f'adjacency_matrix_{subset}_gt{min_seq_identity}.parquet',
+                                 data_path, random_state)
 
     if len(methods) == 1 and 'permute' in methods:
         training_datagen = functools.partial(
             permute_and_slice_datagen, datagen_pos=datagen_pos, datagen_neg=None, methods=methods)
     else:
-        datagen_neg = _get_rowgen_neg(
+        datagen_neg = get_rowgen_neg(
             f'adjacency_matrix_{subset}_gt{min_seq_identity}_gbseqlen.parquet', data_path,
             random_state)
         if 'permute' in methods:
@@ -135,71 +135,3 @@ def slice_datagen(datagen_pos: Iterator[DataRow], datagen_neg: Generator[DataRow
             logger.error("%s: %s", type(e), e)
             continue
         yield [dataset_pos], datasets_neg
-
-
-def _get_rowgen_pos(root_folder_name: str,
-                    data_path: Path,
-                    random_state: Optional[np.random.RandomState] = None) -> Iterator[DataRow]:
-    parquet_folders = sorted(
-        data_path.joinpath('threshold_by_pc_identity')
-        .joinpath(root_folder_name).glob('database_id=*'))
-
-    parquet_folder_weights_file = data_path.joinpath('threshold_by_pc_identity').joinpath(
-        root_folder_name.partition('.')[0] + '-weights.pickle')
-    parquet_folder_weights = _load_parquet_weights(parquet_folder_weights_file, parquet_folders)
-    assert len(parquet_folders) == len(parquet_folder_weights)
-
-    datagen_pos = io.iter_datarows_shuffled(
-        parquet_folders,
-        parquet_folder_weights,
-        columns={
-            'qseq': 'sequence',
-            'residue_idx_1_corrected': 'adjacency_idx_1',
-            'residue_idx_2_corrected': 'adjacency_idx_2',
-        },
-        random_state=random_state)
-
-    return datagen_pos
-
-
-def _get_rowgen_neg(root_folder_name: str,
-                    data_path: Path,
-                    random_state: Optional[np.random.RandomState] = None
-                   ) -> Generator[DataRow, None, None]:
-    parquet_folders = sorted(
-        data_path.joinpath('group_by_sequence_length')
-        .joinpath(root_folder_name).glob('qseq_length_bin=*'))
-
-    parquet_folder_weights_file = data_path.joinpath('group_by_sequence_length').joinpath(
-        root_folder_name.partition('.')[0] + '-weights.pickle')
-    parquet_folder_weights = _load_parquet_weights(parquet_folder_weights_file, parquet_folders)
-    assert len(parquet_folders) == len(parquet_folder_weights)
-
-    datagen_neg = io.iter_datarows_shuffled(
-        parquet_folders,
-        parquet_folder_weights,
-        columns={
-            'qseq': 'sequence',
-            'residue_idx_1_corrected': 'adjacency_idx_1',
-            'residue_idx_2_corrected': 'adjacency_idx_2',
-        },
-        seq_length_constraint=True,
-        random_state=random_state)
-    next(datagen_neg)
-
-    return datagen_neg
-
-
-def _load_parquet_weights(filepath: Path, parquet_folders: List[Path]) -> np.ndarray:
-    try:
-        with filepath.open('rb') as fin:
-            d = pickle.load(fin)
-            parquet_folder_weights = np.array([d[p.name] for p in parquet_folders])
-        logger.info("Loaded folder weights from file: '%s'", filepath)
-    except FileNotFoundError:
-        logger.info("Generating folder weights for parquet folder: '%s'.", parquet_folders)
-        parquet_folder_weights = io.get_folder_weights(parquet_folders)
-        d = {p.name: w for p, w in zip(parquet_folders, parquet_folder_weights)}
-        with filepath.open('wb') as fout:
-            pickle.dump(d, fout, pickle.HIGHEST_PROTOCOL)
-    return parquet_folder_weights

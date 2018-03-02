@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-from .sparse_mm import SparseMM
+from .torch_sparse_mm import SparseMM
 
 
 class AdjacencyConv(nn.Module):

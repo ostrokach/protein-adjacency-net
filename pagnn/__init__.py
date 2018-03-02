@@ -1,16 +1,28 @@
-"""Top-level package for Protein Adjacency Graph Neural Network."""
+"""Top-level package for Protein Adjacency Graph Neural Network.
+
+.. autosummary::
+   :toctree: _modules
+
+   pagnn.settings
+   pagnn.exc
+   pagnn.types
+   pagnn.gpu
+   pagnn.utils
+   pagnn.io
+   pagnn.dataset
+   pagnn.models
+   pagnn.scripts
+"""
 
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.7.dev'
 
-from . import settings, types, exc, models, scripts, datavar_gan
+from . import settings, exc
 from .types import *
 from .gpu import init_gpu
 from .utils import *
 from .io import iter_datarows_shuffled, iter_datarows, get_folder_weights
 from .dataset import (row_to_dataset, get_negative_example, get_permuted_examples, get_offset,
                       get_indices)
-from .generators import get_datagen, get_mutation_datagen
-from .datavar import dataset_to_datavar, push_dataset_collection
-from .training import evaluate_validation_dataset, evaluate_mutation_dataset
+from . import models, scripts
