@@ -5,9 +5,9 @@ from typing import Any, Generator, Iterator, List, Optional, Tuple
 
 import numpy as np
 
-from pagnn import dataset, io, settings
+from pagnn import dataset, settings
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.scripts.common import get_rowgen_neg, get_rowgen_pos
+from pagnn.scripts.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
 from pagnn.types import DataGen, DataRow, DataSet, DataSetCollection
 
 logger = logging.getLogger(__name__)
@@ -21,16 +21,13 @@ def get_datagen(subset: str,
     """Return a function which can generate positive or negative training examples."""
     assert subset in ['training', 'validation', 'test']
 
-    datagen_pos = get_rowgen_pos(f'adjacency_matrix_{subset}_gt{min_seq_identity}.parquet',
-                                 data_path, random_state)
+    datagen_pos = get_rowgen_pos(subset, min_seq_identity, data_path, random_state)
 
     if len(methods) == 1 and 'permute' in methods:
         training_datagen = functools.partial(
             permute_and_slice_datagen, datagen_pos=datagen_pos, datagen_neg=None, methods=methods)
     else:
-        datagen_neg = get_rowgen_neg(
-            f'adjacency_matrix_{subset}_gt{min_seq_identity}_gbseqlen.parquet', data_path,
-            random_state)
+        datagen_neg = get_rowgen_neg(subset, min_seq_identity, data_path, random_state)
         if 'permute' in methods:
             training_datagen = functools.partial(
                 permute_and_slice_datagen,
@@ -45,27 +42,8 @@ def get_datagen(subset: str,
 
 
 def get_mutation_datagen(mutation_class: str, data_path: Path) -> DataGen:
-    assert mutation_class in ['protherm', 'humsavar']
 
-    if mutation_class == 'protherm':
-        score_column = 'ddg_exp'
-        parquet_file = (
-            data_path.joinpath('protherm_dataset').joinpath('protherm_validaton_dataset.parquet'))
-    elif mutation_class == 'humsavar':
-        score_column = 'score_exp'
-        parquet_file = (
-            data_path.joinpath('mutation_datasets').joinpath('humsavar_validaton_dataset.parquet'))
-
-    mutation_datarows = io.iter_datarows(
-        parquet_file,
-        columns={
-            'qseq': 'sequence',
-            'residue_idx_1_corrected': 'adjacency_idx_1',
-            'residue_idx_2_corrected': 'adjacency_idx_2',
-            'qseq_mutation': 'mutation',
-            score_column: 'score',
-        })
-
+    mutation_datarows = get_rowgen_mut()
     mutation_datasets = (dataset.row_to_dataset(row, target=1) for row in mutation_datarows)
 
     mutation_dsc = []
@@ -106,7 +84,7 @@ def permute_and_slice_datagen(datagen_pos: Iterator[DataRow],
                         other_neg = dataset.get_negative_example(
                             pos,
                             method=method,
-                            datagen=datagen_neg,
+                            rowgen=datagen_neg,
                         )
                         neg_list.append(other_neg)
                     except (MaxNumberOfTriesExceededError, SequenceTooLongError) as e:
@@ -128,7 +106,7 @@ def slice_datagen(datagen_pos: Iterator[DataRow], datagen_neg: Generator[DataRow
                 dataset_neg = dataset.get_negative_example(
                     dataset_pos,
                     method=method,
-                    datagen=datagen_neg,
+                    rowgen=datagen_neg,
                 )
                 datasets_neg.append(dataset_neg)
         except (MaxNumberOfTriesExceededError, SequenceTooLongError) as e:

@@ -24,8 +24,8 @@ import pagnn
 from pagnn import settings
 from pagnn.dataset import row_to_dataset
 from pagnn.models import Discriminator, Generator
-from pagnn.scripts._train_gan import dataset_to_datavar, to_gan
-from pagnn.scripts.common import get_rowgen_pos
+from pagnn.scripts._train_gan import dataset_to_datavar, negative_sequence_adder, to_gan
+from pagnn.scripts.common import get_rowgen_neg, get_rowgen_pos
 from pagnn.types import DataGen, DataSetCollection
 
 logger = logging.getLogger(__name__)
@@ -208,7 +208,12 @@ if __name__ == '__main__':
 
     # === Training ===
     logger.info("Setting up training datagen...")
-    training_rowgen = get_rowgen_pos()
+    positive_rowgen = get_rowgen_pos(
+        'training',
+        args.training_min_seq_identity,
+        data_path,
+        random_state=None,
+    )
 
     # === Internal Validation ===
     logger.info("Setting up validation datagen...")
@@ -225,14 +230,27 @@ if __name__ == '__main__':
             assert len(dataset) == args.validation_num_sequences
         except FileNotFoundError:
             logger.info("Generating validation datagen: '%s'.", datagen_name)
-            datagen: DataGen = get_datagen_gan('validation', data_path, 80, [method],
-                                               np.random.RandomState(42))
-            dataset = list(
-                tqdm.tqdm(
-                    itertools.islice(datagen(), args.validation_num_sequences),
+            negative_rowgen = get_rowgen_neg(
+                'validation',
+                args.validation_min_seq_identity,
+                data_path,
+                random_state=np.random.RandomState(42),
+            )
+            nsa = negative_sequence_adder(
+                negative_rowgen(),
+                method,
+                args.validation_num_sequences,
+                keep_pos=True,
+                random_state=np.random.RandomState(42))
+            next(nsa)
+            dataset = [
+                nsa.send(to_gan(row_to_dataset(r, 1)))
+                for r in tqdm.tqdm(
+                    itertools.islice(negative_rowgen, args.validation_num_sequences),
                     total=args.validation_num_sequences,
                     desc=cache_file.name,
-                    disable=not settings.SHOW_PROGRESSBAR))
+                    disable=not settings.SHOW_PROGRESSBAR)
+            ]
             assert len(dataset) == args.validation_num_sequences
             with cache_file.open('wb') as fout:
                 pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
