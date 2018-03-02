@@ -8,9 +8,9 @@ from typing import Generator, List, Optional, Union
 
 import numpy as np
 import pyarrow.parquet as pq
-from kmtools import py_tools
 
-from .types import DataRow
+from pagnn.types import DataRow
+from pagnn.utils import iter_forever
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def iter_datarows_shuffled(parquet_folders: List[Path],
     assert np.allclose(weights.sum(), 1)
 
     generators = np.array([
-        py_tools.iter_forever(
+        iter_forever(
             lambda parquet_folder=parquet_folder: iter_datarows(parquet_folder, columns, filters))
         for parquet_folder in parquet_folders
     ])
@@ -95,11 +95,6 @@ def iter_datarows_shuffled(parquet_folders: List[Path],
             [_get_min_sequence_size(parquet_folder) for parquet_folder in parquet_folders])
         yield from _iter_dataset_rows_with_constraint(generators, weights, seq_lengths,
                                                       random_state)
-
-
-def iter_mutations():
-    """TODO: Implement."""
-    ...
 
 
 def count_rows(parquet_folder: Path) -> int:
