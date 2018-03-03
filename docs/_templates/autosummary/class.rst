@@ -7,7 +7,7 @@
    :members:
    :member-order: bysource
    :no-private-members:
-   :no-inherited-members:
+   :inherited-members:
 
    {% block methods %}
 
