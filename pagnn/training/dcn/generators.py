@@ -43,7 +43,7 @@ def get_datagen(subset: str,
 
 def get_mutation_datagen(mutation_class: str, data_path: Path) -> DataGen:
 
-    mutation_datarows = get_rowgen_mut()
+    mutation_datarows = get_rowgen_mut(mutation_class, data_path)
     mutation_datasets = (dataset.row_to_dataset(row, target=1) for row in mutation_datarows)
 
     mutation_dsc = []
