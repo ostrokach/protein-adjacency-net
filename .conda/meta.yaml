@@ -31,6 +31,7 @@ requirements:
     - pytorch =0.3.*
     - torchvision
     - tensorboardx
+    - scikit-learn
 
 test:
   requires:
