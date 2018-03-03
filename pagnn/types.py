@@ -1,4 +1,4 @@
-"""Data types used throughout this project.
+"""Data types.
 
 Notes:
   * Not sure if its good practice to have all your types defined in a separate file,

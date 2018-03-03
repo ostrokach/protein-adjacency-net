@@ -22,10 +22,11 @@ from torch.autograd import Variable
 
 import pagnn
 from pagnn import settings
-from pagnn.dataset import row_to_dataset
+from pagnn.dataset import row_to_dataset, to_gan
+from pagnn.datavargan import dataset_to_datavar
 from pagnn.models import Discriminator, Generator
-from pagnn.scripts._train_gan import dataset_to_datavar, negative_sequence_adder, to_gan
-from pagnn.scripts.common import get_rowgen_neg, get_rowgen_pos
+from pagnn.training.common import get_rowgen_neg, get_rowgen_pos
+from pagnn.training.gan import negative_sequence_adder
 from pagnn.types import DataGen, DataSetCollection
 
 logger = logging.getLogger(__name__)

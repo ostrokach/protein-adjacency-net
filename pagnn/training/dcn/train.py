@@ -22,8 +22,9 @@ from torch.autograd import Variable
 
 import pagnn
 from pagnn import settings
-from pagnn.scripts._train_dcn import (evaluate_mutation_dataset, evaluate_validation_dataset,
-                                      get_datagen, get_mutation_datagen, push_dataset_collection)
+from pagnn.datavardcn import push_dataset_collection
+from pagnn.training.dcn import (evaluate_mutation_dataset, evaluate_validation_dataset, get_datagen,
+                                get_mutation_datagen)
 from pagnn.types import DataGen, DataSetCollection
 
 logger = logging.getLogger(__name__)

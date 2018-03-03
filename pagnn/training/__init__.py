@@ -4,7 +4,7 @@
    :toctree: _modules
 
    common
-   _train_dcn
-   _train_gan
+   dcn
+   gan
 """
-from . import common, _train_dcn, _train_gan
+from . import common, dcn, gan

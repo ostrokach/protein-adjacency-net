@@ -8,7 +8,7 @@ from scipy import sparse
 
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.types import DataRow, DataSet
+from pagnn.types import DataRow, DataSet, DataSetGAN
 
 MAX_TRIES = 1024
 MAX_TRIES_SEQLEN = 8192
@@ -26,6 +26,11 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
     else:
         meta = None
     return DataSet(seq, adj, target, meta)
+
+
+def to_gan(ds: DataSet) -> DataSetGAN:
+    """Convert a `DataSet` into a `DataSetGAN`."""
+    return DataSetGAN([ds.seq], ds.adj, np.array([ds.target], dtype=np.float64))
 
 
 # === Negative training examples ===

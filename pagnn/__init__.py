@@ -10,10 +10,11 @@
    pagnn.utils
    pagnn.io
    pagnn.dataset
+   pagnn.datavardcn
+   pagnn.datavargan
    pagnn.models
-   pagnn.scripts
+   pagnn.training
 """
-
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.7.dev'
@@ -25,4 +26,4 @@ from .utils import *
 from .io import iter_datarows_shuffled, iter_datarows, get_folder_weights
 from .dataset import (row_to_dataset, get_negative_example, get_permuted_examples, get_offset,
                       get_indices)
-from . import models, scripts
+from . import datavardcn, datavargan, models, training

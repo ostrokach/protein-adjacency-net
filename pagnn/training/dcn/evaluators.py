@@ -5,7 +5,7 @@ import numpy as np
 from scipy import sparse
 from torch.nn import Module
 
-from pagnn.scripts._train_dcn import push_dataset_collection
+from pagnn.datavardcn import push_dataset_collection
 from pagnn.types import DataGen, DataSet
 from pagnn.utils import to_numpy
 

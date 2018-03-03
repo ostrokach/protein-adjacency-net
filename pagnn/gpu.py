@@ -1,3 +1,4 @@
+"""GPU configuration."""
 import io
 import logging
 import os

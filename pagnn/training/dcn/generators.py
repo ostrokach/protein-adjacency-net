@@ -7,7 +7,7 @@ import numpy as np
 
 from pagnn import dataset, settings
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.scripts.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
+from pagnn.training.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
 from pagnn.types import DataGen, DataRow, DataSet, DataSetCollection
 
 logger = logging.getLogger(__name__)

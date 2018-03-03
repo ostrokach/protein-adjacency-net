@@ -9,22 +9,17 @@ import torch.nn.functional as F
 from scipy import sparse
 from torch.autograd import Variable
 
-from pagnn.types import DataSet, DataSetGAN, DataVarGAN
+from pagnn.types import DataSetGAN, DataVarGAN
 from pagnn.utils import expand_adjacency, get_seq_array, to_sparse_tensor
 
 logger = logging.getLogger(__name__)
-
-
-def to_gan(ds: DataSet) -> DataSetGAN:
-    """Convert a `DataSet` into a `DataSetGAN`."""
-    return DataSetGAN([ds.seq], ds.adj, np.array([ds.target], dtype=np.float64))
 
 
 def dataset_to_datavar(ds: DataSetGAN, push_seq: bool = True, push_adj: bool = True) -> DataVarGAN:
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
     ds = pad_edges(ds)
     seqs = _push_seqs(ds.seqs)
-    adjs = _push_adjs(_gen_adj_pool(ds.adj))
+    adjs = _push_adjs(_gen_adj_pool(ds.adjs[0]))
     return DataVarGAN(seqs, adjs)
 
 
