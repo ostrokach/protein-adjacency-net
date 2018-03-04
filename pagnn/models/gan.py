@@ -12,8 +12,6 @@ from typing import List
 import torch.nn as nn
 from torch.autograd import Variable
 
-from pagnn.types import DataVarGAN
-
 from .torch_adjacency_conv import AdjacencyConv
 
 
@@ -65,8 +63,10 @@ class Discriminator(nn.Module):
         i += 1
         model[f'conv_{i}'] = nn.Conv1d(in_feat, 1, 4, 1, 0, bias=False)
         self.model = model
+        for key in model:
+            setattr(self, key, self.model[key])
 
-    def forward(self, dv: DataVarGAN):
+    def forward(self, seq: Variable, adjs: List[Variable]):
         """
         Args:
             seq: A sequence of 512 amino acids (if your sequence is shorter, pad it with zeros).
@@ -74,8 +74,6 @@ class Discriminator(nn.Module):
             adjs:
                 Shape: ``[ [xxx, 512], [xxx, 256], [xxx, 128], [xxx, 64] ]``.
         """
-        seq, adjs = dv
-
         x = seq
 
         # 20 x 512
@@ -178,6 +176,8 @@ class Generator(nn.Module):
             model[f'softmax_{i}'] = nn.Softmax(1)
 
         self.model = model
+        for key in model:
+            setattr(self, key, self.model[key])
 
     def forward(self, z: Variable, adjs: List[Variable]):
         x = z

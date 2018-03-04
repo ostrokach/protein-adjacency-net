@@ -1,3 +1,4 @@
+from .arguments import *
 from .generators import *
 from .evaluators import *
-from . import train
+from . import main

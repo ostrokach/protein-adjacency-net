@@ -1,16 +1,102 @@
+import argparse
 import itertools
 import logging
-from typing import Callable, Generator, Optional, Tuple
+from pathlib import Path
+from typing import Callable, Generator, List, Optional, Tuple
 
 import numpy as np
+import tqdm
 
-from pagnn import exc
-from pagnn.dataset import get_negative_example, row_to_dataset
+from pagnn import exc, settings
+from pagnn.dataset import get_negative_example, row_to_dataset, to_gan
+from pagnn.training.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
 from pagnn.types import DataRow, DataSet, DataSetGAN
 
 logger = logging.getLogger(__name__)
 
 RowGen = Generator[DataRow, Tuple[Callable, int], None]
+
+# === Dataset loaders ===
+
+
+def get_validation_dataset(
+        args: argparse.Namespace,
+        method: str,
+        data_path: Path,
+        random_state: Optional[np.random.RandomState] = None) -> List[DataSetGAN]:
+
+    if random_state is None:
+        random_state = np.random.RandomState(42)
+
+    positive_rowgen = get_rowgen_pos(
+        'validation',
+        args.validation_min_seq_identity,
+        data_path,
+        random_state=random_state,
+    )
+
+    negative_rowgen = get_rowgen_neg(
+        'validation',
+        args.validation_min_seq_identity,
+        data_path,
+        random_state=random_state,
+    )
+
+    nsa = negative_sequence_adder(
+        negative_rowgen,
+        method,
+        num_sequences=1,
+        keep_pos=True,
+        random_state=random_state,
+    )
+    next(nsa)
+
+    dataset = []
+    with tqdm.tqdm(
+            total=args.validation_num_sequences, desc=method,
+            disable=not settings.SHOW_PROGRESSBAR) as progressbar:
+        while len(dataset) < args.validation_num_sequences:
+            pos_row = next(positive_rowgen)
+            pos_ds = to_gan(row_to_dataset(pos_row, 1))
+            ds = nsa.send(pos_ds)
+            dataset.append(ds)
+            progressbar.update(1)
+
+    assert len(dataset) == args.validation_num_sequences
+    return dataset
+
+
+def get_mutation_dataset(mutation_class: str, data_path: Path) -> List[DataSetGAN]:
+
+    mutation_datarows = get_rowgen_mut(mutation_class, data_path)
+    mutation_datasets = (to_gan(row_to_dataset(row, target=1)) for row in mutation_datarows)
+
+    mutation_dsg = []
+    for pos_ds in mutation_datasets:
+        neg_seq = bytearray(pos_ds.seqs[0])
+        mutation = pos_ds.meta['mutation']
+        mutation_idx = int(mutation[1:-1]) - 1
+        assert neg_seq[mutation_idx] == ord(mutation[0]), (chr(neg_seq[mutation_idx]), mutation[0])
+        neg_seq[mutation_idx] = ord(mutation[-1])
+        ds = pos_ds._replace(
+            seqs=pos_ds.seqs + [neg_seq],
+            targets=pos_ds.targets + [pos_ds.meta['score']],
+        )
+        mutation_dsg.append(ds)
+
+    return mutation_dsg
+
+
+# === Negative dataset generators ===
+
+
+def chain_generators(gens: List[Generator[DataSetGAN, DataSetGAN, None]]
+                    ) -> Generator[DataSetGAN, DataSetGAN, None]:
+    ds = None
+    while True:
+        ds = yield ds
+        for gen in gens:
+            ds = gen.send(ds)
 
 
 def basic_permuted_sequence_adder(num_sequences: int,

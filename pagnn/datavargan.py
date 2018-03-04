@@ -39,12 +39,15 @@ def pad_edges(ds: DataSetGAN,
         new_seq = b'.' * start + seq + b'.' * stop
         new_seqs.append(new_seq)
 
-    row = ds.adj.row + start
-    col = ds.adj.col + start
-    new_adj = sparse.coo_matrix(
-        (ds.adj.data, (row, col)), dtype=ds.adj.dtype, shape=(target_length, target_length))
+    new_adjs = []
+    for adj in ds.adjs:
+        row = adj.row + start
+        col = adj.col + start
+        new_adj = sparse.coo_matrix(
+            (adj.data, (row, col)), dtype=adj.dtype, shape=(target_length, target_length))
+        new_adjs.append(new_adj)
 
-    new_ds = DataSetGAN(new_seqs, new_adj, ds.targets, ds.meta)
+    new_ds = DataSetGAN(new_seqs, new_adjs, ds.targets, ds.meta)
     return new_ds
 
 

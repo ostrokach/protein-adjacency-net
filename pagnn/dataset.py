@@ -30,7 +30,7 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
 
 def to_gan(ds: DataSet) -> DataSetGAN:
     """Convert a `DataSet` into a `DataSetGAN`."""
-    return DataSetGAN([ds.seq], ds.adj, np.array([ds.target], dtype=np.float64))
+    return DataSetGAN([ds.seq], [ds.adj], [ds.target], ds.meta)
 
 
 # === Negative training examples ===

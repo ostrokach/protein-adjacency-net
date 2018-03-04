@@ -115,7 +115,7 @@ def load_parquet_weights(filepath: Path, parquet_folders: List[Path]) -> np.ndar
             parquet_folder_weights = np.array([d[p.name] for p in parquet_folders])
         logger.info("Loaded folder weights from file: '%s'", filepath)
     except FileNotFoundError:
-        logger.info("Generating folder weights for parquet folder: '%s'.", parquet_folders)
+        logger.info("Generating folder weights for parquet folders: '%s'.", parquet_folders)
         parquet_folder_weights = get_folder_weights(parquet_folders)
         d = {p.name: w for p, w in zip(parquet_folders, parquet_folder_weights)}
         with filepath.open('wb') as fout:
