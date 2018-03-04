@@ -27,6 +27,7 @@ variables:
     - export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
     # Make conda cache and bld folders
     - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CONDA_PKGS_DIRS}"
+    - rm -rf ${CONDA_PKGS_DIRS}/${CI_PROJECT_NAME}-*
     # Conda configure
     - conda config --set channel_priority true
     - conda config --append pkgs_dirs "${CONDA_PKGS_DIRS}"
