@@ -15,7 +15,7 @@ from torch.autograd import Variable
 from .torch_adjacency_conv import AdjacencyConv
 
 
-class Discriminator(nn.Module):
+class DiscriminatorNet(nn.Module):
 
     def __init__(self, isize=512, nz=100, nc=20, ndf=32):
         """
@@ -103,7 +103,7 @@ class Discriminator(nn.Module):
         return x.view(1)
 
 
-class Generator(nn.Module):
+class GeneratorNet(nn.Module):
 
     def __init__(self, isize=512, nz=100, nc=20, ngf=32):
         """

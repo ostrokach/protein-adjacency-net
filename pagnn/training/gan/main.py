@@ -5,7 +5,7 @@ import logging
 import pickle
 import time
 from pathlib import Path
-from typing import Dict, List, Mapping, Optional, Union
+from typing import Dict, Generator, Iterator, List, Mapping, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -23,11 +23,11 @@ import pagnn
 from pagnn import settings
 from pagnn.dataset import row_to_dataset, to_gan
 from pagnn.datavargan import dataset_to_datavar
-from pagnn.models import Discriminator, Generator
+from pagnn.models import DiscriminatorNet, GeneratorNet
 from pagnn.training.common import get_rowgen_neg, get_rowgen_pos
 from pagnn.training.gan import (basic_permuted_sequence_adder, get_mutation_dataset,
                                 get_validation_dataset, parse_args)
-from pagnn.types import DataGen, DataSetGAN
+from pagnn.types import DataRow, DataSetGAN
 
 logger = logging.getLogger(__name__)
 
@@ -35,21 +35,21 @@ get_datagen_gan = None
 training_datagen = None
 
 
-def main(args: argparse.Namespace,
-         work_path: Path,
-         writer: SummaryWriter,
-         positive_rowgen,
-         negative_ds_gen,
-         internal_validation_datasets,
-         external_validation_datasets,
-         current_performance: Optional[Dict[str, Union[str, float]]] = None):
+def train(args: argparse.Namespace,
+          work_path: Path,
+          writer: SummaryWriter,
+          positive_rowgen,
+          negative_ds_gen,
+          internal_validation_datasets,
+          external_validation_datasets,
+          current_performance: Optional[Dict[str, Union[str, float]]] = None):
     """"""
     seq_length = 512
     nc = 20
     nz = 100
 
-    net_g = Generator()
-    net_d = Discriminator()
+    net_g = GeneratorNet()
+    net_d = DiscriminatorNet()
 
     input = torch.FloatTensor(args.batch_size, nc, seq_length)
     noise = torch.FloatTensor(args.batch_size, nz, 1)
@@ -77,16 +77,8 @@ def main(args: argparse.Namespace,
         optimizer_g = optim.RMSprop(net_g.parameters(), lr=args.learning_rate_g)
 
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
-    while True:
-
-        def next_dataset(rowgen):
-            row = next(rowgen)
-            dataset = row_to_dataset(row)
-            dataset = to_gan(dataset)
-            return dataset
-
+    for _ in range(1):
         # === Train discriminator ===
-
         net_d.zero_grad()
 
         for p in net_d.parameters():  # reset requires_grad
@@ -157,63 +149,8 @@ def get_log_dir(args) -> str:
     return log_dir
 
 
-def get_internal_validation_datasets(args) -> Mapping[str, List[DataSetGAN]]:
-    logger.info("Setting up validation datagen...")
-
-    internal_validation_datasets: Dict[str, DataGen] = {}
-    for method in args.validation_methods.split('.'):
-        datagen_name = (f'validation_gan_{method}_{args.validation_min_seq_identity}'
-                        f'_{args.validation_num_sequences}')
-        cache_file = root_path.joinpath(datagen_name + '.pickle')
-        try:
-            with cache_file.open('rb') as fin:
-                dataset = pickle.load(fin)
-            assert len(dataset) == args.validation_num_sequences
-            logger.info("Loaded validation datagen from file: '%s'.", cache_file)
-        except FileNotFoundError:
-            logger.info("Generating validation datagen: '%s'.", datagen_name)
-            random_state = np.random.RandomState(sum(ord(c) for c in method))
-            dataset = get_validation_dataset(args, method, data_path, random_state)
-
-            with cache_file.open('wb') as fout:
-                pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
-
-        internal_validation_datasets[datagen_name] = dataset
-
-    return internal_validation_datasets
-
-
-def get_external_validation_datasets(args) -> Mapping[str, List[DataSetGAN]]:
-    external_validation_datagens: Dict[str, DataGen] = {}
-    for mutation_class in ['protherm', 'humsavar']:
-        external_validation_datagens[f'validation_{mutation_class}'] = get_mutation_dataset(
-            mutation_class, data_path)
-    return external_validation_datagens
-
-
-if __name__ == '__main__':
-    logging.basicConfig(format='%(message)s', level=logging.INFO)
-
-    # Arguments
-    args = parse_args()
-
-    if args.gpu == -1:
-        pagnn.settings.CUDA = False
-        logger.info("Running on the CPU.")
-    else:
-        pagnn.init_gpu(args.gpu)
-
-    # === Paths ===
-    root_path = Path(args.rootdir).absolute()
-    data_path = Path(args.datadir).absolute()
-    cache_path = data_path
-
-    unique_name = get_log_dir(args)
-    work_path = root_path.joinpath(unique_name)
-    tensorboard_path = work_path.joinpath('tensorboard')
-    tensorboard_path.mkdir(parents=True, exist_ok=True)
-
-    # === Training ===
+def get_training_datasets(args: argparse.Namespace, root_path: Path, data_path: Path
+                         ) -> Tuple[Iterator[DataRow], Generator[DataSetGAN, DataSetGAN, None]]:
     logger.info("Setting up training datagen...")
     positive_rowgen = get_rowgen_pos(
         'training',
@@ -237,19 +174,80 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError()
     next(negative_ds_gen)
+    return positive_rowgen, negative_ds_gen
+
+
+def get_internal_validation_datasets(args, root_path, data_path) -> Mapping[str, List[DataSetGAN]]:
+    logger.info("Setting up validation datagen...")
+
+    internal_validation_datasets: Dict[str, List[DataSetGAN]] = {}
+    for method in args.validation_methods.split('.'):
+        datagen_name = (f'validation_gan_{method}_{args.validation_min_seq_identity}'
+                        f'_{args.validation_num_sequences}')
+        cache_file = root_path.joinpath(datagen_name + '.pickle')
+        try:
+            with cache_file.open('rb') as fin:
+                dataset = pickle.load(fin)
+            assert len(dataset) == args.validation_num_sequences
+            logger.info("Loaded validation datagen from file: '%s'.", cache_file)
+        except FileNotFoundError:
+            logger.info("Generating validation datagen: '%s'.", datagen_name)
+            random_state = np.random.RandomState(sum(ord(c) for c in method))
+            dataset = get_validation_dataset(args, method, data_path, random_state)
+
+            with cache_file.open('wb') as fout:
+                pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
+
+        internal_validation_datasets[datagen_name] = dataset
+
+    return internal_validation_datasets
+
+
+def get_external_validation_datasets(args, root_path, data_path) -> Mapping[str, List[DataSetGAN]]:
+    external_validation_datagens: Dict[str, List[DataSetGAN]] = {}
+    for mutation_class in ['protherm', 'humsavar']:
+        external_validation_datagens[f'validation_{mutation_class}'] = get_mutation_dataset(
+            mutation_class, data_path)
+    return external_validation_datagens
+
+
+def main():
+    logging.basicConfig(format='%(message)s', level=logging.INFO)
+
+    # Arguments
+    args = parse_args()
+
+    if args.gpu == -1:
+        pagnn.settings.CUDA = False
+        logger.info("Running on the CPU.")
+    else:
+        pagnn.init_gpu(args.gpu)
+
+    # === Paths ===
+    root_path = Path(args.rootdir).absolute()
+    data_path = Path(args.datadir).absolute()
+    # cache_path = data_path
+
+    unique_name = get_log_dir(args)
+    work_path = root_path.joinpath(unique_name)
+    tensorboard_path = work_path.joinpath('tensorboard')
+    tensorboard_path.mkdir(parents=True, exist_ok=True)
+
+    # === Training ===
+    positive_rowgen, negative_ds_gen = get_training_datasets(args, root_path, data_path)
 
     # === Internal Validation ===
-    internal_validation_datasets = get_internal_validation_datasets(args)
+    internal_validation_datasets = get_internal_validation_datasets(args, root_path, data_path)
 
     # === Mutation Validation ===
-    external_validation_datasets = get_external_validation_datasets(args)
+    external_validation_datasets = get_external_validation_datasets(args, root_path, data_path)
 
     # === Train ===
     start_time = time.perf_counter()
     result: Dict[str, Union[str, float]] = {}
     writer = SummaryWriter(tensorboard_path.as_posix())
     try:
-        main(
+        train(
             args,
             work_path,
             writer,
@@ -266,3 +264,19 @@ if __name__ == '__main__':
 
     # === Output ===
     print(json.dumps(result, sort_keys=True, indent=4))
+
+
+if __name__ == '__main__':
+    # === Basic ===
+    # main()
+    # === Profiled ===
+    from line_profiler import LineProfiler
+    lp = LineProfiler()
+    # Add additional functions to profile
+    lp.add_function(dataset_to_datavar)
+    lp.add_function(train)
+    # Profile the main function
+    lp_wrapper = lp(main)
+    lp_wrapper()
+    # Print results
+    lp.print_stats()
