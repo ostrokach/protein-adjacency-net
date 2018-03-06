@@ -77,7 +77,7 @@ def train(args: argparse.Namespace,
         optimizer_g = optim.RMSprop(net_g.parameters(), lr=args.learning_rate_g)
 
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
-    for _ in range(1):
+    while True:
         # === Train discriminator ===
         net_d.zero_grad()
 
@@ -268,15 +268,18 @@ def main():
 
 if __name__ == '__main__':
     # === Basic ===
-    # main()
+    main()
     # === Profiled ===
-    from line_profiler import LineProfiler
-    lp = LineProfiler()
-    # Add additional functions to profile
-    lp.add_function(dataset_to_datavar)
-    lp.add_function(train)
-    # Profile the main function
-    lp_wrapper = lp(main)
-    lp_wrapper()
-    # Print results
-    lp.print_stats()
+    # from pagnn.datavargan import push_adjs, push_seqs
+    # from line_profiler import LineProfiler
+    # lp = LineProfiler()
+    # # Add additional functions to profile
+    # lp.add_function(push_adjs)
+    # lp.add_function(push_seqs)
+    # lp.add_function(dataset_to_datavar)
+    # lp.add_function(train)
+    # # Profile the main function
+    # lp_wrapper = lp(main)
+    # lp_wrapper()
+    # # Print results
+    # lp.print_stats()

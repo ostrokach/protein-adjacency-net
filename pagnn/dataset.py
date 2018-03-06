@@ -3,7 +3,6 @@ import operator
 from typing import Callable, Generator, List, Optional, Tuple
 
 import numpy as np
-import pandas as pd
 from scipy import sparse
 
 from pagnn import utils
@@ -82,10 +81,10 @@ def get_negative_example(ds: DataSet,
         start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
         if method not in ['edges']:
             negative_seq = negative_ds.seq[start:stop]
-            negative_adj = _extract_adjacency_from_middle(start, stop, negative_ds.adj)
+            negative_adj = extract_adjacency_from_middle(start, stop, negative_ds.adj)
         else:
             negative_seq = negative_ds.seq[:start] + negative_ds.seq[stop:]
-            negative_adj = _extract_adjacency_from_edges(start, stop, negative_ds.adj)
+            negative_adj = extract_adjacency_from_edges(start, stop, negative_ds.adj)
         seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
         adj_identity = utils.get_adj_identity(ds.adj, negative_adj)
 
@@ -247,25 +246,28 @@ def _permute_adjacency(adj: sparse.spmatrix, offset: int):
     return adj_permuted
 
 
-def _extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
+def extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
     """
     Examples:
         >>> from scipy import sparse
         >>> adj = sparse.coo_matrix((
         ...     np.ones(6), (np.array([0, 1, 2, 2, 3, 4]), np.array([0, 1, 2, 3, 3, 4])), ))
-        >>> negative_adj = _extract_adjacency_from_middle(0, 3, adj)
+        >>> negative_adj = extract_adjacency_from_middle(0, 3, adj)
         >>> negative_adj.row
         array([0, 1, 2], dtype=int32)
         >>> negative_adj.col
         array([0, 1, 2], dtype=int32)
-        >>> negative_adj = _extract_adjacency_from_middle(2, 5, adj)
+        >>> negative_adj = extract_adjacency_from_middle(2, 5, adj)
         >>> negative_adj.row
         array([0, 0, 1, 2], dtype=int32)
         >>> negative_adj.col
         array([0, 1, 1, 2], dtype=int32)
     """
-    keep_idx = [(pd.notnull(a) and pd.notnull(b) and start <= a < stop and start <= b < stop)
-                for a, b in zip(adj.row, adj.col)]
+    keep_idx = \
+        np.isfinite(adj.row) & \
+        np.isfinite(adj.col) & \
+        (start <= adj.row) & (adj.row < stop) & \
+        (start <= adj.col) & (adj.col < stop)
     new_row = adj.row[keep_idx] - start
     new_col = adj.col[keep_idx] - start
     new_adj = sparse.coo_matrix(
@@ -275,33 +277,30 @@ def _extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
     return new_adj
 
 
-def _extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
+def extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
     """
     Examples:
         >>> from scipy import sparse
         >>> adj = sparse.coo_matrix((
         ...     np.ones(6), (np.array([0, 1, 2, 2, 3, 4]), np.array([0, 1, 2, 3, 3, 4])), ))
-        >>> negative_adj = _extract_adjacency_from_edges(2, 4, adj)
+        >>> negative_adj = extract_adjacency_from_edges(2, 4, adj)
         >>> negative_adj.row
         array([0, 1, 2], dtype=int32)
         >>> negative_adj.col
         array([0, 1, 2], dtype=int32)
     """
-    keep_idx = [(pd.notnull(a) and pd.notnull(b) and (a < start or stop <= a) and
-                 (b < start or stop <= b)) for a, b in zip(adj.row, adj.col)]
-
-    keep_idx = ((adj.row < start) | (adj.row >= stop)) & ((adj.col < start) | (adj.col >= stop))
+    keep_idx = \
+        np.isfinite(adj.row) & \
+        np.isfinite(adj.col) & \
+        ((adj.row < start) | (adj.row >= stop)) & \
+        ((adj.col < start) | (adj.col >= stop))
     new_row = adj.row[keep_idx]
     new_row = np.where(new_row < start, new_row, new_row - (stop - start))
 
     new_col = adj.col[keep_idx]
     new_col = np.where(new_col < stop, new_col, new_col - (stop - start))
-    try:
-        new_adj = sparse.coo_matrix(
-            (adj.data[keep_idx], (new_row, new_col)),
-            dtype=adj.dtype,
-            shape=((adj.shape[0] - (stop - start), adj.shape[1] - (stop - start))))
-    except ValueError as e:
-        import pdb
-        pdb.set_trace()
+    new_adj = sparse.coo_matrix(
+        (adj.data[keep_idx], (new_row, new_col)),
+        dtype=adj.dtype,
+        shape=((adj.shape[0] - (stop - start), adj.shape[1] - (stop - start))))
     return new_adj

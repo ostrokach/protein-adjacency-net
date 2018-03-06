@@ -2,19 +2,20 @@ import logging
 from typing import List
 
 import numpy as np
+from numba import jit
 from scipy import sparse
 
 logger = logging.getLogger(__name__)
 
+# Warning: Do not change the order of amino acids without chaning the order of
+# `AMINO_ACIDS_BYTES` in `_get_seq_array`!
 AMINO_ACIDS: List[str] = [
     'G', 'V', 'A', 'L', 'I', 'C', 'M', 'F', 'W', 'P', 'D', 'E', 'S', 'T', 'Y', 'Q', 'N', 'K', 'R',
     'H'
 ]
 
-AMINO_ACIDS_BYTEARRAY = bytearray(''.join(AMINO_ACIDS).encode())
 
-
-def get_seq_array(seq: bytes) -> sparse.spmatrix:
+def get_seq_array(seq: bytes):
     """Convert amino acid sequence into a one-hot encoded array.
 
     Args:
@@ -23,32 +24,44 @@ def get_seq_array(seq: bytes) -> sparse.spmatrix:
     Returns:
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
-    amino_acids = AMINO_ACIDS_BYTEARRAY
-
-    data = []
-    x_idxs = []
-    y_idxs = []
-    for y, aa in enumerate(seq):
-        try:
-            x = amino_acids.index(aa)
-        except ValueError as e:
-            logger.debug("Could not convert the following residue to one-hot encoding: %s", chr(aa))
-            if aa == ord('.'):
-                # We use '.' for padding sequences with 0s
-                continue
-            for x in range(20):
-                x_idxs.append(x)
-                y_idxs.append(y)
-                data.append(1 / 20)
-        else:
-            x_idxs.append(x)
-            y_idxs.append(y)
-            data.append(1)
+    x_idxs, y_idxs, data = _get_seq_array(seq)
     seq_matrix = sparse.coo_matrix(
         (np.array(data), (np.array(x_idxs), np.array(y_idxs))),
         dtype=np.int16,
         shape=(20, len(seq)))
     return seq_matrix
+
+
+@jit(nopython=True)
+def _get_seq_array(seq: bytes) -> sparse.spmatrix:
+    amino_acids = [71, 86, 65, 76, 73, 67, 77, 70, 87, 80, 68, 69, 83, 84, 89, 81, 78, 75, 82, 72]
+
+    data = []
+    x_idxs = []
+    y_idxs = []
+    skip_char = 46  # ord('.')
+    for y, aa in enumerate(seq):
+        if aa == skip_char:
+            # We use '.' for padding sequences with 0s
+            # Putting this into `except` makes it much slower
+            continue
+        match = False
+        for x, aa_ref in enumerate(amino_acids):
+            if aa == aa_ref:
+                # x = amino_acids.index(aa)
+                x_idxs.append(x)
+                y_idxs.append(y)
+                data.append(1)
+                match = True
+                break
+        if not match:
+            # logger.debug(
+            #     "Could not convert the following residue to one-hot encoding: %s", chr(aa))
+            for x in range(20):
+                x_idxs.append(x)
+                y_idxs.append(y)
+                data.append(1 / 20)
+    return x_idxs, y_idxs, data
 
 
 def get_adjacency(seq_len: int, adjacency_idx_1: np.array,

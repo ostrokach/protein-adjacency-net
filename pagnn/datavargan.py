@@ -1,42 +1,56 @@
 """Prepare data for input into a Generative Adverserial Network."""
 import logging
+import math
 from typing import List, Optional
 
 import numpy as np
-import scipy as sp
 import torch
 import torch.nn.functional as F
+from numba import jit
 from scipy import sparse
 from torch.autograd import Variable
 
+from pagnn import settings
+from pagnn.dataset import extract_adjacency_from_middle, get_indices
 from pagnn.types import DataSetGAN, DataVarGAN
-from pagnn.utils import expand_adjacency, get_seq_array, to_sparse_tensor
+from pagnn.utils import expand_adjacency, get_seq_array, to_numpy, to_sparse_tensor
 
 logger = logging.getLogger(__name__)
 
 
-def dataset_to_datavar(ds: DataSetGAN, push_seq: bool = True, push_adj: bool = True) -> DataVarGAN:
+def dataset_to_datavar(ds: DataSetGAN) -> DataVarGAN:
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
     ds = pad_edges(ds)
-    seqs = _push_seqs(ds.seqs)
-    adjs = _push_adjs(_gen_adj_pool(ds.adjs[0]))
+    seqs = push_seqs(ds.seqs)
+    adjs = push_adjs(gen_adj_pool(ds.adjs[0]))
     return DataVarGAN(seqs, adjs)
 
 
 def pad_edges(ds: DataSetGAN,
               target_length=512,
               random_state: Optional[np.random.RandomState] = None):
-    """Add padding before and after sequences and adjacency matrix to fit to `target_lenght`."""
+    """Add padding before and after sequences and adjacency matrix to fit to `target_length`."""
     if random_state is None:
         random_state = np.random.RandomState()
 
     length = len(ds.seqs[0])
+
+    if length <= target_length:
+        new_seqs, new_adjs = _pad_edges_shorter(ds, length, target_length, random_state)
+    else:
+        new_seqs, new_adjs = _pad_edges_longer(ds, length, target_length, random_state)
+
+    return DataSetGAN(new_seqs, new_adjs, ds.targets, ds.meta)
+
+
+def _pad_edges_shorter(ds: DataSetGAN, length: int, target_length: int,
+                       random_state: np.random.RandomState):
     start = random_state.randint(0, target_length - length + 1)
-    stop = target_length - length - start
+    pad_end = target_length - length - start
 
     new_seqs = []
     for seq in ds.seqs:
-        new_seq = b'.' * start + seq + b'.' * stop
+        new_seq = b'.' * start + seq + b'.' * pad_end
         new_seqs.append(new_seq)
 
     new_adjs = []
@@ -46,67 +60,107 @@ def pad_edges(ds: DataSetGAN,
         new_adj = sparse.coo_matrix(
             (adj.data, (row, col)), dtype=adj.dtype, shape=(target_length, target_length))
         new_adjs.append(new_adj)
-
-    new_ds = DataSetGAN(new_seqs, new_adjs, ds.targets, ds.meta)
-    return new_ds
+    return new_seqs, new_adjs
 
 
-def pool_adjacency_mat(adj: sparse.spmatrix, kernel_size=5, stride=2, padding=2) -> sparse.spmatrix:
-    """Pool and downsample the adjacency matrix `adj`."""
-    row = []
-    col = []
-    # Go over rows
-    for i, i_start in enumerate(range(-padding, adj.shape[0] + padding - kernel_size, stride)):
-        i_end = i_start + kernel_size
-        # Go over columns
-        for j, j_start in enumerate(range(-padding, adj.shape[0] + padding - kernel_size, stride)):
-            j_end = j_start + kernel_size
-            # Place a value whenever there is at least one non-zero element
-            if np.any((adj.row >= i_start) & (adj.row < i_end) & (adj.col >= j_start) &
-                      (adj.col < j_end)):
-                row.append(i)
-                col.append(j)
+def _pad_edges_longer(ds: DataSetGAN, length: int, target_length: int,
+                      random_state: np.random.RandomState):
+    start, stop = get_indices(target_length, length, 'middle', random_state)
 
-    # TODO(AS): This won't always work.
-    shape = (adj.shape[0] // stride, adj.shape[1] // stride)
+    new_seqs = []
+    for seq in ds.seqs:
+        new_seq = seq[start:stop]
+        new_seqs.append(new_seq)
 
-    adj_conv = sp.sparse.coo_matrix(
-        (np.ones(len(row)), (np.array(row), np.array(col))), shape=shape, dtype=np.int16)
-    return adj_conv
+    new_adjs = []
+    for adj in ds.adjs:
+        new_adj = extract_adjacency_from_middle(start, stop, adj)
+        new_adjs.append(new_adj)
+    return new_seqs, new_adjs
 
 
-def pool_adjacency_mat_reference(adj: np.ndarray, kernel_size=5, stride=2, padding=2) -> np.ndarray:
-    """Pool and downsample the adjacency matrix `adj` (reference implementation)."""
-    adj_conv = F.conv2d(
-        Variable(torch.eye(10).unsqueeze(0).unsqueeze(0)),
-        Variable(torch.ones(1, 1, 5, 5)),
-        stride=2,
-        padding=2)
-    adj_conv_bool = (adj_conv != 0).astype(np.int16)
-    return adj_conv_bool.squeeze().data.numpy()
-
-
-def _push_seqs(seqs: List[bytes]) -> Variable:
+def push_seqs(seqs: List[bytes]) -> Variable:
     """Convert a list of `DataSetGAN` sequences into a `Variable`."""
-    seq_tensors = [to_sparse_tensor(get_seq_array(seq)) for seq in seqs]
-    seq_tensors_dense = [seq.to_dense().unsqueeze(0) for seq in seq_tensors]
-    seq_var = Variable(torch.cat(seq_tensors_dense))
+    seqs = [get_seq_array(seq) for seq in seqs]
+    seqs = [to_sparse_tensor(seq) for seq in seqs]
+    seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]
+    seq_var = Variable(torch.cat(seqs))
     return seq_var
 
 
-def _push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
+def push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
-    adj_vars = []
-    for adj in adjs:
-        adj = to_sparse_tensor(expand_adjacency(adj))
-        adj = Variable(adj.to_dense())
-        adj_vars.append(adj)
-
-    return adj_vars
+    return [Variable(to_sparse_tensor(expand_adjacency(adj)).to_dense()) for adj in adjs]
 
 
-def _gen_adj_pool(adj: sparse.spmatrix) -> List[sparse.spmatrix]:
+def gen_adj_pool(adj: sparse.spmatrix) -> List[sparse.spmatrix]:
     adjs = [adj]
     for i in range(3):
         adjs.append(pool_adjacency_mat(adjs[-1]))
     return adjs
+
+
+def pool_adjacency_mat(adj: sparse.spmatrix, kernel_size=4, stride=2, padding=1,
+                       _mapping_cache={}) -> sparse.spmatrix:
+    # assert adj.shape[0] == adj.shape[1]
+
+    if (adj.shape, kernel_size, stride, padding) in _mapping_cache:
+        mapping = _mapping_cache[(adj.shape, kernel_size, stride, padding)]
+    else:
+        mapping = conv2d_mapping(adj.shape[0], kernel_size, stride, padding)
+    conv_mat = conv2d_matrix(mapping, adj.row, adj.col, adj.shape, kernel_size, stride, padding)
+    return sparse.coo_matrix(conv_mat)
+
+
+@jit(nopython=True)
+def conv2d_matrix(mapping, row, col, shape, kernel_size, stride, padding):
+    new_shape = conv2d_shape(shape, kernel_size, stride, padding)
+    conv_mat = np.zeros(new_shape, dtype=np.int16)
+    for i, (r, c) in enumerate(zip(row, col)):
+        conv_mat[slice(*mapping[r]), slice(*mapping[c])] = 1
+    return conv_mat
+
+
+@jit(nopython=True)
+def conv2d_shape(shape, kernel_size, stride, padding):
+    shape = (
+        max(1, math.ceil((shape[0] + 2 * padding - (kernel_size - 1)) / stride)),
+        max(1, math.ceil((shape[1] + 2 * padding - (kernel_size - 1)) / stride)),
+    )
+    return shape
+
+
+@jit(nopython=True)
+def conv2d_mapping(length, kernel_size, stride, padding):
+    mapping = [(0, 0) for _ in range(0 - padding, length + padding + kernel_size)]
+    for i_conv, start in enumerate(range(0 - padding, length + padding, stride)):
+        for i_orig in range(start, start + kernel_size):
+            old = mapping[i_orig]
+            if old == (0, 0):
+                mapping[i_orig] = (i_conv, i_conv + 1)
+            else:
+                if old[0] > i_conv:
+                    mapping[i_orig] = (i_conv, old[1])
+                elif old[1] < (i_conv + 1):
+                    mapping[i_orig] = (old[0], i_conv + 1)
+    return mapping
+
+
+def pool_adjacency_mat_reference(adj: Variable, kernel_size=4, stride=2, padding=1) -> Variable:
+    """Pool and downsample the adjacency matrix `adj` (reference implementation).
+    """
+    conv_filter = Variable(torch.ones(1, 1, kernel_size, kernel_size))
+    if settings.CUDA:
+        conv_filter = conv_filter.cuda()
+    adj_conv = F.conv2d(adj.unsqueeze(0).unsqueeze(0), conv_filter, stride=stride, padding=padding)
+    adj_conv_bool = (adj_conv != 0).float()
+    return adj_conv_bool.squeeze()
+
+
+def pool_adjacency_mat_reference_wrapper(adj: sparse.spmatrix, kernel_size=4, stride=2,
+                                         padding=1) -> sparse.spmatrix:
+    """Wrapper over `pool_adjacency_mat_reference` to provide the same API as `pool_adjacency_mat`.
+    """
+    adj = Variable(to_sparse_tensor(adj).to_dense())
+    adj_conv = pool_adjacency_mat_reference(adj, kernel_size, stride, padding)
+    return sparse.coo_matrix(to_numpy(adj_conv), dtype=np.int16)
