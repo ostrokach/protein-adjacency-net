@@ -1,3 +1,6 @@
+"""Exceptions."""
+
+
 class SequenceTooShortError(Exception):
     pass
 

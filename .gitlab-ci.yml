@@ -27,6 +27,7 @@ variables:
     - export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
     # Make conda cache and bld folders
     - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CONDA_PKGS_DIRS}"
+    - rm -rf ${CONDA_PKGS_DIRS}/${CI_PROJECT_NAME}-*
     # Conda configure
     - conda config --set channel_priority true
     - conda config --append pkgs_dirs "${CONDA_PKGS_DIRS}"
@@ -118,7 +119,6 @@ docs:
     - conda install -yq nbconvert ipython ipykernel pandoc
     - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx
     # Build docs
-    - (cd docs && sphinx-apidoc ../${CI_PROJECT_NAME} -o api/generated -TeMP)
     - sphinx-build docs public
   dependencies:
     - build-py36

@@ -62,10 +62,19 @@ target/
 .python-version
 
 # AS
-.mypy_cache/
 .vscode/
+.benchmarks
+.pytest_cache
+.mypy_cache/
 
 # Conda
 conda-bld
 .conda_cache
 .conda_packages
+
+# Docs
+docs/.*
+docs/_*
+!docs/_static
+!docs/_templates
+public/

@@ -1,8 +1,7 @@
 import numpy as np
 import pytest
-from scipy import sparse
 
-from pagnn import utils
+from pagnn import faker
 
 COUNT_MATCHES_TEST_DATA = [
     # (matrix, conv_filter, match_count)
@@ -32,18 +31,4 @@ COUNT_MATCHES_TEST_DATA = [
 
 @pytest.mark.parametrize("matrix, conv_filter, match_count_", COUNT_MATCHES_TEST_DATA)
 def test_count_matches(matrix, conv_filter, match_count_):
-    assert utils.count_matches(matrix, conv_filter) == match_count_
-
-
-EXPAND_ADJACENCY_TEST_DATA = [
-    # (adj, expanded_adj)
-    (np.array([[1, 0, 1], [0, 1, 1], [1, 1, 1]], dtype=np.int32), np.array(
-        [[1, 0, 0], [1, 0, 0], [1, 0, 0], [0, 0, 1], [0, 1, 0], [0, 1, 0], [0, 1, 0], [0, 0, 1],
-         [0, 0, 1], [1, 0, 0], [0, 0, 1], [0, 1, 0], [0, 0, 1], [0, 0, 1]],
-        dtype=np.int32))
-]
-
-
-@pytest.mark.parametrize("adj, expanded_adj_", EXPAND_ADJACENCY_TEST_DATA)
-def test_expand_adjacency(adj, expanded_adj_):
-    np.array_equal(utils.expand_adjacency(sparse.coo_matrix(adj)).todense(), expanded_adj_)
+    assert faker.count_matches(matrix, conv_filter) == match_count_

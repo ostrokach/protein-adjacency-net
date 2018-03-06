@@ -22,6 +22,9 @@ from torch.autograd import Variable
 
 import pagnn
 from pagnn import settings
+from pagnn.datavardcn import push_dataset_collection
+from pagnn.training.dcn import (evaluate_mutation_dataset, evaluate_validation_dataset, get_datagen,
+                                get_mutation_datagen)
 from pagnn.types import DataGen, DataSetCollection
 
 logger = logging.getLogger(__name__)
@@ -118,13 +121,13 @@ def main(args: argparse.Namespace,
                     if '_permute_' in validation_name and suffix == 'adj':
                         # 'permute' method does not generate negative adjacencies
                         continue
-                    targets_valid, outputs_valid = pagnn.evaluate_validation_dataset(
+                    targets_valid, outputs_valid = evaluate_validation_dataset(
                         net, validation_datagen, keep_neg_seq, keep_neg_adj, fake_adj)
                     scores[f'{validation_name}-{suffix}'] = metrics.roc_auc_score(
                         targets_valid, outputs_valid)
 
             for name, datagen in external_validation_datagens.items():
-                targets_valid, outputs_valid = pagnn.evaluate_mutation_dataset(net, datagen)
+                targets_valid, outputs_valid = evaluate_mutation_dataset(net, datagen)
                 if 'protherm' in name:
                     # Protherm predicts ΔΔG, so positive values are destabilizing
                     scores[name + '-spearman_r'] = stats.spearmanr(-targets_valid,
@@ -201,8 +204,8 @@ def main(args: argparse.Namespace,
         # Step through network
         # TODO: Weigh positive and negative examples differently
         # weights = pagnn.get_training_weights((pos, neg))
-        dvc, target = pagnn.push_dataset_collection((pos, neg), 'seq' in args.training_permutations,
-                                                    'adj' in args.training_permutations)
+        dvc, target = push_dataset_collection((pos, neg), 'seq' in args.training_permutations,
+                                              'adj' in args.training_permutations)
         targets.extend(target)
         output = net(dvc)
         outputs.extend(output)
@@ -226,7 +229,7 @@ def parse_args() -> argparse.Namespace:
     # # Location of the `adjacency-net` databin folder.
     parser.add_argument('--datadir', type=str, default='.')
     # Network parameters
-    parser.add_argument('--network_name', type=str, default='ModernNet')
+    parser.add_argument('--network_name', type=str, default='Classifier')
     parser.add_argument('--loss_name', type=str, default='BCELoss')
     parser.add_argument('--lr', type=float, default=0.01)
     parser.add_argument('--weight_decay', type=float, default=0.001)
@@ -291,8 +294,8 @@ if __name__ == '__main__':
 
     # === Training ===
     logger.info("Setting up training datagen...")
-    training_datagen = pagnn.get_datagen('training', data_path, args.training_min_seq_identity,
-                                         args.training_methods.split('.'))
+    training_datagen = get_datagen('training', data_path, args.training_min_seq_identity,
+                                   args.training_methods.split('.'))
 
     # === Internal Validation ===
     logger.info("Setting up validation datagen...")
@@ -309,8 +312,8 @@ if __name__ == '__main__':
             assert len(dataset) == args.validation_num_sequences
         except FileNotFoundError:
             logger.info("Generating validation datagen: '%s'.", datagen_name)
-            datagen: DataGen = pagnn.get_datagen('validation', data_path, 80, [method],
-                                                 np.random.RandomState(42))
+            datagen: DataGen = get_datagen('validation', data_path, 80, [method],
+                                           np.random.RandomState(42))
             dataset = list(
                 tqdm.tqdm(
                     itertools.islice(datagen(), args.validation_num_sequences),
@@ -329,7 +332,7 @@ if __name__ == '__main__':
     # === Mutation Validation ===
     external_validation_datagens: Dict[str, DataGen] = {}
     for mutation_class in ['protherm', 'humsavar']:
-        external_validation_datagens[f'validation_{mutation_class}'] = pagnn.get_mutation_datagen(
+        external_validation_datagens[f'validation_{mutation_class}'] = get_mutation_datagen(
             mutation_class, data_path)
 
     # === Train ===

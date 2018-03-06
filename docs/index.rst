@@ -3,16 +3,25 @@ Contents
 ========
 
 .. toctree::
+   :caption: Overview
+   :name: mastertoc
    :maxdepth: 2
 
    readme
    installation
    usage
-   modules
    contributing
    authors
    history
-   api/generated/pagnn
+   networks
+
+.. toctree::
+   :caption: Modules
+   :name: modules
+   :maxdepth: 3
+
+   modules
+
 
 Indices and tables
 ==================
