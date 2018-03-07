@@ -17,7 +17,7 @@
 """
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
-__version__ = '0.1.7'
+__version__ = '0.1.8.dev'
 
 from . import settings, exc
 from .types import *
