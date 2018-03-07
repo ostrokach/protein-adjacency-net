@@ -26,11 +26,17 @@ def parse_args() -> argparse.Namespace:
         help="Number of negative sequences per batch.",
     )
     parser.add_argument(
-        '--steps-between-validation',
+        '--steps-between-checkpoins',
         type=int,
         default=1000,
-        help="Number of negative sequences per batch.",
+        help="Number of steps between basic checkpoins.",
     )
+    parser.add_argument(
+        '--steps-between-extended-checkpoins',
+        type=int,
+        default=10_000,
+        help=("Number of steps between extended checkpoints "
+              "(where we evaluate performance on the validation datasets)."))
     parser.add_argument(
         '--d-iters',
         type=int,

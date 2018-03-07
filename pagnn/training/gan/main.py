@@ -95,7 +95,7 @@ def train(args: argparse.Namespace,
     stat = Stats()
 
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
-    while True:
+    for _ in range(1):
         # === Train discriminator ===
         net_d.zero_grad()
 
@@ -165,10 +165,17 @@ def train(args: argparse.Namespace,
         stat.g_fake_losses.append(to_numpy(g_fake_loss))
 
         # === Write ===
-        if step % args.steps_between_validation == 0:
-            scores = calculate_statistics(args, stat, net_d, internal_validation_datasets,
-                                          external_validation_datasets)
-            if args.resume and step == checkpoint.get('step'):
+        if step % args.steps_between_checkpoins == 0:
+            scores = calculate_statistics_basic(args, stat)
+
+            resume_checkpoint = args.resume and step == checkpoint.get('step')
+
+            if resume_checkpoint or (step % args.steps_between_extended_checkpoins == 0):
+                scores_extended = calculate_statistics_extended(
+                    args, stat, net_d, internal_validation_datasets, external_validation_datasets)
+                scores.update(scores_extended)
+
+            if resume_checkpoint:
                 validate_checkpoint(checkpoint, scores)
             else:
                 write_checkpoint(step, stat, scores, work_path, models_path, writer, net_d, net_g,
@@ -209,12 +216,7 @@ def calc_gradient_penalty(args, net_d, real_data, fake_data, lambda_):
     return gradient_penalty
 
 
-def calculate_statistics(args: argparse.Namespace,
-                         stat: Stats,
-                         net_d,
-                         internal_validation_datasets,
-                         external_validation_datasets,
-                         _prev_stats={}):
+def calculate_statistics_basic(args: argparse.Namespace, stat: Stats, _prev_stats={}):
     scores = {}
 
     # Training accuracy
@@ -225,6 +227,20 @@ def calculate_statistics(args: argparse.Namespace,
     scores['error_g'] = stat.error_g
     scores['error_d'] = stat.error_d
 
+    # Runtime
+    prev_validation_time = _prev_stats.get('validation_time')
+    _prev_stats['validation_time'] = time.perf_counter()
+    if prev_validation_time:
+        scores['validation_time'] = time.perf_counter() - prev_validation_time
+        scores['iterations_per_second'] = (args.steps_between_checkpoins /
+                                           (_prev_stats['validation_time'] - prev_validation_time))
+
+    return scores
+
+
+def calculate_statistics_extended(args: argparse.Namespace, stat: Stats, net_d,
+                                  internal_validation_datasets, external_validation_datasets):
+    scores = {}
     # Validation accuracy
     for name, datasets in internal_validation_datasets.items():
         targets_valid, outputs_valid = evaluate_validation_dataset(net_d, datasets)
@@ -241,15 +257,6 @@ def calculate_statistics(args: argparse.Namespace,
             scores[name + '-auc'] = metrics.roc_auc_score(1 - targets_valid, outputs_valid)
         else:
             scores[name] = metrics.roc_auc_score(targets_valid + 1, outputs_valid)
-
-    # Runtime
-    prev_validation_time = _prev_stats.get('validation_time')
-    _prev_stats['validation_time'] = time.perf_counter()
-    if prev_validation_time:
-        scores['validation_time'] = time.perf_counter() - prev_validation_time
-        scores['iterations_per_second'] = (args.steps_between_validation /
-                                           (_prev_stats['validation_time'] - prev_validation_time))
-
     return scores
 
 
@@ -472,18 +479,18 @@ def main():
 
 if __name__ == '__main__':
     # === Basic ===
-    main()
+    # main()
     # === Profiled ===
-    # from pagnn.datavargan import push_adjs, push_seqs
-    # from line_profiler import LineProfiler
-    # lp = LineProfiler()
-    # # Add additional functions to profile
-    # lp.add_function(push_adjs)
-    # lp.add_function(push_seqs)
-    # lp.add_function(dataset_to_datavar)
-    # lp.add_function(train)
-    # # Profile the main function
-    # lp_wrapper = lp(main)
-    # lp_wrapper()
-    # # Print results
-    # lp.print_stats()
+    from line_profiler import LineProfiler
+    lp = LineProfiler()
+    # Add additional functions to profile
+    lp.add_function(calculate_statistics_basic)
+    lp.add_function(calculate_statistics_extended)
+    lp.add_function(evaluate_validation_dataset)
+    lp.add_function(evaluate_mutation_dataset)
+    lp.add_function(train)
+    # Profile the main function
+    lp_wrapper = lp(main)
+    lp_wrapper()
+    # Print results
+    lp.print_stats()
