@@ -166,8 +166,8 @@ pages:
     - sudo yum install -y -q unzip
     - curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -o jq
     - md5sum jq | grep 6a342dbb17b2f2ea4ec0e64d2157614d
-    - mv jq /usr/local/bin/jq
-    - chmod +x /usr/local/bin/jq
+    - sudo mv jq /usr/local/bin/jq
+    - sudo chmod +x /usr/local/bin/jq
   script:
     # Create docs folder for the current version
     - mv public "v${PACKAGE_VERSION%.dev}"
