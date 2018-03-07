@@ -167,6 +167,7 @@ def negative_sequence_adder(rowgen: RowGen,
         method: Method by which longer negative sequences get cut to the correct size.
         num_sequences: Number of sequences to generate in each iteration.
     """
+    MAX_TRIES = 5
     if random_state is None:
         random_state = np.random.RandomState()
     negative_dsg = None
@@ -174,12 +175,17 @@ def negative_sequence_adder(rowgen: RowGen,
         dsg = yield negative_dsg
         ds = DataSet(dsg.seqs[0], dsg.adjs[0], dsg.targets[0])
         negative_seqs = []
-        for _ in range(num_sequences):
+        n_tries = 0
+        while len(negative_seqs) < num_sequences:
             try:
                 negative_ds = get_negative_example(ds, method, rowgen, random_state)
             except (exc.MaxNumberOfTriesExceededError, exc.SequenceTooLongError) as e:
                 logger.error("Encountered error '%s' for dataset '%s'", e, ds)
-                continue
+                if n_tries < MAX_TRIES:
+                    n_tries += 1
+                    continue
+                else:
+                    raise
             negative_seqs.append(negative_ds.seq)
         negative_dsg = dsg._replace(
             seqs=(dsg.seqs if keep_pos else []) + negative_seqs,

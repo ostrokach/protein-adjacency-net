@@ -26,6 +26,12 @@ def parse_args() -> argparse.Namespace:
         help="Number of negative sequences per batch.",
     )
     parser.add_argument(
+        '--steps-between-validation',
+        type=int,
+        default=1000,
+        help="Number of negative sequences per batch.",
+    )
+    parser.add_argument(
         '--d-iters',
         type=int,
         default=64,

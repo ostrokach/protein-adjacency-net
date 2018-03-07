@@ -61,7 +61,7 @@ class DiscriminatorNet(nn.Module):
         assert in_feat == 2048, in_feat
 
         i += 1
-        model[f'conv_{i}'] = nn.Conv1d(in_feat, 1, 4, 1, 0, bias=False)
+        model[f'linear_{i}'] = nn.Linear(in_feat * 4, 1, bias=False)
         self.model = model
         for key in model:
             setattr(self, key, self.model[key])
@@ -96,11 +96,12 @@ class DiscriminatorNet(nn.Module):
             x = self.model[f'leaky_relu_{i}'](x)
 
         # 2048 x 4
-        for i in range(7, 8):
-            x = self.model[f'conv_{i}'](x)
+        x = x.view(seq.size()[0], 2048 * 4)
 
-        x = x.mean(0)
-        return x.view(1)
+        for i in range(7, 8):
+            x = self.model[f'linear_{i}'](x)
+
+        return x
 
 
 class GeneratorNet(nn.Module):
