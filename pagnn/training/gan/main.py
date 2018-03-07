@@ -27,7 +27,7 @@ from pagnn.dataset import row_to_dataset, to_gan
 from pagnn.datavargan import dataset_to_datavar
 from pagnn.models import DiscriminatorNet, GeneratorNet
 from pagnn.training.common import get_rowgen_neg, get_rowgen_pos
-from pagnn.training.gan import (basic_permuted_sequence_adder, evaluate_mutation_dataset,
+from pagnn.training.gan import (Stats, basic_permuted_sequence_adder, evaluate_mutation_dataset,
                                 evaluate_validation_dataset, get_mutation_dataset,
                                 get_validation_dataset, parse_args)
 from pagnn.types import DataRow, DataSetGAN
@@ -37,36 +37,6 @@ logger = logging.getLogger(__name__)
 
 get_datagen_gan = None
 training_datagen = None
-
-
-def calc_gradient_penalty(args, net_d, real_data, fake_data, lambda_):
-    # print "real_data: ", real_data.size(), fake_data.size()
-    alpha = torch.rand(args.batch_size, 1)
-    alpha = alpha.expand(args.batch_size,
-                         real_data.nelement() / args.batch_size).contiguous().view(
-                             args.batch_size, 3, 32, 32)
-    if settings.CUDA:
-        alpha = alpha.cuda()
-
-    interpolates = alpha * real_data + ((1 - alpha) * fake_data)
-    if settings.CUDA:
-        interpolates = interpolates.cuda()
-    interpolates = autograd.Variable(interpolates, requires_grad=True)
-
-    disc_interpolates = net_d(interpolates)
-
-    gradients = autograd.grad(
-        outputs=disc_interpolates,
-        inputs=interpolates,
-        grad_outputs=torch.ones(disc_interpolates.size()).cuda()
-        if settings.CUDA else torch.ones(disc_interpolates.size()),
-        create_graph=True,
-        retain_graph=True,
-        only_inputs=True)[0]
-    gradients = gradients.view(gradients.size(0), -1)
-
-    gradient_penalty = ((gradients.norm(2, dim=1) - 1)**2).mean() * lambda_
-    return gradient_penalty
 
 
 def train(args: argparse.Namespace,
@@ -81,8 +51,6 @@ def train(args: argparse.Namespace,
     """"""
     models_path = work_path.joinpath('models')
     models_path.mkdir(exist_ok=True)
-
-    checkpoint_file = work_path.joinpath('checkpoint.json')
 
     # Set up network
     seq_length = 512
@@ -123,11 +91,10 @@ def train(args: argparse.Namespace,
         net_d.load_state_dict(
             torch.load(models_path.joinpath(checkpoint['net_d_path_name']).as_posix()))
 
-    progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
-
     step = checkpoint.get('step', 0)
-    validation_time = None
+    stat = Stats()
 
+    progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
     while True:
         # === Train discriminator ===
         net_d.zero_grad()
@@ -135,8 +102,6 @@ def train(args: argparse.Namespace,
         for p in net_d.parameters():  # reset requires_grad
             p.requires_grad = True  # they are set to False below in net_d update
 
-        net_d_outputs = []
-        net_d_targets = []
         for _ in range(args.d_iters):
             pos_row = next(positive_rowgen)
             pos_ds = to_gan(row_to_dataset(pos_row, 1))
@@ -151,9 +116,10 @@ def train(args: argparse.Namespace,
             neg_loss = torch.mean(neg_pred)
             neg_loss.backward(one)
 
-            if step % args.steps_between_validation == 0:
-                net_d_outputs.extend([to_numpy(pos_pred).squeeze(), to_numpy(neg_pred).squeeze()])
-                net_d_targets.extend([np.ones(1), np.zeros(args.batch_size)])
+            stat.training_preds.extend([to_numpy(pos_pred).squeeze(), to_numpy(neg_pred).squeeze()])
+            stat.training_targets.extend([np.ones(1), np.zeros(args.batch_size)])
+            stat.pos_losses.append(to_numpy(pos_loss))
+            stat.neg_losses.append(to_numpy(neg_loss))
 
         pos_row = next(positive_rowgen)
         pos_ds = to_gan(row_to_dataset(pos_row, 1))
@@ -169,9 +135,11 @@ def train(args: argparse.Namespace,
         fake_loss = torch.mean(fake_pred)
         fake_loss.backward(one)
 
-        error_g = real_loss - fake_loss
-
         optimizer_d.step()
+
+        stat.error_g = to_numpy(real_loss - fake_loss)
+        stat.real_losses.append(to_numpy(real_loss))
+        stat.fake_losses.append(to_numpy(fake_loss))
 
         # Clamp parameters to a cube
         for p in net_d.parameters():
@@ -193,100 +161,149 @@ def train(args: argparse.Namespace,
         g_fake_loss.backward(mone)
         optimizer_g.step()
 
-        error_d = real_loss - g_fake_loss
+        stat.error_d = to_numpy(real_loss - g_fake_loss)
+        stat.g_fake_losses.append(to_numpy(g_fake_loss))
 
         # === Write ===
         if step % args.steps_between_validation == 0:
-            logger.debug("Calculating score...")
-
-            scores = {}
-
-            # Training
-            if net_d_outputs and net_d_targets:
-                net_d_outputs_ar = np.hstack(net_d_outputs)
-                net_d_targets_ar = np.hstack(net_d_targets)
-
-                scores['net_d_auc_score'] = metrics.roc_auc_score(net_d_targets_ar,
-                                                                  net_d_outputs_ar)
-
-            scores['error_g'] = error_g
-            scores['error_d'] = error_d
-
-            # Validation
-            for name, datasets in internal_validation_datasets.items():
-                targets_valid, outputs_valid = evaluate_validation_dataset(net_d, datasets)
-                scores[name] = metrics.roc_auc_score(targets_valid, outputs_valid)
-
-            for name, datasets in external_validation_datasets.items():
-                targets_valid, outputs_valid = evaluate_mutation_dataset(net_d, datasets)
-                if 'protherm' in name:
-                    # Protherm predicts ΔΔG, so positive values are destabilizing
-                    scores[name + '-spearman_r'] = stats.spearmanr(-targets_valid,
-                                                                   outputs_valid).correlation
-                elif 'humsavar' in name:
-                    # For humsavar: 0 = stable, 1 = deleterious
-                    scores[name + '-auc'] = metrics.roc_auc_score(1 - targets_valid, outputs_valid)
-                else:
-                    scores[name] = metrics.roc_auc_score(targets_valid + 1, outputs_valid)
-
-            # === Write ===
+            scores = calculate_statistics(args, stat, net_d, internal_validation_datasets,
+                                          external_validation_datasets)
             if args.resume and step == checkpoint.get('step'):
-                logger.debug('Validating checkpoint.')
-                common_scores = set(checkpoint) & set(scores)
-                assert common_scores
-                assert all(checkpoint[s] == scores[s] for s in common_scores)
+                validate_checkpoint(checkpoint, scores)
             else:
-                logger.debug('Saving checkpoint.')
-                # for name, param in net_g.named_parameters():
-                #     writer.add_histogram("net_g_" + name, to_numpy(param), step)
-                # for name, param in net_d.named_parameters():
-                #     writer.add_histogram("net_d_" + name, to_numpy(param), step)
-
-                for score_name, score_value in scores.items():
-                    writer.add_scalar(score_name, score_value, step)
-
-                # Runtime
-                prev_validation_time = validation_time
-                validation_time = time.perf_counter()
-                if prev_validation_time is not None:
-                    sequences_per_second = (args.steps_between_validation /
-                                            (validation_time - prev_validation_time))
-                    writer.add_scalar('sequences_per_second', sequences_per_second, step)
-
-                if net_d_outputs and net_d_targets:
-                    writer.add_histogram('net_d_outputs_ar', net_d_outputs_ar, step)
-                    writer.add_pr_curve('net_d', net_d_targets_ar, net_d_outputs_ar, step)
-                # writer.add_histogram('outputs_valid', outputs_valid, step)
-                # writer.add_pr_curve('Validation', targets_valid, outputs_valid, step)
-
-                # Save model
-                net_d_dump_path = models_path.joinpath(f'net_d-step_{step}.model')
-                torch.save(net_d.state_dict(), net_d_dump_path.as_posix())
-
-                net_g_dump_path = models_path.joinpath(f'net_g-step_{step}.model')
-                torch.save(net_g.state_dict(), net_g_dump_path.as_posix())
-
-                # Save checkpoint
-                checkpoint = {
-                    'step': step,
-                    'unique_name': work_path.name,
-                    'net_d_path_name': net_d_dump_path.name,
-                    'net_g_path_name': net_g_dump_path.name,
-                    # **scores,
-                }
-                with work_path.joinpath(f'checkpoint-step{step}.json').open('wt') as fout:
-                    json.dump(checkpoint, fout, sort_keys=True, indent=4)
-                with checkpoint_file.open('wt') as fout:
-                    json.dump(checkpoint, fout, sort_keys=True, indent=4)
-
-                if current_performance is not None:
-                    current_performance.update(writer.scalar_dict)
-
-            net_d_outputs = []
-            net_d_targets = []
+                write_checkpoint(step, stat, scores, work_path, models_path, writer, net_d, net_g,
+                                 current_performance)
 
         step += 1
+        stat = Stats()
         progressbar.update()
+
+
+def calc_gradient_penalty(args, net_d, real_data, fake_data, lambda_):
+    # print "real_data: ", real_data.size(), fake_data.size()
+    alpha = torch.rand(args.batch_size, 1)
+    alpha = alpha.expand(args.batch_size,
+                         real_data.nelement() / args.batch_size).contiguous().view(
+                             args.batch_size, 3, 32, 32)
+    if settings.CUDA:
+        alpha = alpha.cuda()
+
+    interpolates = alpha * real_data + ((1 - alpha) * fake_data)
+    if settings.CUDA:
+        interpolates = interpolates.cuda()
+    interpolates = autograd.Variable(interpolates, requires_grad=True)
+
+    disc_interpolates = net_d(interpolates)
+
+    gradients = autograd.grad(
+        outputs=disc_interpolates,
+        inputs=interpolates,
+        grad_outputs=torch.ones(disc_interpolates.size()).cuda()
+        if settings.CUDA else torch.ones(disc_interpolates.size()),
+        create_graph=True,
+        retain_graph=True,
+        only_inputs=True)[0]
+    gradients = gradients.view(gradients.size(0), -1)
+
+    gradient_penalty = ((gradients.norm(2, dim=1) - 1)**2).mean() * lambda_
+    return gradient_penalty
+
+
+def calculate_statistics(args: argparse.Namespace,
+                         stat: Stats,
+                         net_d,
+                         internal_validation_datasets,
+                         external_validation_datasets,
+                         _prev_stats={}):
+    scores = {}
+
+    # Training accuracy
+    if stat.training_preds and stat.training_targets:
+        training_preds_ar = np.hstack(stat.training_preds)
+        training_targets_ar = np.hstack(stat.training_targets)
+        scores['training_auc'] = metrics.roc_auc_score(training_targets_ar, training_preds_ar)
+    scores['error_g'] = stat.error_g
+    scores['error_d'] = stat.error_d
+
+    # Validation accuracy
+    for name, datasets in internal_validation_datasets.items():
+        targets_valid, outputs_valid = evaluate_validation_dataset(net_d, datasets)
+        scores[name] = metrics.roc_auc_score(targets_valid, outputs_valid)
+
+    for name, datasets in external_validation_datasets.items():
+        targets_valid, outputs_valid = evaluate_mutation_dataset(net_d, datasets)
+        if 'protherm' in name:
+            # Protherm predicts ΔΔG, so positive values are destabilizing
+            scores[name + '-spearman_r'] = stats.spearmanr(-targets_valid,
+                                                           outputs_valid).correlation
+        elif 'humsavar' in name:
+            # For humsavar: 0 = stable, 1 = deleterious
+            scores[name + '-auc'] = metrics.roc_auc_score(1 - targets_valid, outputs_valid)
+        else:
+            scores[name] = metrics.roc_auc_score(targets_valid + 1, outputs_valid)
+
+    # Runtime
+    prev_validation_time = _prev_stats.get('validation_time')
+    _prev_stats['validation_time'] = time.perf_counter()
+    if prev_validation_time:
+        scores['validation_time'] = time.perf_counter() - prev_validation_time
+        scores['iterations_per_second'] = (args.steps_between_validation /
+                                           (_prev_stats['validation_time'] - prev_validation_time))
+
+    return scores
+
+
+def validate_checkpoint(checkpoint, scores):
+    common_scores = set(checkpoint) & set(scores)
+    assert common_scores
+    assert all(checkpoint[s] == scores[s] for s in common_scores)
+
+
+def write_checkpoint(step, stat, scores, work_path, models_path, writer, net_d, net_g,
+                     current_performance):
+    # Network parameters
+    # for name, param in net_g.named_parameters():
+    #     writer.add_histogram("net_g_" + name, to_numpy(param), step)
+    # for name, param in net_d.named_parameters():
+    #     writer.add_histogram("net_d_" + name, to_numpy(param), step)
+
+    # Scalars
+    for score_name, score_value in scores.items():
+        writer.add_scalar(score_name, score_value, step)
+
+    # Histograms
+    writer.add_histogram('pos_losses', np.hstack(stat.pos_losses), step)
+    writer.add_histogram('neg_losses', np.hstack(stat.neg_losses), step)
+    writer.add_histogram('real_losses', np.hstack(stat.real_losses), step)
+    writer.add_histogram('fake_losses', np.hstack(stat.fake_losses), step)
+    writer.add_histogram('g_fake_losses', np.hstack(stat.g_fake_losses), step)
+
+    # PR curves
+    writer.add_pr_curve('training', np.hstack(stat.training_targets), np.hstack(
+        stat.training_preds), step)
+
+    # Save model
+    net_d_dump_path = work_path.joinpath('models').joinpath(f'net_d-step_{step}.model')
+    torch.save(net_d.state_dict(), net_d_dump_path.as_posix())
+
+    net_g_dump_path = work_path.joinpath('models').joinpath(f'net_g-step_{step}.model')
+    torch.save(net_g.state_dict(), net_g_dump_path.as_posix())
+
+    # Save checkpoint
+    checkpoint = {
+        'step': step,
+        'unique_name': work_path.name,
+        'net_d_path_name': net_d_dump_path.name,
+        'net_g_path_name': net_g_dump_path.name,
+        # **scores,
+    }
+    with work_path.joinpath(f'checkpoint-step{step}.json').open('wt') as fout:
+        json.dump(checkpoint, fout, sort_keys=True, indent=4)
+    with work_path.joinpath('checkpoint.json').open('wt') as fout:
+        json.dump(checkpoint, fout, sort_keys=True, indent=4)
+
+    if current_performance is not None:
+        current_performance.update(writer.scalar_dict)
 
 
 def get_log_dir(args) -> str:

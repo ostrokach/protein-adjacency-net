@@ -22,6 +22,7 @@ requirements:
     - python
     - click
     - tqdm
+    - attr
     # Numerical Python
     - numpy
     - scipy
