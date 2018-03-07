@@ -164,8 +164,8 @@ pages:
   stage: deploy
   before_script:
     - sudo yum install -y -q unzip
-    - curl -s https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -o jq
-    - md5sum jq | grep 3c8549d01b3cb4abca5d497815f2340e
+    - curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -o jq
+    - md5sum jq | grep 6a342dbb17b2f2ea4ec0e64d2157614d
     - mv jq /usr/local/bin/jq
     - chmod +x /usr/local/bin/jq
   script:
