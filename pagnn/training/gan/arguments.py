@@ -40,14 +40,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         '--d-iters',
         type=int,
-        default=64,
+        default=4,
         help="Number of D iters per each G iter.",
     )
     # ...
     parser.add_argument(
-        '--adam',
+        '--rmsprop',
         action='store_true',
-        help='Whether to use adam (default is RMSprop)',
+        help='Whether to use RMSprop (default is Adam)',
     )
     parser.add_argument(
         '--learning_rate_d',
@@ -66,6 +66,12 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=0.5,
         help="beta1 for Adam",
+    )
+    parser.add_argument(
+        '--beta2',
+        type=float,
+        default=0.999,
+        help="beta2 for Adam",
     )
     parser.add_argument(
         '--clamp_lower',

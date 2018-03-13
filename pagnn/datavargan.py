@@ -13,14 +13,14 @@ from torch.autograd import Variable
 from pagnn import settings
 from pagnn.dataset import extract_adjacency_from_middle, get_indices
 from pagnn.types import DataSetGAN, DataVarGAN
-from pagnn.utils import expand_adjacency, get_seq_array, to_numpy, to_sparse_tensor
+from pagnn.utils import expand_adjacency, seq_to_array, to_numpy, to_sparse_tensor
 
 logger = logging.getLogger(__name__)
 
 
-def dataset_to_datavar(ds: DataSetGAN, volatile=False) -> DataVarGAN:
+def dataset_to_datavar(ds: DataSetGAN, volatile=False, offset: Optional[int] = None) -> DataVarGAN:
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
-    ds = pad_edges(ds)
+    ds = pad_edges(ds, offset=offset)
     seqs = push_seqs(ds.seqs, volatile=volatile)
     adjs = push_adjs(gen_adj_pool(ds.adjs[0]), volatile=volatile)
     return DataVarGAN(seqs, adjs)
@@ -28,25 +28,32 @@ def dataset_to_datavar(ds: DataSetGAN, volatile=False) -> DataVarGAN:
 
 def pad_edges(ds: DataSetGAN,
               target_length=512,
-              random_state: Optional[np.random.RandomState] = None):
+              random_state: Optional[np.random.RandomState] = None,
+              offset: Optional[int] = None):
     """Add padding before and after sequences and adjacency matrix to fit to `target_length`."""
     if random_state is None:
         random_state = np.random.RandomState()
 
     length = len(ds.seqs[0])
 
-    if length <= target_length:
-        new_seqs, new_adjs = _pad_edges_shorter(ds, length, target_length, random_state)
+    if length <= target_length or offset is not None:
+        new_seqs, new_adjs = _pad_edges_shorter(ds, length, target_length, random_state, offset)
     else:
         new_seqs, new_adjs = _pad_edges_longer(ds, length, target_length, random_state)
 
     return DataSetGAN(new_seqs, new_adjs, ds.targets, ds.meta)
 
 
-def _pad_edges_shorter(ds: DataSetGAN, length: int, target_length: int,
-                       random_state: np.random.RandomState):
-    start = random_state.randint(0, target_length - length + 1)
-    pad_end = target_length - length - start
+def _pad_edges_shorter(ds: DataSetGAN,
+                       length: int,
+                       target_length: int,
+                       random_state: np.random.RandomState,
+                       offset: Optional[int] = None):
+    if offset is None:
+        start = random_state.randint(0, target_length - length + 1)
+    else:
+        start = offset
+    pad_end = max(0, target_length - length - start)
 
     new_seqs = []
     for seq in ds.seqs:
@@ -81,7 +88,7 @@ def _pad_edges_longer(ds: DataSetGAN, length: int, target_length: int,
 
 def push_seqs(seqs: List[bytes], volatile=False) -> Variable:
     """Convert a list of `DataSetGAN` sequences into a `Variable`."""
-    seqs = [get_seq_array(seq) for seq in seqs]
+    seqs = [seq_to_array(seq) for seq in seqs]
     seqs = [to_sparse_tensor(seq) for seq in seqs]
     seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]
     seq_var = Variable(torch.cat(seqs), volatile=volatile)
@@ -96,9 +103,9 @@ def push_adjs(adjs: List[sparse.spmatrix], volatile=False) -> Variable:
     ]
 
 
-def gen_adj_pool(adj: sparse.spmatrix) -> List[sparse.spmatrix]:
+def gen_adj_pool(adj: sparse.spmatrix, n_convs: int = 3) -> List[sparse.spmatrix]:
     adjs = [adj]
-    for i in range(3):
+    for i in range(n_convs):
         adjs.append(pool_adjacency_mat(adjs[-1]))
     return adjs
 

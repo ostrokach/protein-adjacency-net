@@ -33,6 +33,7 @@ requirements:
     - torchvision
     - tensorboardx
     - scikit-learn
+    - weblogo
 
 test:
   requires:

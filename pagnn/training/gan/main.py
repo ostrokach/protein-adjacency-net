@@ -95,7 +95,7 @@ def train(args: argparse.Namespace,
     stat = Stats()
 
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
-    for _ in range(1):
+    while True:
         # === Train discriminator ===
         net_d.zero_grad()
 
@@ -137,7 +137,9 @@ def train(args: argparse.Namespace,
 
         optimizer_d.step()
 
-        stat.error_g = to_numpy(real_loss - fake_loss)
+        stat.d_real = to_numpy(real_loss)
+        stat.d_fake = to_numpy(fake_loss)
+        stat.d_error = stat.d_real - stat.d_fake
         stat.real_losses.append(to_numpy(real_loss))
         stat.fake_losses.append(to_numpy(fake_loss))
 
@@ -161,7 +163,9 @@ def train(args: argparse.Namespace,
         g_fake_loss.backward(mone)
         optimizer_g.step()
 
-        stat.error_d = to_numpy(real_loss - g_fake_loss)
+        stat.g_fake = to_numpy(g_fake_loss)
+        stat.g_error = stat.d_real - stat.g_fake
+        stat.dg_error_distance = stat.d_error - stat.g_error
         stat.g_fake_losses.append(to_numpy(g_fake_loss))
 
         # === Write ===
@@ -224,15 +228,20 @@ def calculate_statistics_basic(args: argparse.Namespace, stat: Stats, _prev_stat
         training_preds_ar = np.hstack(stat.training_preds)
         training_targets_ar = np.hstack(stat.training_targets)
         scores['training_auc'] = metrics.roc_auc_score(training_targets_ar, training_preds_ar)
-    scores['error_g'] = stat.error_g
-    scores['error_d'] = stat.error_d
+
+    scores['d_real'] = stat.d_real
+    scores['d_fake'] = stat.d_fake
+    scores['d_error'] = stat.d_error
+    scores['g_fake'] = stat.g_fake
+    scores['g_error'] = stat.g_error
+    scores['dg_error_distance'] = stat.dg_error_distance
 
     # Runtime
     prev_validation_time = _prev_stats.get('validation_time')
     _prev_stats['validation_time'] = time.perf_counter()
     if prev_validation_time:
-        scores['validation_time'] = time.perf_counter() - prev_validation_time
-        scores['iterations_per_second'] = (args.steps_between_checkpoins /
+        scores['time_between_checkpoins'] = time.perf_counter() - prev_validation_time
+        scores['checkpoins_per_second'] = (args.steps_between_checkpoins /
                                            (_prev_stats['validation_time'] - prev_validation_time))
 
     return scores
@@ -479,18 +488,18 @@ def main():
 
 if __name__ == '__main__':
     # === Basic ===
-    # main()
+    main()
     # === Profiled ===
-    from line_profiler import LineProfiler
-    lp = LineProfiler()
-    # Add additional functions to profile
-    lp.add_function(calculate_statistics_basic)
-    lp.add_function(calculate_statistics_extended)
-    lp.add_function(evaluate_validation_dataset)
-    lp.add_function(evaluate_mutation_dataset)
-    lp.add_function(train)
-    # Profile the main function
-    lp_wrapper = lp(main)
-    lp_wrapper()
-    # Print results
-    lp.print_stats()
+    # from line_profiler import LineProfiler
+    # lp = LineProfiler()
+    # # Add additional functions to profile
+    # lp.add_function(calculate_statistics_basic)
+    # lp.add_function(calculate_statistics_extended)
+    # lp.add_function(evaluate_validation_dataset)
+    # lp.add_function(evaluate_mutation_dataset)
+    # lp.add_function(train)
+    # # Profile the main function
+    # lp_wrapper = lp(main)
+    # lp_wrapper()
+    # # Print results
+    # lp.print_stats()

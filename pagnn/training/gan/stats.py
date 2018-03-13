@@ -3,6 +3,7 @@ from typing import List, Optional
 
 import attr
 import numpy as np
+from PIL import Image
 
 
 @attr.s
@@ -18,7 +19,12 @@ class Stats:
     fake_losses: List[np.ndarray] = attr.ib(default=[])
     g_fake_losses: List[np.ndarray] = attr.ib(default=[])
 
-    error_g: Optional[float] = attr.ib(default=None)
-    error_d: Optional[float] = attr.ib(default=None)
-
     scores: dict = attr.ib(default={})
+
+    #: Flag documenting whether we include extended statistics
+    is_extended: bool = attr.ib(default=False)
+
+    blosum62_scores: List[float] = attr.ib(default=[])
+    edit_scores: List[float] = attr.ib(default=[])
+
+    weblogo1: Optional[Image.Image] = attr.ib(default=None)

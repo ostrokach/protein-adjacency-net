@@ -8,14 +8,14 @@ from scipy import sparse
 logger = logging.getLogger(__name__)
 
 # Warning: Do not change the order of amino acids without chaning the order of
-# `AMINO_ACIDS_BYTES` in `_get_seq_array`!
+# `AMINO_ACIDS_BYTES` in `_seq_to_array`!
 AMINO_ACIDS: List[str] = [
     'G', 'V', 'A', 'L', 'I', 'C', 'M', 'F', 'W', 'P', 'D', 'E', 'S', 'T', 'Y', 'Q', 'N', 'K', 'R',
     'H'
 ]
 
 
-def get_seq_array(seq: bytes):
+def seq_to_array(seq: bytes):
     """Convert amino acid sequence into a one-hot encoded array.
 
     Args:
@@ -24,7 +24,7 @@ def get_seq_array(seq: bytes):
     Returns:
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
-    x_idxs, y_idxs, data = _get_seq_array(seq)
+    x_idxs, y_idxs, data = _seq_to_array(seq)
     seq_matrix = sparse.coo_matrix(
         (np.array(data), (np.array(x_idxs), np.array(y_idxs))),
         dtype=np.int16,
@@ -32,8 +32,14 @@ def get_seq_array(seq: bytes):
     return seq_matrix
 
 
+def array_to_seq(array: np.ndarray) -> str:
+    max_idxs = np.argmax(array, 0)
+    seq = ''.join(AMINO_ACIDS[i] for i in max_idxs)
+    return seq
+
+
 @jit(nopython=True)
-def _get_seq_array(seq: bytes) -> sparse.spmatrix:
+def _seq_to_array(seq: bytes) -> sparse.spmatrix:
     amino_acids = [71, 86, 65, 76, 73, 67, 77, 70, 87, 80, 68, 69, 83, 84, 89, 81, 78, 75, 82, 72]
 
     data = []

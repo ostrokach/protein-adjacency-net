@@ -30,6 +30,8 @@ def init_gpu(gpu_idx: int = None) -> None:
         device_id = ','.join(str(i) for i in device_ids)
     else:
         device_id = str(gpu_idx)
+    # TODO: This does not seem to work...
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ['CUDA_VISIBLE_DEVICES'] = device_id
     logger.info("Running on GPU number %s.", os.environ['CUDA_VISIBLE_DEVICES'])
 

@@ -31,3 +31,19 @@ def to_sparse_tensor(sparray: sparse.spmatrix) -> torch.sparse.FloatTensor:
     if settings.CUDA:
         tensor = tensor.cuda()
     return tensor
+
+
+def argmax_onehot(seq: torch.FloatTensor) -> torch.IntTensor:
+    idx1 = torch.arange(
+        0,
+        seq.shape[0] * seq.shape[2],
+        out=torch.cuda.LongTensor() if settings.CUDA else torch.LongTensor(),
+    )
+    idx2 = seq.max(1)[1].view(-1)
+    mat = torch.zeros(
+        seq.shape[0] * seq.shape[2],
+        seq.shape[1],
+        out=torch.cuda.FloatTensor() if settings.CUDA else torch.FloatTensor(),
+    )
+    mat[idx1, idx2] = 1
+    return mat.view(seq.shape[0], seq.shape[2], seq.shape[1]).transpose(1, 2).contiguous()

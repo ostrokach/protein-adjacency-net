@@ -6,7 +6,7 @@ import numpy as np
 from torch.autograd import Variable
 
 from pagnn.types import DataSet, DataSetCollection, DataVar, DataVarCollection
-from pagnn.utils import expand_adjacency, get_seq_array, to_sparse_tensor, to_tensor
+from pagnn.utils import expand_adjacency, seq_to_array, to_sparse_tensor, to_tensor
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 def dataset_to_datavar(ds: DataSet, push_seq=True, push_adj=True) -> DataVar:
     """Convert a `DataSet` into a `DataVar`."""
     if push_seq:
-        seq = to_sparse_tensor(get_seq_array(ds.seq))
+        seq = to_sparse_tensor(seq_to_array(ds.seq))
         seq = Variable(seq.to_dense().unsqueeze(0))
     else:
         seq = None

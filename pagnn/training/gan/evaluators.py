@@ -20,7 +20,7 @@ def evaluate_validation_dataset(net_d, datasets: List[DataSetGAN]):
     outputs = []
     targets = []
     for dataset in datasets:
-        datavar = dataset_to_datavar(dataset)
+        datavar = dataset_to_datavar(dataset, volatile=True)
         output = to_numpy(net_d(*datavar)).squeeze()
         target = np.array(dataset.targets)
         outputs.append(output)
@@ -43,7 +43,7 @@ def evaluate_mutation_dataset(net_d, datasets: List[DataSetGAN]):
     outputs = []
     targets = []
     for dataset in datasets:
-        datavar = dataset_to_datavar(dataset)
+        datavar = dataset_to_datavar(dataset, volatile=True)
         output = to_numpy(net_d(*datavar)).squeeze()  # (high, low)
         target = np.array(dataset.targets)  # (1, 0)...
         output = output[1::2] - output[0::2]
