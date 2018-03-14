@@ -10,9 +10,10 @@ from collections import OrderedDict
 from typing import List
 
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable
 
-from .torch_adjacency_conv import AdjacencyConv
+from .torch_adjacency_conv import AdjacencyConv, adjacency_conv_transpose
 
 
 class DiscriminatorNet(nn.Module):
@@ -101,7 +102,7 @@ class DiscriminatorNet(nn.Module):
         for i in range(7, 8):
             x = self.model[f'linear_{i}'](x)
 
-        return x
+        return F.sigmoid(x)
 
 
 class GeneratorNet(nn.Module):
@@ -154,7 +155,7 @@ class GeneratorNet(nn.Module):
         for i in range(4, 6):
             out_feat = in_feat // 2
             model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, out_feat, 4, 2, 1, bias=False)
-            model[f'adjacency_conv_{i}'] = AdjacencyConv(out_feat, out_feat)
+            # model[f'adjacency_conv_{i}'] = AdjacencyConv(out_feat, out_feat)
             model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
             model[f'relu_{i}'] = nn.ReLU()
             in_feat = out_feat
@@ -163,8 +164,10 @@ class GeneratorNet(nn.Module):
         for i in range(6, 7):
             out_feat = in_feat // 2
             model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, out_feat, 4, 2, 1, bias=False)
-            model[f'adjacency_conv_{i}'] = AdjacencyConv(out_feat, out_feat)
-            model[f'relu_{i}'] = nn.Softmax(1)
+            # model[f'adjacency_conv_{i}'] = AdjacencyConv(out_feat, out_feat)
+            # TODO: Remove this line
+            # model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
+            model[f'relu_{i}'] = nn.ReLU()
             in_feat = out_feat
 
         assert in_feat == 32, in_feat
@@ -172,17 +175,18 @@ class GeneratorNet(nn.Module):
         # 32 x 256
         for i in range(7, 8):
             out_feat = in_feat // 2
-            model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, nc, 4, 2, 1, bias=False)
-            model[f'adjacency_conv_{i}'] = AdjacencyConv(nc, nc)
-            model[f'softmax_{i}'] = nn.Softmax(1)
+            model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, 32, 4, 2, 1, bias=False)
+            # model[f'adjacency_conv_{i}'] = AdjacencyConv(nc, nc)
+
+        # Need to change indicies if this is off
+        assert i == 7
 
         self.model = model
         for key in model:
             setattr(self, key, self.model[key])
 
-    def forward(self, z: Variable, adjs: List[Variable]):
+    def forward(self, z: Variable, adjs: List[Variable], net_d):
         x = z
-        adjs = list(reversed(adjs))
 
         # 100 x 1
         for i in range(1):
@@ -199,20 +203,27 @@ class GeneratorNet(nn.Module):
         # 256 x 32
         for i in range(4, 6):
             x = self.model[f'convt_{i}'](x)
-            x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
+            # x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
+            adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{7 - i}').spatial_conv.weight
+            x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv_weight)
             x = self.model[f'instance_norm_{i}'](x)
             x = self.model[f'relu_{i}'](x)
 
         # 64 x 128
         for i in range(6, 7):
             x = self.model[f'convt_{i}'](x)
-            x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
+            # x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
+            adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{7 - i}').spatial_conv.weight
+            x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv_weight)
+            # TODO: Remove this line
+            # x = self.model[f'instance_norm_{i}'](x)
             x = self.model[f'relu_{i}'](x)
 
         # 32 x 256
         for i in range(7, 8):
             x = self.model[f'convt_{i}'](x)
-            x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
-            x = self.model[f'softmax_{i}'](x)
+            # x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
+            adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{7 - i}').spatial_conv.weight
+            x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv_weight)
 
-        return x
+        return F.softmax(x, 1)
