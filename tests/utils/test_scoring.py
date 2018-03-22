@@ -18,6 +18,11 @@ def use_argmax(request):
     return request.param
 
 
+@pytest.fixture(params=[64])
+def batch_size(request):
+    return request.param
+
+
 @pytest.fixture(params=[256, 512, 1024, 2048])
 def seq_length(request):
     return request.param
