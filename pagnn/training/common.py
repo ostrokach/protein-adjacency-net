@@ -82,7 +82,10 @@ def get_rowgen_neg(
     return rowgen_neg
 
 
-def get_rowgen_mut(mutation_class: str, data_path: Path,):
+def get_rowgen_mut(
+        mutation_class: str,
+        data_path: Path,
+):
     assert mutation_class in ['protherm', 'humsavar']
 
     if mutation_class == 'protherm':

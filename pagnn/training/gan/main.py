@@ -34,8 +34,8 @@ from pagnn.training.gan import (Stats, basic_permuted_sequence_adder, evaluate_m
                                 evaluate_validation_dataset, get_mutation_dataset,
                                 get_validation_dataset, parse_args)
 from pagnn.types import DataRow, DataSetGAN
-from pagnn.utils import (add_image, argmax_onehot, array_to_seq, make_weblogo, score_blosum62,
-                         score_edit, to_numpy, to_tensor)
+from pagnn.utils import (add_image, argmax_onehot, array_to_seq, get_version, make_weblogo,
+                         score_blosum62, score_edit, to_numpy, to_tensor)
 
 logger = logging.getLogger(__name__)
 
@@ -57,39 +57,24 @@ def train(args: argparse.Namespace,
     work_path.joinpath('checkpoints').mkdir(exist_ok=True)
 
     # Set up network
-    seq_length = 512
-    nc = 20
-    nz = 100
-
     net_d = DiscriminatorNet()
     net_g = GeneratorNet()
 
-    input = torch.FloatTensor(args.batch_size, nc, seq_length)
-    noise = torch.FloatTensor(args.batch_size, nz, 1)
-    fixed_noise = torch.FloatTensor(args.batch_size, nz, 1).normal_(0, 1)
     loss = nn.BCELoss()
     one = torch.FloatTensor([1])
     mone = one * -1
 
     if settings.CUDA:
-        net_g.cuda()
         net_d.cuda()
-        input = input.cuda()
+        net_g.cuda()
         loss = loss.cuda()
         one = one.cuda()
         mone = mone.cuda()
-        noise = noise.cuda()
-        fixed_noise = fixed_noise.cuda()
 
-    if args.rmsprop:
-        optimizer_d = optim.RMSprop(net_d.parameters(), lr=args.learning_rate_d)
-        optimizer_g = optim.RMSprop(net_g.parameters(), lr=args.learning_rate_g)
-    else:
-        # Encouraged
-        optimizer_d = optim.Adam(
-            net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2))
-        optimizer_g = optim.Adam(
-            net_g.parameters(), lr=args.learning_rate_g, betas=(args.beta1, args.beta2))
+    optimizer_d = optim.Adam(
+        net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2))
+    optimizer_g = optim.Adam(
+        net_g.parameters(), lr=args.learning_rate_g, betas=(args.beta1, args.beta2))
 
     if args.resume:
         net_g.load_state_dict(
@@ -101,23 +86,18 @@ def train(args: argparse.Namespace,
 
     step = checkpoint.get('step', 0)
     stat = Stats()
-
-    for p in net_d.parameters():
-        p.requires_grad = False
+    prev_stat = Stats()
 
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
     while True:
-        # === Train discriminator ===
-        for m in net_d.modules():
-            if isinstance(m, nn.Conv1d) and m.kernel_size == (2, ):
-                for p in m.parameters():
-                    p.requires_grad = True
+        d_iters_1, d_iters_2, g_iters = get_d_iters(args, prev_stat)
 
-        for _ in range(args.d_iters):
+        # Train discriminator pos vs. neg
+        _unfreeze_net(net_d)
+        for _ in range(d_iters_1):
             # # Clamp parameters to a cube
             # for p in net_d.parameters():
             #     p.data.clamp_(args.clamp_lower, args.clamp_upper)
-
             net_d.zero_grad()
 
             # Pos
@@ -154,19 +134,9 @@ def train(args: argparse.Namespace,
             stat.pos_losses.append(to_numpy(pos_loss))
             stat.neg_losses.append(to_numpy(neg_loss))
 
-        for p in net_d.parameters():
-            p.requires_grad = True
-
-        for m in net_d.modules():
-            if isinstance(m, nn.Conv1d) and m.kernel_size == (2, ):
-                for p in m.parameters():
-                    p.requires_grad = False
-
-        for _ in range(args.d_iters):
-            # # Clamp parameters to a cube
-            # for p in net_d.parameters():
-            #     p.data.clamp_(args.clamp_lower, args.clamp_upper)
-
+        # Train discriminator real vs. fake
+        _freeze_adj_conv(net_d)
+        for _ in range(d_iters_2):
             net_d.zero_grad()
 
             # Real
@@ -187,8 +157,11 @@ def train(args: argparse.Namespace,
             neg_loss.backward()
 
             # Fake
-            noise.resize_(args.batch_size, nz, 1).normal_(0, 1)
-            noisev = Variable(noise, volatile=True)  # totally freeze net_g
+            if settings.CUDA:
+                noise = torch.cuda.FloatTensor(args.batch_size, real_dv.seqs.shape[2])
+            else:
+                noise = torch.FloatTensor(args.batch_size, real_dv.seqs.shape[2])
+            noisev = Variable(noise.normal_(0, 1), volatile=True)
             fake = Variable(net_g(noisev, real_dv.adjs, net_d).data)
             fake_pred = net_d(fake, real_dv.adjs)
             fake_target = Variable(to_tensor(np.zeros(args.batch_size)).unsqueeze(1))
@@ -201,35 +174,37 @@ def train(args: argparse.Namespace,
 
             optimizer_d.step()
 
-        # === Train generator ===
-        for p in net_d.parameters():
-            p.requires_grad = False  # to avoid computation
+        # Train generator
+        _freeze_net(net_d)
+        for _ in range(g_iters):
+            net_g.zero_grad()
 
-        net_g.zero_grad()
+            g_real_row = next(positive_rowgen)
+            g_real_ds = to_gan(row_to_dataset(g_real_row, 1))
+            g_real_dv = dataset_to_datavar(g_real_ds, 0)
 
-        # in case our last batch was the tail batch of the dataloader,
-        # make sure we feed a full batch of noise
-        noise.resize_(args.batch_size, nz, 1).normal_(0, 1)
-        noisev = Variable(noise)
-        g_fake = net_g(noisev, pos_dv.adjs, net_d)
-        d_fake_pred = net_d(g_fake, pos_dv.adjs)
-        d_fake_target = Variable(to_tensor(np.ones(args.batch_size)).unsqueeze(1))
-        g_fake_loss = loss(d_fake_pred, d_fake_target)
-        g_fake_loss.backward()
-        # g_fake_loss = torch.mean(d_fake_pred)
-        # g_fake_loss.backward(mone)
+            if settings.CUDA:
+                noise = torch.cuda.FloatTensor(args.batch_size, g_real_dv.seqs.shape[2])
+            else:
+                noise = torch.FloatTensor(args.batch_size, g_real_dv.seqs.shape[2])
+            noisev = Variable(noise.normal_(0, 1))
+            g_fake_seqs = net_g(noisev, g_real_dv.adjs, net_d)
+            d_fake_pred = net_d(g_fake_seqs, g_real_dv.adjs)
+            d_fake_target = Variable(to_tensor(np.ones(args.batch_size)).unsqueeze(1))
+            g_fake_loss = loss(d_fake_pred, d_fake_target)
+            g_fake_loss.backward()
 
-        stat.g_fake_losses.append(to_numpy(g_fake_loss))
+            stat.g_fake_losses.append(to_numpy(g_fake_loss))
 
-        optimizer_g.step()
+            optimizer_g.step()
 
-        # === Write ===
-        if step % args.steps_between_checkpoins == 0:
+        # Write
+        if step % args.steps_between_checkpoints == 0:
             scores = calculate_statistics_basic(args, stat)
 
             resume_checkpoint = args.resume and step == checkpoint.get('step')
 
-            if resume_checkpoint or (step % args.steps_between_extended_checkpoins == 0):
+            if resume_checkpoint or (step % args.steps_between_extended_checkpoints == 0):
                 scores_extended = calculate_statistics_extended(args, stat, net_d, net_g,
                                                                 internal_validation_datasets,
                                                                 external_validation_datasets)
@@ -242,8 +217,52 @@ def train(args: argparse.Namespace,
                                  current_performance)
 
         step += 1
+        prev_stat = stat
         stat = Stats()
         progressbar.update()
+
+
+def _freeze_net(net_d):
+    for p in net_d.parameters():
+        p.requires_grad = False
+
+
+def _unfreeze_net(net_d):
+    for p in net_d.parameters():
+        p.requires_grad = True
+
+
+def _freeze_adj_conv(net_d):
+    for m in net_d.modules():
+        if isinstance(m, nn.Conv1d) and m.kernel_size == (2,):
+            for p in m.parameters():
+                p.requires_grad = False
+
+
+def _unfreeze_adj_conv(net_d):
+    for m in net_d.modules():
+        if isinstance(m, nn.Conv1d) and m.kernel_size == (2,):
+            for p in m.parameters():
+                p.requires_grad = True
+
+
+def get_d_iters(args, prev_stat):
+    if prev_stat.neg_losses and prev_stat.fake_losses:
+        mean_neg_loss = np.mean(prev_stat.neg_losses)
+        mean_fake_loss = np.mean(prev_stat.fake_losses)
+        if mean_neg_loss > mean_fake_loss:
+            d_iters_1 = args.d_iters * int(2 * mean_neg_loss / mean_fake_loss)
+            d_iters_2 = args.d_iters
+            g_iters = args.g_iters * int(2 * mean_neg_loss / mean_fake_loss)
+        else:
+            d_iters_1 = args.d_iters
+            d_iters_2 = args.d_iters * int(2 * mean_fake_loss / mean_neg_loss)
+            g_iters = args.g_iters
+    else:
+        d_iters_1 = args.d_iters
+        d_iters_2 = args.d_iters
+        g_iters = args.g_iters
+    return d_iters_1, d_iters_2, g_iters
 
 
 def calc_gradient_penalty(args, net_d, real_data, fake_data, adjs, lambda_=10):
@@ -295,9 +314,9 @@ def calculate_statistics_basic(args: argparse.Namespace, stat: Stats, _prev_stat
     prev_validation_time = _prev_stats.get('validation_time')
     _prev_stats['validation_time'] = time.perf_counter()
     if prev_validation_time:
-        scores['time_between_checkpoins'] = time.perf_counter() - prev_validation_time
-        scores['checkpoins_per_second'] = (args.steps_between_checkpoins /
-                                           (_prev_stats['validation_time'] - prev_validation_time))
+        scores['time_between_checkpoints'] = time.perf_counter() - prev_validation_time
+        scores['checkpoints_per_second'] = (args.steps_between_checkpoints /
+                                            (_prev_stats['validation_time'] - prev_validation_time))
 
     return scores
 
@@ -325,7 +344,7 @@ def calculate_statistics_extended(args: argparse.Namespace, stat: Stats, net_d, 
             scores[name] = metrics.roc_auc_score(targets_valid + 1, outputs_valid)
 
     # BLOSUM 62 and edit distance
-    noise = torch.FloatTensor(128, 100, 1)
+    noise = torch.FloatTensor(128, 256)
     if settings.CUDA:
         noise = noise.cuda()
 
@@ -363,10 +382,10 @@ def get_designed_seqs(args, dataset, net_d, net_g):
     seq_wt = dataset.seqs[0].decode()
 
     designed_seqs = []
-    noise = torch.FloatTensor(args.batch_size, 100, 1)
+    noise = torch.FloatTensor(args.batch_size, 256)
     if settings.CUDA:
         noise = noise.cuda()
-    # for offset in range(0, max(1, 512 - len(seq_wt))):
+    # for offset in range(0, max(1, math.ceil(len(seq_wt) / 128) * 128 - len(seq_wt))):
     for offset in range(0, 1):
         start = offset
         stop = start + len(seq_wt)
@@ -451,14 +470,18 @@ def write_checkpoint(step, stat, scores, work_path, writer, net_d, net_g, curren
 
 def get_log_dir(args) -> str:
     args_dict = vars(args)
-    state_keys = ['rmsprop', 'learning_rate_d', 'learning_rate_g', 'weight_decay', 'n_filters']
+    state_keys = ['learning_rate_d', 'learning_rate_g', 'weight_decay', 'n_filters']
+    version = get_version()
+    # Calculating hash of dictionary: https://stackoverflow.com/a/22003440/2063031
     state_dict = {k: args_dict[k] for k in state_keys}
-    # https://stackoverflow.com/a/22003440/2063031
-    state_hash = hashlib.md5(json.dumps(state_dict, sort_keys=True).encode('ascii')).hexdigest()
+    state_hash = hashlib.md5(json.dumps(state_dict, sort_keys=True).encode('ascii')).hexdigest()[:7]
     log_dir = '-'.join([
-        Path(__file__).parent.name, pagnn.__version__, args.training_methods,
+        Path(__file__).parent.name,
+        args.training_methods,
         args.training_permutations,
-        str(args.training_min_seq_identity), state_hash
+        str(args.training_min_seq_identity),
+        version,
+        state_hash,
     ] + ([args.tag] if args.tag else []))
     return log_dir
 
@@ -571,8 +594,8 @@ def main():
     np.random.seed(42)
     torch.manual_seed(42)
 
-    args.steps_between_checkpoins = args.steps_between_checkpoins
-    args.steps_between_extended_checkpoins = args.steps_between_extended_checkpoins
+    args.steps_between_checkpoints = args.steps_between_checkpoints
+    args.steps_between_extended_checkpoints = args.steps_between_extended_checkpoints
 
     # === Paths ===
     root_path = Path(args.rootdir).absolute()

@@ -18,7 +18,12 @@ def use_argmax(request):
     return request.param
 
 
-def test_score_blosum62_0(benchmark, use_cuda, use_argmax, batch_size=64, seq_length=512):
+@pytest.fixture(params=[256, 512, 1024, 2048])
+def seq_length(request):
+    return request.param
+
+
+def test_score_blosum62_0(benchmark, use_cuda, use_argmax, batch_size, seq_length):
     target = to_tensor(np.zeros((20, seq_length), dtype=np.float32))
     decoys = to_tensor(np.zeros((batch_size, 20, seq_length), dtype=np.float32))
     if use_argmax:
@@ -28,7 +33,7 @@ def test_score_blosum62_0(benchmark, use_cuda, use_argmax, batch_size=64, seq_le
     assert blosum62_score == 0
 
 
-def test_score_blosum62_1(benchmark, use_cuda, use_argmax, batch_size=64, seq_length=512):
+def test_score_blosum62_1(benchmark, use_cuda, use_argmax, batch_size, seq_length):
     target = to_tensor(np.zeros((20, seq_length), dtype=np.float32))
     target[1, 0] = 1
     decoys = to_tensor(np.zeros((batch_size, 20, seq_length), dtype=np.float32))
@@ -40,7 +45,7 @@ def test_score_blosum62_1(benchmark, use_cuda, use_argmax, batch_size=64, seq_le
     assert blosum62_score == 1 / seq_length
 
 
-def test_score_blosum62_2(benchmark, use_cuda, use_argmax, batch_size=64, seq_length=512):
+def test_score_blosum62_2(benchmark, use_cuda, use_argmax, batch_size, seq_length):
     target = to_tensor(np.zeros((20, seq_length), dtype=np.float32))
     target[0, 0] = 1  # G
     target[0, 0] = 1  # L
@@ -56,7 +61,7 @@ def test_score_blosum62_2(benchmark, use_cuda, use_argmax, batch_size=64, seq_le
     assert blosum62_score == 6 / seq_length
 
 
-def test_score_edit_0(benchmark, use_cuda, use_argmax, batch_size=64, seq_length=512):
+def test_score_edit_0(benchmark, use_cuda, use_argmax, batch_size, seq_length):
     target = to_tensor(np.zeros((20, seq_length), dtype=np.float32))
     decoys = to_tensor(np.zeros((batch_size, 20, seq_length), dtype=np.float32))
     if use_argmax:
@@ -66,7 +71,7 @@ def test_score_edit_0(benchmark, use_cuda, use_argmax, batch_size=64, seq_length
     assert blosum62_score == 0
 
 
-def test_score_edit_1(benchmark, use_cuda, use_argmax, batch_size=64, seq_length=512):
+def test_score_edit_1(benchmark, use_cuda, use_argmax, batch_size, seq_length):
     target = to_tensor(np.zeros((20, seq_length), dtype=np.float32))
     target[0, 0] = 1
     decoys = to_tensor(np.zeros((batch_size, 20, seq_length), dtype=np.float32))

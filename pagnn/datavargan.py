@@ -27,14 +27,16 @@ def dataset_to_datavar(ds: DataSetGAN, volatile=False, offset: Optional[int] = N
 
 
 def pad_edges(ds: DataSetGAN,
-              target_length=512,
               random_state: Optional[np.random.RandomState] = None,
+              target_length: Optional[int] = None,
               offset: Optional[int] = None):
     """Add padding before and after sequences and adjacency matrix to fit to `target_length`."""
     if random_state is None:
         random_state = np.random.RandomState()
 
     length = len(ds.seqs[0])
+    if target_length is None:
+        target_length = math.ceil(length / 128) * 128
 
     if length <= target_length or offset is not None:
         new_seqs, new_adjs = _pad_edges_shorter(ds, length, target_length, random_state, offset)

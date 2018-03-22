@@ -26,13 +26,13 @@ def parse_args() -> argparse.Namespace:
         help="Number of negative sequences per batch.",
     )
     parser.add_argument(
-        '--steps-between-checkpoins',
+        '--steps-between-checkpoints',
         type=int,
         default=1000,
-        help="Number of steps between basic checkpoins.",
+        help="Number of steps between basic checkpoints.",
     )
     parser.add_argument(
-        '--steps-between-extended-checkpoins',
+        '--steps-between-extended-checkpoints',
         type=int,
         default=10_000,
         help=("Number of steps between extended checkpoints "
@@ -41,14 +41,15 @@ def parse_args() -> argparse.Namespace:
         '--d-iters',
         type=int,
         default=4,
-        help="Number of D iters per each G iter.",
+        help="Number of D network training iterations per round.",
+    )
+    parser.add_argument(
+        '--g-iters',
+        type=int,
+        default=1,
+        help="Number of G network training iterations per round.",
     )
     # ...
-    parser.add_argument(
-        '--rmsprop',
-        action='store_true',
-        help='Whether to use RMSprop (default is Adam)',
-    )
     parser.add_argument(
         '--learning_rate_d',
         type=float,

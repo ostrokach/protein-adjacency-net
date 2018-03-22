@@ -6,19 +6,23 @@ Sources:
 - https://github.com/yunjey/pytorch-tutorial/blob/master/tutorials/03-advanced/\
 deep_convolutional_gan/model.py
 """
+import math
 from collections import OrderedDict
 from typing import List
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+from .normalization import instance_norm
 from .torch_adjacency_conv import AdjacencyConv, adjacency_conv_transpose
 
 
 class DiscriminatorNet(nn.Module):
 
-    def __init__(self, isize=512, nz=100, nc=20, ndf=32):
+    def __init__(self):
+        # isize=512, nz=100, nc=20, ndf=32
         """
         Args:
             isize: Image size (must be a power of two; defaults to 256).
@@ -32,14 +36,14 @@ class DiscriminatorNet(nn.Module):
         """
         super().__init__()
 
-        assert isize == 512
+        in_feat = 20
+        out_feat = 32
 
         model = OrderedDict()
 
-        out_feat = ndf
-
+        # 20 x 512
         for i in range(1):
-            model[f'adjacency_conv_{i}'] = AdjacencyConv(nc, out_feat)
+            model[f'adjacency_conv_{i}'] = AdjacencyConv(in_feat, out_feat)
             model[f'conv_{i}'] = nn.Conv1d(out_feat, out_feat, 4, 2, 1, bias=False)
             model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
             in_feat = out_feat
@@ -52,7 +56,7 @@ class DiscriminatorNet(nn.Module):
             model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
             in_feat = out_feat
 
-        for i in range(4, 7):  # 7: int(np.log2(isize) - 2)
+        for i in range(4, 7):
             out_feat = in_feat * 2
             model[f'conv_{i}'] = nn.Conv1d(in_feat, out_feat, 4, 2, 1, bias=False)
             model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
@@ -61,53 +65,48 @@ class DiscriminatorNet(nn.Module):
 
         assert in_feat == 2048, in_feat
 
+        # 2048 x 4
         i += 1
-        model[f'linear_{i}'] = nn.Linear(in_feat * 4, 1, bias=False)
+        assert i == 7
+
+        model[f'linear_{i}'] = nn.Linear(in_feat, 1, bias=False)
+
+        for key, value in model.items():
+            setattr(self, key, value)
         self.model = model
-        for key in model:
-            setattr(self, key, self.model[key])
 
     def forward(self, seq: Variable, adjs: List[Variable]):
         """
         Args:
-            seq: A sequence of 512 amino acids (if your sequence is shorter, pad it with zeros).
-                Shape: ``[?, 20, 512]``.
+            seq: A sequence of ``128 x N`` amino acids (if your sequence is shorter, pad it with
+                zeros). Shape: ``[?, 20, 128 x N]``.
             adjs:
                 Shape: ``[ [xxx, 512], [xxx, 256], [xxx, 128], [xxx, 64] ]``.
         """
         x = seq
 
         # 20 x 512
-        for i in range(1):
-            x = self.model[f'adjacency_conv_{i}'](x, adjs[i])
+        for i in range(0, 7):
+            if i in range(0, 4):
+                x = self.model[f'adjacency_conv_{i}'](x, adjs[i])
             x = self.model[f'conv_{i}'](x)
-            x = self.model[f'leaky_relu_{i}'](x)
-
-        # 32 x 256
-        for i in range(1, 4):
-            x = self.model[f'adjacency_conv_{i}'](x, adjs[i])
-            x = self.model[f'conv_{i}'](x)
-            x = self.model[f'instance_norm_{i}'](x)
-            x = self.model[f'leaky_relu_{i}'](x)
-
-        # 256 x 32
-        for i in range(4, 7):
-            x = self.model[f'conv_{i}'](x)
-            x = self.model[f'instance_norm_{i}'](x)
+            if i in range(1, 6):
+                x = instance_norm(x)
             x = self.model[f'leaky_relu_{i}'](x)
 
         # 2048 x 4
-        x = x.view(seq.size()[0], 2048 * 4)
+        assert x.shape[1] == 2048, x.shape
 
-        for i in range(7, 8):
-            x = self.model[f'linear_{i}'](x)
+        i += 1
+        preds = torch.cat(
+            [F.sigmoid(self.model[f'linear_{i}'](x[:, :, k])) for k in range(x.shape[2])], 1)
 
-        return F.sigmoid(x)
+        return preds.mean(-1, keepdim=True)
 
 
 class GeneratorNet(nn.Module):
 
-    def __init__(self, isize=512, nz=100, nc=20, ngf=32):
+    def __init__(self):
         """
         Args:
             isize: Sequence length (at present, this has to be 512).
@@ -121,109 +120,81 @@ class GeneratorNet(nn.Module):
         """
         super().__init__()
 
-        assert isize == 512
-
-        # Dynamically calculate the input dimension (cngf)
-        # cngf = 2048 for default inputs
-        cngf = ngf // 2
-        tisize = 4
-        while tisize != isize:
-            cngf = cngf * 2
-            tisize = tisize * 2
+        in_feat = 32
+        out_feat = 2048
 
         model = OrderedDict()
 
-        in_feat = nz
-        out_feat = cngf
-
         # 100 x 1
         for i in range(1):
-            model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, out_feat, 4, 1, 0, bias=False)
+            model[f'linear_{i}'] = nn.Linear(in_feat, out_feat, bias=False)
             model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
             model[f'relu_{i}'] = nn.ReLU()
             in_feat = out_feat
 
         # 2048 x 4
-        for i in range(1, 4):
+        for i in range(1, 7):
             out_feat = in_feat // 2
             model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, out_feat, 4, 2, 1, bias=False)
             model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
-            model[f'relu_{i}'] = nn.ReLU()
-            in_feat = out_feat
-
-        # 256 x 32
-        for i in range(4, 6):
-            out_feat = in_feat // 2
-            model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, out_feat, 4, 2, 1, bias=False)
-            # model[f'adjacency_conv_{i}'] = AdjacencyConv(out_feat, out_feat)
-            model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
-            model[f'relu_{i}'] = nn.ReLU()
-            in_feat = out_feat
-
-        # 64 x 128
-        for i in range(6, 7):
-            out_feat = in_feat // 2
-            model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, out_feat, 4, 2, 1, bias=False)
-            # model[f'adjacency_conv_{i}'] = AdjacencyConv(out_feat, out_feat)
-            # TODO: Remove this line
-            # model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
             model[f'relu_{i}'] = nn.ReLU()
             in_feat = out_feat
 
         assert in_feat == 32, in_feat
 
         # 32 x 256
-        for i in range(7, 8):
-            out_feat = in_feat // 2
-            model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, 32, 4, 2, 1, bias=False)
-            # model[f'adjacency_conv_{i}'] = AdjacencyConv(nc, nc)
+        i += 1
+        model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, 32, 4, 2, 1, bias=False)
 
-        # Need to change indicies if this is off
         assert i == 7
 
+        for key, value in model.items():
+            setattr(self, key, value)
         self.model = model
-        for key in model:
-            setattr(self, key, self.model[key])
 
     def forward(self, z: Variable, adjs: List[Variable], net_d):
-        x = z
 
-        # 100 x 1
-        for i in range(1):
-            x = self.model[f'convt_{i}'](x)
-            x = self.model[f'instance_norm_{i}'](x)
-            x = self.model[f'relu_{i}'](x)
+        step = 32
+
+        i = 0
+        x = _stack_x(z, adjs, self.model[f'linear_{i}'], step)
+        x = self.model[f'relu_{i}'](x)
 
         # 2048 x 4
-        for i in range(1, 4):
+        for i in range(1, 8):
             x = self.model[f'convt_{i}'](x)
-            x = self.model[f'instance_norm_{i}'](x)
-            x = self.model[f'relu_{i}'](x)
-
-        # 256 x 32
-        for i in range(4, 6):
-            x = self.model[f'convt_{i}'](x)
-            # x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
-            adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{7 - i}').spatial_conv.weight
-            x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv_weight)
-            x = self.model[f'instance_norm_{i}'](x)
-            x = self.model[f'relu_{i}'](x)
-
-        # 64 x 128
-        for i in range(6, 7):
-            x = self.model[f'convt_{i}'](x)
-            # x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
-            adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{7 - i}').spatial_conv.weight
-            x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv_weight)
-            # TODO: Remove this line
-            # x = self.model[f'instance_norm_{i}'](x)
-            x = self.model[f'relu_{i}'](x)
-
-        # 32 x 256
-        for i in range(7, 8):
-            x = self.model[f'convt_{i}'](x)
-            # x = self.model[f'adjacency_conv_{i}'](x, adjs[i - 4])
-            adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{7 - i}').spatial_conv.weight
-            x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv_weight)
+            if i in range(4, 999):  # 4, 5, 6, 7
+                x = _adjacency_conv_i(x, adjs, net_d, i)
+            if i in range(1, 6):
+                x = instance_norm(x)
+            if i in range(0, 7):
+                x = self.model[f'relu_{i}'](x)
 
         return F.softmax(x, 1)
+
+
+def _stack_x(z, adjs, linear, step):
+    x_list = []
+    start = 0
+    for _ in range(math.ceil(adjs[0].shape[1] / 128)):
+        stop = start + step
+        x_list.append(linear(z[:, start:stop]))
+        start = stop
+    x = torch.stack(x_list, 2)
+    return x
+
+
+def _adjacency_conv_i(x, adjs, net_d, i):
+    adjacency_conv = getattr(net_d, f'adjacency_conv_{7 - i}')
+    x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv.spatial_conv.weight)
+    return x
+
+
+def _get_tisize(ngf, isize):
+    # cngf = 2048 for default inputs
+    cngf = ngf // 2
+    tisize = 4
+    while tisize != isize:
+        cngf = cngf * 2
+        tisize = tisize * 2
+    return tisize, cngf
