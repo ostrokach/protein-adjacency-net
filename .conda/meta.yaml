@@ -22,12 +22,12 @@ requirements:
     - python
     - click
     - tqdm
-    - attr
+    - attrs
     # Numerical Python
     - numpy
     - scipy
     - pandas
-    - pyarrow
+    - pyarrow >=0.9.*
     - numba
     - pytorch =0.3.*
     - torchvision
