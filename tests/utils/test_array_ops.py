@@ -6,7 +6,10 @@ from pagnn.utils.array_ops import argmax_onehot
 from pagnn.utils.testing import set_cuda
 
 
-@pytest.fixture(scope='module', params=[False, True], ids=lambda r: f'seq_cuda{int(r.cuda)}')
+@pytest.fixture(
+    scope='module',
+    params=[False] + ([True] if torch.cuda.is_available() else []),
+    ids=lambda r: f'seq_cuda{int(r.cuda)}')
 def seq(request):
     random_state = np.random.RandomState(42)
     use_cuda = request.param
