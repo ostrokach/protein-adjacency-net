@@ -1,5 +1,5 @@
 {% set name = "pagnn" %}
-{% set version = "0.1.8" %}
+{% set version = "0.1.9.dev" %}
 
 package:
   name: {{ name }}
@@ -29,7 +29,7 @@ requirements:
     - pandas
     - pyarrow >=0.9.*
     - numba
-    - pytorch =0.3.*
+    - pytorch >=0.4.*
     - torchvision
     - tensorboardx
     - scikit-learn
