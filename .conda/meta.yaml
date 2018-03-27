@@ -31,8 +31,6 @@ requirements:
     - numba
     - pytorch >=0.4.*
     - torchvision
-    - tensorflow >=1.6.*
-    - tensorboardx
     - scikit-learn
     - weblogo
 
