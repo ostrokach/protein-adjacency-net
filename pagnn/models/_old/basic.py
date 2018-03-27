@@ -22,7 +22,6 @@ class SingleDomainNet(nn.Module):
         x = aa @ adjacency.transpose(0, 1)
         x = self.spatial_conv(x)
         x = x @ adjacency[::2, :]
-        # import pdb; pdb.set_trace()
         # x = x.sum(dim=0) / adjacency.sum(dim=0)
         x, idxs = (x / adjacency.sum(dim=0)).max(dim=2)
         x = self.combine_convs(x)
