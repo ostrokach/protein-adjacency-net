@@ -18,11 +18,11 @@ from pagnn.utils import expand_adjacency, seq_to_array, to_numpy, to_sparse_tens
 logger = logging.getLogger(__name__)
 
 
-def dataset_to_datavar(ds: DataSetGAN, volatile=False, offset: Optional[int] = None) -> DataVarGAN:
+def dataset_to_datavar(ds: DataSetGAN, offset: Optional[int] = None) -> DataVarGAN:
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
     ds = pad_edges(ds, offset=offset)
-    seqs = push_seqs(ds.seqs, volatile=volatile)
-    adjs = push_adjs(gen_adj_pool(ds.adjs[0]), volatile=volatile)
+    seqs = push_seqs(ds.seqs)
+    adjs = push_adjs(gen_adj_pool(ds.adjs[0]))
     return DataVarGAN(seqs, adjs)
 
 
@@ -88,19 +88,19 @@ def _pad_edges_longer(ds: DataSetGAN, length: int, target_length: int,
     return new_seqs, new_adjs
 
 
-def push_seqs(seqs: List[bytes], volatile=False) -> Variable:
+def push_seqs(seqs: List[bytes]) -> Variable:
     """Convert a list of `DataSetGAN` sequences into a `Variable`."""
     seqs = [seq_to_array(seq) for seq in seqs]
     seqs = [to_sparse_tensor(seq) for seq in seqs]
-    seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]
-    seq_var = Variable(torch.cat(seqs), volatile=volatile)
+    seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]  # type: ignore
+    seq_var = Variable(torch.cat(seqs))
     return seq_var
 
 
-def push_adjs(adjs: List[sparse.spmatrix], volatile=False) -> Variable:
+def push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
     return [
-        Variable(to_sparse_tensor(expand_adjacency(adj)).to_dense(), volatile=volatile)
+        Variable(to_sparse_tensor(expand_adjacency(adj)).to_dense())
         for adj in adjs
     ]
 

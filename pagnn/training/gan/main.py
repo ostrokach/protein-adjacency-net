@@ -2,6 +2,7 @@ import argparse
 import hashlib
 import json
 import logging
+import math
 import pickle
 import random
 import time
@@ -27,15 +28,15 @@ from torch.autograd import Variable
 import pagnn
 from pagnn import settings
 from pagnn.dataset import row_to_dataset, to_gan
-from pagnn.datavargan import dataset_to_datavar
+from pagnn.datavargan import datasets_to_datavar
 from pagnn.models import DiscriminatorNet, GeneratorNet
 from pagnn.training.common import get_rowgen_neg, get_rowgen_pos
 from pagnn.training.gan import (Stats, basic_permuted_sequence_adder, evaluate_mutation_dataset,
                                 evaluate_validation_dataset, get_mutation_dataset,
                                 get_validation_dataset, parse_args)
-from pagnn.types import DataRow, DataSetGAN
-from pagnn.utils import (add_image, argmax_onehot, array_to_seq, make_weblogo, score_blosum62,
-                         score_edit, to_numpy, to_tensor)
+from pagnn.types import DataRow, DataSetGAN  # , DataVarGAN
+from pagnn.utils import (add_image, argmax_onehot, array_to_seq, get_version, make_weblogo,
+                         score_blosum62, score_edit, to_numpy, to_tensor)
 
 logger = logging.getLogger(__name__)
 
@@ -86,40 +87,71 @@ def train(args: argparse.Namespace,
 
     step = checkpoint.get('step', 0)
     stat = Stats()
-    prev_stat = Stats()
+    # prev_stat = Stats()
 
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
     while True:
-        d_iters_1, d_iters_2, g_iters = get_d_iters(args, prev_stat)
+        # d_iters_1, d_iters_2, g_iters = get_d_iters(args, prev_stat)
+        num_aa_per_batch = 1_000
 
-        # Train discriminator pos vs. neg
+        # Train discriminator
         _unfreeze_net(net_d)
-        for _ in range(d_iters_1):
+        for _ in range(args.d_iters):
             # # Clamp parameters to a cube
             # for p in net_d.parameters():
             #     p.data.clamp_(args.clamp_lower, args.clamp_upper)
             net_d.zero_grad()
 
+            # Generate positive and negative dataset batches
+            pos_ds_list = []
+            neg_ds_list = []
+            seq_len = 0
+            while seq_len < num_aa_per_batch:
+                pos_row = next(positive_rowgen)
+                if len(pos_row.sequence) < net_d.aa_per_prediction:
+                    continue
+                pos_ds = to_gan(row_to_dataset(pos_row, 1))
+                pos_ds_list.append(pos_ds)
+                neg_ds = negative_ds_gen.send(pos_ds)
+                neg_ds_list.append(neg_ds)
+                seq_len += len(pos_ds.seqs[0])
+            pos_dv = datasets_to_datavar(pos_ds_list)
+            assert seq_len == pos_dv.seqs.shape[2], (seq_len, pos_dv.seqs)
+            assert seq_len == sum(adj[0].shape[1] for adj in pos_dv.adjs), (seq_len, pos_dv.adjs)
+
             # Pos
-            pos_row = next(positive_rowgen)
-            pos_ds = to_gan(row_to_dataset(pos_row, 1))
-            pos_dv = dataset_to_datavar(pos_ds, 0)
             pos_pred = net_d(*pos_dv)
-            pos_target = Variable(to_tensor(np.ones(1)).unsqueeze(1))
-            pos_loss = loss(pos_pred, pos_target)
-            pos_loss.backward(one)
+            pos_target = Variable(to_tensor(np.ones((1, 1))))
+            pos_loss = loss(pos_pred.mean(0, keepdim=True), pos_target)
+            pos_loss.backward(one * 2)
             # pos_loss = torch.mean(pos_pred)
             # pos_loss.backward(mone * 2)
 
             # Neg
-            neg_ds = negative_ds_gen.send(pos_ds)
-            neg_dv = dataset_to_datavar(neg_ds, 0)
+            neg_dv = datasets_to_datavar(neg_ds_list)
             neg_pred = net_d(*neg_dv)
-            neg_target = Variable(to_tensor(np.zeros(args.batch_size)).unsqueeze(1))
-            neg_loss = loss(neg_pred, neg_target)
+            neg_target = Variable(to_tensor(np.zeros((1, 1))))
+            neg_loss = loss(neg_pred.mean(0, keepdim=True), neg_target)
             neg_loss.backward()
+            del neg_dv
             # neg_loss = torch.mean(neg_pred)
             # neg_loss.backward(one)
+
+            # Fake
+            if settings.CUDA:
+                noise = torch.cuda.FloatTensor(
+                    args.batch_size,
+                    math.ceil(pos_dv.seqs.shape[2] / net_d.aa_per_prediction * net_d.z_in))
+            else:
+                noise = torch.cuda.FloatTensor(
+                    args.batch_size,
+                    math.ceil(pos_dv.seqs.shape[2] / net_d.aa_per_prediction * net_d.z_in))
+            noisev = Variable(noise.normal_(0, 1), volatile=True)
+            fake = Variable(net_g(noisev, pos_dv.adjs, net_d).data)
+            fake_pred = net_d(fake, pos_dv.adjs)
+            fake_target = Variable(to_tensor(np.zeros((1, 1))))
+            fake_loss = loss(fake_pred.mean(2, keepdim=True), fake_target)
+            fake_loss.backward()
 
             # gradient_penalty = calc_gradient_penalty(
             #     args, net_d, pos_dv.seqs.data, neg_dv.seqs.data,
@@ -130,68 +162,40 @@ def train(args: argparse.Namespace,
 
             # Write stats
             stat.training_preds.extend([to_numpy(pos_pred).squeeze(), to_numpy(neg_pred).squeeze()])
-            stat.training_targets.extend([np.ones(1), np.zeros(args.batch_size)])
+            stat.training_targets.extend([np.ones(1), np.zeros(1)])
             stat.pos_losses.append(to_numpy(pos_loss))
             stat.neg_losses.append(to_numpy(neg_loss))
-
-        # Train discriminator real vs. fake
-        _freeze_adj_conv(net_d)
-        for _ in range(d_iters_2):
-            net_d.zero_grad()
-
-            # Real
-            real_row = next(positive_rowgen)
-            real_ds = to_gan(row_to_dataset(real_row, 1))
-            real_dv = dataset_to_datavar(real_ds, 0)
-            real_pred = net_d(*real_dv)
-            real_target = Variable(to_tensor(np.ones(1)).unsqueeze(1))
-            real_loss = loss(real_pred, real_target)
-            real_loss.backward(one * 2)
-
-            # Neg
-            neg_ds = negative_ds_gen.send(real_ds)
-            neg_dv = dataset_to_datavar(neg_ds, 0)
-            neg_pred = net_d(*neg_dv)
-            neg_target = Variable(to_tensor(np.zeros(args.batch_size)).unsqueeze(1))
-            neg_loss = loss(neg_pred, neg_target)
-            neg_loss.backward()
-
-            # Fake
-            if settings.CUDA:
-                noise = torch.cuda.FloatTensor(args.batch_size, real_dv.seqs.shape[2])
-            else:
-                noise = torch.FloatTensor(args.batch_size, real_dv.seqs.shape[2])
-            noisev = Variable(noise.normal_(0, 1), volatile=True)
-            fake = Variable(net_g(noisev, real_dv.adjs, net_d).data)
-            fake_pred = net_d(fake, real_dv.adjs)
-            fake_target = Variable(to_tensor(np.zeros(args.batch_size)).unsqueeze(1))
-            fake_loss = loss(fake_pred, fake_target)
-            fake_loss.backward()
-
-            # Write stats
-            stat.real_losses.append(to_numpy(real_loss))
             stat.fake_losses.append(to_numpy(fake_loss))
-
-            optimizer_d.step()
 
         # Train generator
         _freeze_net(net_d)
-        for _ in range(g_iters):
+        for _ in range(args.g_iters):
             net_g.zero_grad()
 
-            g_real_row = next(positive_rowgen)
-            g_real_ds = to_gan(row_to_dataset(g_real_row, 1))
-            g_real_dv = dataset_to_datavar(g_real_ds, 0)
+            pos_ds_list = []
+            seq_len = 0
+            while seq_len < num_aa_per_batch:
+                pos_row = next(positive_rowgen)
+                if len(pos_row.sequence) < net_d.aa_per_prediction:
+                    continue
+                pos_ds = to_gan(row_to_dataset(pos_row, 1))
+                pos_ds_list.append(pos_ds)
+                seq_len += len(pos_row.sequence)
+            g_real_dv = datasets_to_datavar(pos_ds_list)
 
             if settings.CUDA:
-                noise = torch.cuda.FloatTensor(args.batch_size, g_real_dv.seqs.shape[2])
+                noise = torch.cuda.FloatTensor(
+                    args.batch_size,
+                    math.ceil(g_real_dv.seqs.shape[2] / net_d.aa_per_prediction * net_d.z_in))
             else:
-                noise = torch.FloatTensor(args.batch_size, g_real_dv.seqs.shape[2])
+                noise = torch.cuda.FloatTensor(
+                    args.batch_size,
+                    math.ceil(g_real_dv.seqs.shape[2] / net_d.aa_per_prediction * net_d.z_in))
             noisev = Variable(noise.normal_(0, 1))
             g_fake_seqs = net_g(noisev, g_real_dv.adjs, net_d)
             d_fake_pred = net_d(g_fake_seqs, g_real_dv.adjs)
-            d_fake_target = Variable(to_tensor(np.ones(args.batch_size)).unsqueeze(1))
-            g_fake_loss = loss(d_fake_pred, d_fake_target)
+            d_fake_target = Variable(to_tensor(np.ones((1, 1))))
+            g_fake_loss = loss(d_fake_pred.mean(0, keepdim=True), d_fake_target)
             g_fake_loss.backward()
 
             stat.g_fake_losses.append(to_numpy(g_fake_loss))
@@ -200,6 +204,8 @@ def train(args: argparse.Namespace,
 
         # Write
         if step % args.steps_between_checkpoints == 0:
+            net_d.eval()
+
             scores = calculate_statistics_basic(args, stat)
 
             resume_checkpoint = args.resume and step == checkpoint.get('step')
@@ -216,8 +222,10 @@ def train(args: argparse.Namespace,
                 write_checkpoint(step, stat, scores, work_path, writer, net_d, net_g,
                                  current_performance)
 
+            net_d.train()
+
         step += 1
-        prev_stat = stat
+        # prev_stat = stat
         stat = Stats()
         progressbar.update()
 
@@ -353,7 +361,7 @@ def calculate_statistics_extended(args: argparse.Namespace, stat: Stats, net_d, 
         seq_wt = dataset.seqs[0].decode()
         start = 0
         stop = start + len(seq_wt)
-        datavar = dataset_to_datavar(dataset, volatile=True, offset=start)
+        datavar = datasets_to_datavar([dataset for _ in range(5)], volatile=True)
         noisev = Variable(noise.normal_(0, 1), volatile=True)
         pred = net_g(noisev, datavar.adjs, net_d)
         pred_argmax = argmax_onehot(pred[:, :, start:stop].data)
@@ -389,7 +397,7 @@ def get_designed_seqs(args, dataset, net_d, net_g):
     for offset in range(0, 1):
         start = offset
         stop = start + len(seq_wt)
-        datavar = dataset_to_datavar(dataset, volatile=True, offset=offset)
+        datavar = datasets_to_datavar(dataset, volatile=True, offset=offset)
         noisev = Variable(noise.normal_(0, 1))
         pred = net_g(noisev, datavar.adjs, net_d)
         pred_np = pagnn.to_numpy(pred)
@@ -471,6 +479,7 @@ def write_checkpoint(step, stat, scores, work_path, writer, net_d, net_g, curren
 def get_log_dir(args) -> str:
     args_dict = vars(args)
     state_keys = ['learning_rate_d', 'learning_rate_g', 'weight_decay', 'n_filters']
+    version = get_version()
     # Calculating hash of dictionary: https://stackoverflow.com/a/22003440/2063031
     state_dict = {k: args_dict[k] for k in state_keys}
     state_hash = hashlib.md5(json.dumps(state_dict, sort_keys=True).encode('ascii')).hexdigest()[:7]
@@ -479,9 +488,10 @@ def get_log_dir(args) -> str:
         args.training_methods,
         args.training_permutations,
         str(args.training_min_seq_identity),
-        pagnn.__version__,
+    ] + ([args.tag] if args.tag else []) + [
+        version,
         state_hash,
-    ] + ([args.tag] if args.tag else []))
+    ])
     return log_dir
 
 
