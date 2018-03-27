@@ -34,8 +34,8 @@ from pagnn.training.gan import (Stats, basic_permuted_sequence_adder, evaluate_m
                                 evaluate_validation_dataset, get_mutation_dataset,
                                 get_validation_dataset, parse_args)
 from pagnn.types import DataRow, DataSetGAN
-from pagnn.utils import (add_image, argmax_onehot, array_to_seq, get_version, make_weblogo,
-                         score_blosum62, score_edit, to_numpy, to_tensor)
+from pagnn.utils import (add_image, argmax_onehot, array_to_seq, make_weblogo, score_blosum62,
+                         score_edit, to_numpy, to_tensor)
 
 logger = logging.getLogger(__name__)
 
@@ -471,7 +471,6 @@ def write_checkpoint(step, stat, scores, work_path, writer, net_d, net_g, curren
 def get_log_dir(args) -> str:
     args_dict = vars(args)
     state_keys = ['learning_rate_d', 'learning_rate_g', 'weight_decay', 'n_filters']
-    version = get_version()
     # Calculating hash of dictionary: https://stackoverflow.com/a/22003440/2063031
     state_dict = {k: args_dict[k] for k in state_keys}
     state_hash = hashlib.md5(json.dumps(state_dict, sort_keys=True).encode('ascii')).hexdigest()[:7]
@@ -480,7 +479,7 @@ def get_log_dir(args) -> str:
         args.training_methods,
         args.training_permutations,
         str(args.training_min_seq_identity),
-        version,
+        pagnn.__version__,
         state_hash,
     ] + ([args.tag] if args.tag else []))
     return log_dir
