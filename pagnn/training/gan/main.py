@@ -35,8 +35,8 @@ from pagnn.training.gan import (Stats, basic_permuted_sequence_adder, evaluate_m
                                 evaluate_validation_dataset, get_mutation_dataset,
                                 get_validation_dataset, parse_args)
 from pagnn.types import DataRow, DataSetGAN  # , DataVarGAN
-from pagnn.utils import (add_image, argmax_onehot, array_to_seq, get_version, make_weblogo,
-                         score_blosum62, score_edit, to_numpy, to_tensor)
+from pagnn.utils import (add_image, argmax_onehot, array_to_seq, make_weblogo, score_blosum62,
+                         score_edit, to_numpy, to_tensor)
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +146,10 @@ def train(args: argparse.Namespace,
                 noise = torch.cuda.FloatTensor(
                     args.batch_size,
                     math.ceil(pos_dv.seqs.shape[2] / net_d.aa_per_prediction * net_d.z_in))
-            noisev = Variable(noise.normal_(0, 1), volatile=True)
-            fake = Variable(net_g(noisev, pos_dv.adjs, net_d).data)
+            with torch.no_grad():
+                noisev = Variable(noise.normal_(0, 1))
+                fake_data = net_g(noisev, pos_dv.adjs, net_d).data
+            fake = Variable(fake_data)
             fake_pred = net_d(fake, pos_dv.adjs)
             fake_target = Variable(to_tensor(np.zeros((1, 1))))
             fake_loss = loss(fake_pred.mean(2, keepdim=True), fake_target)
@@ -361,8 +363,8 @@ def calculate_statistics_extended(args: argparse.Namespace, stat: Stats, net_d, 
         seq_wt = dataset.seqs[0].decode()
         start = 0
         stop = start + len(seq_wt)
-        datavar = datasets_to_datavar([dataset for _ in range(5)], volatile=True)
-        noisev = Variable(noise.normal_(0, 1), volatile=True)
+        datavar = datasets_to_datavar([dataset for _ in range(5)])
+        noisev = Variable(noise.normal_(0, 1))
         pred = net_g(noisev, datavar.adjs, net_d)
         pred_argmax = argmax_onehot(pred[:, :, start:stop].data)
         target = datavar.seqs[0, :, start:stop].data
@@ -397,7 +399,7 @@ def get_designed_seqs(args, dataset, net_d, net_g):
     for offset in range(0, 1):
         start = offset
         stop = start + len(seq_wt)
-        datavar = datasets_to_datavar(dataset, volatile=True, offset=offset)
+        datavar = datasets_to_datavar(dataset, offset=offset)
         noisev = Variable(noise.normal_(0, 1))
         pred = net_g(noisev, datavar.adjs, net_d)
         pred_np = pagnn.to_numpy(pred)
@@ -479,7 +481,6 @@ def write_checkpoint(step, stat, scores, work_path, writer, net_d, net_g, curren
 def get_log_dir(args) -> str:
     args_dict = vars(args)
     state_keys = ['learning_rate_d', 'learning_rate_g', 'weight_decay', 'n_filters']
-    version = get_version()
     # Calculating hash of dictionary: https://stackoverflow.com/a/22003440/2063031
     state_dict = {k: args_dict[k] for k in state_keys}
     state_hash = hashlib.md5(json.dumps(state_dict, sort_keys=True).encode('ascii')).hexdigest()[:7]
@@ -489,7 +490,7 @@ def get_log_dir(args) -> str:
         args.training_permutations,
         str(args.training_min_seq_identity),
     ] + ([args.tag] if args.tag else []) + [
-        version,
+        pagnn.__version__,
         state_hash,
     ])
     return log_dir

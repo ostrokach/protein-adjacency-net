@@ -15,11 +15,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from .normalization import instance_norm
 from .torch_adjacency_conv import AdjacencyConv, adjacency_conv_transpose
 
 
-class DiscriminatorNet(nn.Module):
+class GANParams:
+    x_in: int = 20
+    x_hidden: int = 32
+    x_out: int = 64
+    z_in: int = 50
+    z_out: int = 2048
+    n_layers: int = 7
+    aa_per_prediction: int = 64
+
+
+class DiscriminatorNet(nn.Module, GANParams):
 
     def __init__(self):
         # isize=512, nz=100, nc=20, ndf=32
@@ -36,46 +45,48 @@ class DiscriminatorNet(nn.Module):
         """
         super().__init__()
 
-        in_feat = 20
-        out_feat = 32
-
         model = OrderedDict()
 
-        # 20 x 512
+        # 20 x 64+
         for i in range(1):
-            model[f'adjacency_conv_{i}'] = AdjacencyConv(in_feat, out_feat)
-            model[f'conv_{i}'] = nn.Conv1d(out_feat, out_feat, 4, 2, 1, bias=False)
+            model[f'adjacency_conv_{i}'] = AdjacencyConv(self.x_in, self.x_hidden)
+            model[f'conv_{i}'] = nn.Conv1d(
+                self.x_hidden, self.x_out, kernel_size=4, stride=2, padding=0, bias=False)
             model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
-            in_feat = out_feat
+            in_feat = self.x_out
 
         for i in range(1, 4):
             out_feat = in_feat * 2
             model[f'adjacency_conv_{i}'] = AdjacencyConv(in_feat, in_feat)
-            model[f'conv_{i}'] = nn.Conv1d(in_feat, out_feat, 4, 2, 1, bias=False)
+            model[f'conv_{i}'] = nn.Conv1d(
+                in_feat, out_feat, kernel_size=4, stride=2, padding=0, bias=False)
             model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
             model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
             in_feat = out_feat
 
-        for i in range(4, 7):
+        for i in range(4, 6):
             out_feat = in_feat * 2
-            model[f'conv_{i}'] = nn.Conv1d(in_feat, out_feat, 4, 2, 1, bias=False)
+            model[f'conv_{i}'] = nn.Conv1d(
+                in_feat, out_feat, kernel_size=4, stride=2, padding=0, bias=False)
             model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
             model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
             in_feat = out_feat
 
-        assert in_feat == 2048, in_feat
+        assert in_feat == self.z_out, in_feat
 
-        # 2048 x 4
-        i += 1
-        assert i == 7
+        for i in range(6, 7):
+            out_feat = 1
+            model[f'conv_{i}'] = nn.Conv1d(
+                in_feat, out_feat, kernel_size=1, stride=1, padding=0, bias=False)
+            model[f'sigmoid_{i}'] = nn.Sigmoid()
 
-        model[f'linear_{i}'] = nn.Linear(in_feat, 1, bias=False)
+        assert (i + 1) == self.n_layers
 
         for key, value in model.items():
             setattr(self, key, value)
         self.model = model
 
-    def forward(self, seq: Variable, adjs: List[Variable]):
+    def forward(self, seq: Variable, adjs: List[List[Variable]]):
         """
         Args:
             seq: A sequence of ``128 x N`` amino acids (if your sequence is shorter, pad it with
@@ -86,25 +97,63 @@ class DiscriminatorNet(nn.Module):
         x = seq
 
         # 20 x 512
-        for i in range(0, 7):
+        for i in range(0, 6):
+            # Adjacency convolutions
             if i in range(0, 4):
-                x = self.model[f'adjacency_conv_{i}'](x, adjs[i])
-            x = self.model[f'conv_{i}'](x)
+                seq_slices = []
+                start = 0
+                prev_idx_bool = True
+                for j, adj in enumerate(adjs):
+                    stop = start + adj[i].shape[1]
+                    if stop > x.shape[2]:
+                        # import pdb; pdb.set_trace()
+                        pass
+                    assert stop <= x.shape[2], (i, start, stop, x.shape, len(adjs))
+                    seq_slice = x[:, :, start:stop]
+                    seq_slice = self.model[f'adjacency_conv_{i}'](seq_slice, adj[i])
+                    seq_slices.append(seq_slice)
+                    start = stop
+                assert 0 <= (x.shape[2] - stop) < 2, (i, start, stop, x.shape, len(adjs))
+                x = torch.cat(seq_slices, 2)
+            # Regular convolutions
+            x = torch.cat([x[:, :, -1:], x, x[:, :, :1]], 2)
+            if i in range(0, 4):
+                seq_slices = []
+                start = 0
+                for j, adj in enumerate(adjs):
+                    stop = start + adj[i].shape[1]
+                    if stop > x.shape[2]:
+                        # import pdb; pdb.set_trace()
+                        pass
+                    assert stop <= x.shape[2], (i, start, stop, x.shape, len(adjs))
+                    seq_slice = x[:, :, start:stop + 2]
+                    seq_slice = self.model[f'adjacency_conv_{i}'](seq_slice, adj[i])
+                    seq_slices.append(seq_slice)
+                    if i == 0:
+                        start = stop
+                    elif adj[i - 1].shape[1] % 2 == 0:
+                        start = stop
+                    else:
+                        if prev_idx_bool:
+                            start = stop - 1
+                        else:
+                            start = stop
+                        prev_idx_bool = not prev_idx_bool
+                assert 0 <= (x.shape[2] - stop) < 2, (i, start, stop, x.shape, len(adjs))
+                x = torch.cat(seq_slices, 2)
+            # x = self.model[f'conv_{i}'](x)
             if i in range(1, 6):
-                x = instance_norm(x)
+                x = self.model[f'instance_norm_{i}'](x)
             x = self.model[f'leaky_relu_{i}'](x)
 
-        # 2048 x 4
-        assert x.shape[1] == 2048, x.shape
+        for i in range(6, 7):
+            x = self.model[f'conv_{i}'](x)
+            x = self.model[f'sigmoid_{i}'](x)
 
-        i += 1
-        preds = torch.cat(
-            [F.sigmoid(self.model[f'linear_{i}'](x[:, :, k])) for k in range(x.shape[2])], 1)
-
-        return preds.mean(-1, keepdim=True)
+        return x.view(-1, 1)
 
 
-class GeneratorNet(nn.Module):
+class GeneratorNet(nn.Module, GANParams):
 
     def __init__(self):
         """
@@ -120,81 +169,77 @@ class GeneratorNet(nn.Module):
         """
         super().__init__()
 
-        in_feat = 32
-        out_feat = 2048
-
         model = OrderedDict()
 
-        # 100 x 1
+        # ? x 1
         for i in range(1):
-            model[f'linear_{i}'] = nn.Linear(in_feat, out_feat, bias=False)
-            model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
+            model[f'linear_{i}'] = nn.Linear(self.z_in, self.z_out, bias=False)
+            model[f'instance_norm_{i}'] = nn.InstanceNorm1d(self.z_out, affine=False)
             model[f'relu_{i}'] = nn.ReLU()
-            in_feat = out_feat
+            in_feat = self.z_out
 
         # 2048 x 4
-        for i in range(1, 7):
+        for i in range(1, 6):
             out_feat = in_feat // 2
-            model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, out_feat, 4, 2, 1, bias=False)
+            model[f'convt_{i}'] = nn.ConvTranspose1d(
+                in_feat, out_feat, kernel_size=4, stride=2, padding=1, bias=False)
             model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=False)
             model[f'relu_{i}'] = nn.ReLU()
             in_feat = out_feat
 
-        assert in_feat == 32, in_feat
+        assert in_feat == self.x_out, in_feat
 
-        # 32 x 256
-        i += 1
-        model[f'convt_{i}'] = nn.ConvTranspose1d(in_feat, 32, 4, 2, 1, bias=False)
+        for i in range(6, 7):
+            model[f'convt_{i}'] = nn.ConvTranspose1d(
+                self.x_out, self.x_hidden, kernel_size=4, stride=2, padding=1, bias=False)
 
-        assert i == 7
+        assert (i + 1) == self.n_layers
 
         for key, value in model.items():
             setattr(self, key, value)
         self.model = model
 
     def forward(self, z: Variable, adjs: List[Variable], net_d):
-
-        step = 32
-
         i = 0
-        x = _stack_x(z, adjs, self.model[f'linear_{i}'], step)
+        x = self._expand_z(z, adjs, self.model[f'linear_{i}'])
         x = self.model[f'relu_{i}'](x)
 
         # 2048 x 4
-        for i in range(1, 8):
+        for i in range(1, 7):
             x = self.model[f'convt_{i}'](x)
-            if i in range(4, 999):  # 4, 5, 6, 7
-                x = _adjacency_conv_i(x, adjs, net_d, i)
-            if i in range(1, 6):
-                x = instance_norm(x)
-            if i in range(0, 7):
+            if i in range(3, 999):  # 3, 4, 5, 6
+                x = self._adjacency_conv(x, adjs, net_d, i)
+            if i in range(0, 6):  # all but last
+                x = self.model[f'instance_norm_{i}'](x)
+            if i in range(0, 6):  # all but last
                 x = self.model[f'relu_{i}'](x)
 
         return F.softmax(x, 1)
 
+    def _expand_z(self, z, adjs, linear):
+        x_list = []
+        start = 0
+        total_length = sum(adj[0].shape[1] for adj in adjs)
+        for _ in range(math.ceil(total_length / self.x_out)):
+            # import pdb; pdb.set_trace()
+            stop = start + self.z_in
+            x_list.append(linear(z[:, start:stop]))
+            start = stop
+        x = torch.stack(x_list, 2)
+        return x
 
-def _stack_x(z, adjs, linear, step):
-    x_list = []
-    start = 0
-    for _ in range(math.ceil(adjs[0].shape[1] / 128)):
-        stop = start + step
-        x_list.append(linear(z[:, start:stop]))
-        start = stop
-    x = torch.stack(x_list, 2)
-    return x
+    def _adjacency_conv(self, x, adjs, net_d, i):
+        adj_idx = self.n_layers - 1 - i
+        adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{adj_idx}').spatial_conv.weight
 
-
-def _adjacency_conv_i(x, adjs, net_d, i):
-    adjacency_conv = getattr(net_d, f'adjacency_conv_{7 - i}')
-    x = adjacency_conv_transpose(x, adjs[7 - i], adjacency_conv.spatial_conv.weight)
-    return x
-
-
-def _get_tisize(ngf, isize):
-    # cngf = 2048 for default inputs
-    cngf = ngf // 2
-    tisize = 4
-    while tisize != isize:
-        cngf = cngf * 2
-        tisize = tisize * 2
-    return tisize, cngf
+        start = 0
+        seq_list = []
+        for adj in adjs:
+            stop = start + adj.shape[1]
+            seq = x[start:stop]
+            seq = adjacency_conv_transpose(seq, adj[adj_idx], adjacency_conv_weight)
+            seq_list.append(seq)
+            start = stop
+        assert start == x.shape[2]
+        x = torch.cat(seq_list, 2)
+        return x

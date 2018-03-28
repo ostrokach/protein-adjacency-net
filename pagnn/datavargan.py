@@ -18,6 +18,13 @@ from pagnn.utils import expand_adjacency, seq_to_array, to_numpy, to_sparse_tens
 logger = logging.getLogger(__name__)
 
 
+def datasets_to_datavar(dss: List[DataSetGAN]) -> DataVarGAN:
+    """Convert a list of `DataSetGAN` into a `DataVarGAN`."""
+    seqs = push_seqs([b''.join(s) for s in zip(*[ds.seqs for ds in dss])])
+    adjs = [push_adjs(gen_adj_pool(ds.adjs[0])) for ds in dss]
+    return DataVarGAN(seqs, adjs)
+
+
 def dataset_to_datavar(ds: DataSetGAN, offset: Optional[int] = None) -> DataVarGAN:
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
     ds = pad_edges(ds, offset=offset)
@@ -133,11 +140,26 @@ def conv2d_matrix(mapping, row, col, shape, kernel_size, stride, padding):
     return conv_mat
 
 
+# @jit(nopython=True)
+# def conv2d_shape(shape, kernel_size, stride, padding):
+#     shape = (
+#         max(1, math.ceil((shape[0] + 2 * padding - (kernel_size - 1)) / stride)),
+#         max(1, math.ceil((shape[1] + 2 * padding - (kernel_size - 1)) / stride)),
+#     )
+#     return shape
+
+
 @jit(nopython=True)
-def conv2d_shape(shape, kernel_size, stride, padding):
+def conv2d_shape(shape, kernel_size, stride=1, padding=0, dilation=1):
+    """
+    Note:
+        Actual convolutions in PyTorch (e.g. `nn.Conv1d`), round down, not up.
+    """
     shape = (
-        max(1, math.ceil((shape[0] + 2 * padding - (kernel_size - 1)) / stride)),
-        max(1, math.ceil((shape[1] + 2 * padding - (kernel_size - 1)) / stride)),
+        max(1,
+            math.floor((shape[0] + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)),
+        max(1,
+            math.floor((shape[1] + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)),
     )
     return shape
 

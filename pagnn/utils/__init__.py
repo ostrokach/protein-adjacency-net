@@ -18,6 +18,8 @@
    make_weblogo
    score_blosum62
    score_edit
+   random_sequence
+   set_cuda
 """
 from .array_ops import argmax_onehot, to_numpy, to_sparse_tensor, to_tensor
 from .dataset_ops import (expand_adjacency, get_adj_identity, get_adjacency,
@@ -27,3 +29,4 @@ from .iter_ops import iter_forever, iter_submodules
 from .weblogo import make_weblogo
 from .tensorboard import add_image
 from .scoring import score_blosum62, score_edit
+from .testing import random_sequence, set_cuda
