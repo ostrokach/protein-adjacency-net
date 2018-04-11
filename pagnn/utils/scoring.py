@@ -312,9 +312,9 @@ def score_blosum62(target: torch.FloatTensor, decoys: torch.FloatTensor) -> floa
         blosum62 = BLOSUM62_TENSOR_CUDA
     else:
         blosum62 = BLOSUM62_TENSOR
-    return ((blosum62 @ target) * decoys).sum(1).sum(1).max().float() / target.shape[1]
+    return ((blosum62 @ target) * decoys).float().sum(1).sum(1).max() / target.shape[1]
 
 
 def score_edit(target: torch.FloatTensor, decoys: torch.FloatTensor) -> float:
     """Calculate the best edit score of a decoy to the target."""
-    return ((target != 0) & (target == decoys)).sum(1).sum(1).max().float() / target.shape[1]
+    return ((target != 0) & (target == decoys)).float().sum(1).sum(1).max() / target.shape[1]
