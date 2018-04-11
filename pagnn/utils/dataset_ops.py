@@ -92,15 +92,16 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
     adjacency_idx_1 = adjacency_idx_1.astype(np.int_)
     adjacency_idx_2 = adjacency_idx_2.astype(np.int_)
 
-    too_close_mask = (np.abs(adjacency_idx_1 - adjacency_idx_2) <= 2)
-    if too_close_mask.any():
-        logger.debug("Removing %s too close indices.", too_close_mask.sum())
-        adjacency_idx_1 = np.array(adjacency_idx_1[~too_close_mask])
-        adjacency_idx_2 = np.array(adjacency_idx_2[~too_close_mask])
+    # TODO(AS): Make sure that this is still what we want!
+    # too_close_mask = (np.abs(adjacency_idx_1 - adjacency_idx_2) <= 1)
+    # if too_close_mask.any():
+    #     logger.debug("Removing %s too close indices.", too_close_mask.sum())
+    #     adjacency_idx_1 = adjacency_idx_1[~too_close_mask]
+    #     adjacency_idx_2 = adjacency_idx_2[~too_close_mask]
 
-    # Add eye
-    adjacency_idx_1 = np.hstack([np.arange(seq_len), adjacency_idx_1])
-    adjacency_idx_2 = np.hstack([np.arange(seq_len), adjacency_idx_2])
+    # # Add eye (we remove it later if neccessary)
+    # adjacency_idx_1 = np.hstack([np.arange(seq_len), adjacency_idx_1])
+    # adjacency_idx_2 = np.hstack([np.arange(seq_len), adjacency_idx_2])
 
     assert adjacency_idx_1.shape == adjacency_idx_2.shape
 

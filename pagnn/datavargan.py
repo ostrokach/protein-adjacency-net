@@ -13,7 +13,8 @@ from torch.autograd import Variable
 from pagnn import settings
 from pagnn.dataset import extract_adjacency_from_middle, get_indices
 from pagnn.types import DataSetGAN, DataVarGAN
-from pagnn.utils import expand_adjacency, seq_to_array, to_numpy, to_sparse_tensor
+from pagnn.utils import (add_eye_sparse, conv2d_shape, expand_adjacency, remove_eye_sparse,
+                         seq_to_array, to_numpy, to_sparse_tensor)
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,25 @@ def datasets_to_datavar(dss: List[DataSetGAN]) -> DataVarGAN:
     return DataVarGAN(seqs, adjs)
 
 
-def dataset_to_datavar(ds: DataSetGAN, offset: Optional[int] = None) -> DataVarGAN:
+def dataset_to_datavar(ds: DataSetGAN,
+                       n_convs: int,
+                       kernel_size: int,
+                       stride: int,
+                       padding: int,
+                       bandwidth: int,
+                       add_eye: bool = False) -> DataVarGAN:
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
-    ds = pad_edges(ds, offset=offset)
+    # ds = pad_edges(ds, offset=offset)
     seqs = push_seqs(ds.seqs)
-    adjs = push_adjs(gen_adj_pool(ds.adjs[0]))
+    adjs = push_adjs(
+        gen_adj_pool(
+            ds.adjs[0],
+            n_convs=n_convs,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            bandwidth=bandwidth,
+            add_eye=add_eye))
     return DataVarGAN(seqs, adjs)
 
 
@@ -106,28 +121,37 @@ def push_seqs(seqs: List[bytes]) -> Variable:
 
 def push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
-    return [
-        Variable(to_sparse_tensor(expand_adjacency(adj)).to_dense())
-        for adj in adjs
-    ]
+    return [Variable(to_sparse_tensor(expand_adjacency(adj))) for adj in adjs]
 
 
-def gen_adj_pool(adj: sparse.spmatrix, n_convs: int = 3) -> List[sparse.spmatrix]:
+def gen_adj_pool(adj: sparse.spmatrix,
+                 n_convs: int,
+                 kernel_size: int,
+                 stride: int,
+                 padding: int,
+                 bandwidth: int,
+                 add_eye: bool = False) -> List[sparse.spmatrix]:
+    adj = remove_eye_sparse(adj, bandwidth, copy=False)
+    if add_eye:
+        adj = add_eye_sparse(adj, bandwidth=1, copy=False)
     adjs = [adj]
     for i in range(n_convs):
-        adjs.append(pool_adjacency_mat(adjs[-1]))
+        adj = pool_adjacency_mat(adjs[-1], kernel_size=kernel_size, stride=stride, padding=padding)
+        adj = remove_eye_sparse(adj, bandwidth, copy=False)
+        if add_eye:
+            adj = add_eye_sparse(adj, bandwidth=1, copy=False)
+        adjs.append(adj)
     return adjs
 
 
 def pool_adjacency_mat(adj: sparse.spmatrix, kernel_size=4, stride=2, padding=1,
                        _mapping_cache={}) -> sparse.spmatrix:
-    # assert adj.shape[0] == adj.shape[1]
-
     if (adj.shape, kernel_size, stride, padding) in _mapping_cache:
         mapping = _mapping_cache[(adj.shape, kernel_size, stride, padding)]
     else:
         mapping = conv2d_mapping(adj.shape[0], kernel_size, stride, padding)
     conv_mat = conv2d_matrix(mapping, adj.row, adj.col, adj.shape, kernel_size, stride, padding)
+
     return sparse.coo_matrix(conv_mat)
 
 
@@ -138,30 +162,6 @@ def conv2d_matrix(mapping, row, col, shape, kernel_size, stride, padding):
     for i, (r, c) in enumerate(zip(row, col)):
         conv_mat[slice(*mapping[r]), slice(*mapping[c])] = 1
     return conv_mat
-
-
-# @jit(nopython=True)
-# def conv2d_shape(shape, kernel_size, stride, padding):
-#     shape = (
-#         max(1, math.ceil((shape[0] + 2 * padding - (kernel_size - 1)) / stride)),
-#         max(1, math.ceil((shape[1] + 2 * padding - (kernel_size - 1)) / stride)),
-#     )
-#     return shape
-
-
-@jit(nopython=True)
-def conv2d_shape(shape, kernel_size, stride=1, padding=0, dilation=1):
-    """
-    Note:
-        Actual convolutions in PyTorch (e.g. `nn.Conv1d`), round down, not up.
-    """
-    shape = (
-        max(1,
-            math.floor((shape[0] + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)),
-        max(1,
-            math.floor((shape[1] + 2 * padding - dilation * (kernel_size - 1) - 1) / stride + 1)),
-    )
-    return shape
 
 
 @jit(nopython=True)
