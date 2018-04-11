@@ -23,6 +23,7 @@ requirements:
     - click
     - tqdm
     - attrs
+    - protobuf
     # Numerical Python
     - numpy
     - scipy
@@ -32,6 +33,7 @@ requirements:
     - pytorch ==0.4.0a0+1ab248d
     - torchvision
     - scikit-learn
+    # Biological Python
     - weblogo
 
 test:
