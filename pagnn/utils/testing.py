@@ -30,7 +30,7 @@ def random_sequence(batch_size, seq_size, seq_length, random_state=None):
     if random_state is None:
         random_state = np.random.RandomState()
 
-    seq_idxs = random_state.randint(0, 20, size=(batch_size, 1, seq_length))
+    seq_idxs = random_state.randint(0, seq_size, size=(batch_size, 1, seq_length))
     seq = torch \
         .zeros(batch_size, seq_size, seq_length) \
         .scatter_(1, torch.from_numpy(seq_idxs), 1)
