@@ -6,68 +6,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 import pagnn
+from pagnn import settings
 from pagnn.datavargan import dataset_to_datavar
 from pagnn.utils import padding_amount, reshape_internal_dim
 
+from .ae_sequence_conv import SequenceConv, SequenceConvTranspose
+from .ae_sequential import SequentialMod
+
 logger = logging.getLogger(__name__)
-
-
-class SequentialMod(nn.Sequential):
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.extra_args_mask = [hasattr(mod, 'takes_extra_args') for mod in self._modules.values()]
-
-    def forward(self, input, *args, **kwargs):
-        for module, extra_args in zip(self._modules.values(), self.extra_args_mask):
-            if extra_args:
-                input = module(input, *args, **kwargs)
-            else:
-                input = module(input)
-        return input
-
-
-class PermutePad(nn.Module):
-
-    def __init__(self, padding=1):
-        super().__init__()
-        self.padding = 1
-
-    def forward(self, x):
-        x = torch.cat([x[:, :, -self.padding:], x, x[:, :, :self.padding]], 2)
-        return x.contiguous()
-
-
-class PermutePadTranspose(nn.Module):
-
-    def __init__(self, padding=2):
-        super().__init__()
-        self.padding = padding
-
-    def forward(self, x):
-        top = x[:, :, :self.padding].clone()
-        x[:, :, :self.padding] += x[:, :, -self.padding:]
-        x[:, :, -self.padding:] += top
-        return x
-
-
-class CutSequence(nn.Module):
-
-    def __init__(self, offset=1):
-        super().__init__()
-        self.offset = offset
-        self.takes_extra_args = True
-
-    def forward(self, x, adj):
-        x = x[:, :, self.offset:self.offset + adj.shape[1]]
-        return x.contiguous()
-
-
-def get_adjs(seq, n_layers):
-    adjs = [seq.shape[2]]
-    for _ in range(n_layers):
-        adjs.append(pagnn.utils.conv1d_shape(adjs[-1], kernel_size=4, stride=2, padding=1))
-    return adjs
 
 
 class AdjacencyConv(nn.Module):
@@ -88,7 +34,9 @@ class AdjacencyConv(nn.Module):
             xd = x[:, :, start:stop]
             # Adjacency conv
             if np.prod(adj[i].shape) == 0:
-                xd.zero_()
+                xd = torch.zeros(xd.shape[0], self.spatial_conv.out_channels, xd.shape[2])
+                if settings.CUDA:
+                    xd = xd.cuda()
             else:
                 xd = self._conv(xd, adj[i].to_dense())
             # Downsample
@@ -135,7 +83,9 @@ class AdjacencyConvTranspose(nn.Module):
             assert xd.shape[1] == self.spatial_conv.out_channels
             # Adjacency conv
             if np.prod(adj[i].shape) == 0:
-                xd.zero_()
+                xd = torch.zeros(xd.shape[0], self.spatial_conv.in_channels, xd.shape[2])
+                if settings.CUDA:
+                    xd = xd.cuda()
             else:
                 xd = self._conv(xd, adj[i].to_dense())
             x_list.append(xd)
@@ -152,66 +102,6 @@ class AdjacencyConvTranspose(nn.Module):
             adj_sum = adj.sum(dim=0)
             adj_sum[adj_sum == 0] = 1
             x = x / adj_sum
-        return x
-
-
-class SequenceConv(nn.Module):
-
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, bias):
-        super().__init__()
-        self.conv = nn.Conv1d(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            bias=bias)
-        self.takes_extra_args = True
-
-    def forward(self, x, i, adjs):
-        x_list = []
-        start = 0
-        for adj in adjs:
-            stop = start + adj[i].shape[1]
-            assert stop <= x.shape[2]
-            xd = x[:, :, start:stop]
-            xd = self.conv(xd)
-            assert xd.shape[2] == adj[i + 1].shape[1]
-            x_list.append(xd)
-            start = stop
-        assert start == x.shape[2]
-        x = torch.cat(x_list, 2)
-        return x
-
-
-class SequenceConvTranspose(nn.Module):
-
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, bias):
-        super().__init__()
-        self.convt = nn.ConvTranspose1d(
-            in_channels,
-            out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            bias=bias)
-        self.takes_extra_args = True
-
-    def forward(self, x, i, adjs):
-        x_list = []
-        start = 0
-        for adj in adjs:
-            stop = start + adj[i + 1].shape[1]
-            assert stop <= x.shape[2]
-            xd = x[:, :, start:stop]
-            xd = self.convt(xd)
-            if 3 > (xd.shape[2] - adj[i].shape[1]) > 0:
-                xd = xd[:, :, :adj[i].shape[1]]
-            assert xd.shape[2] == adj[i].shape[1]
-            x_list.append(xd)
-            start = stop
-        assert start == x.shape[2]
-        x = torch.cat(x_list, 2)
         return x
 
 
@@ -396,52 +286,6 @@ class AESeqAdjParallel(nn.Module):
             kernel_size=self.kernel_size,
             stride=self.stride,
             padding=self.padding,
-            bandwidth=self.kernel_size // 2)
-
-
-def forward_adj(x, i, adjs, model):
-    x_list = []
-    start = 0
-    for adj in adjs:
-        seq_len = adj.shape[1]
-        end = start + seq_len
-        assert end <= x.shape[2]
-        xd = x[:, :, start:end]
-        xd = model(xd, adj)
-        x_list.append(xd)
-        start = end
-    assert start == x.shape[2]
-    x = torch.cat(x_list, 2)
-    return x
-
-
-def backward_adj_1(x, i, adjs, model):
-    x_list = []
-    start = 0
-    for adj in adjs:
-        seq_len = adj[i + 1].shape[1]
-        end = start + seq_len
-        assert end <= x.shape[2], (end, x.shape, i, adjs)
-        xd = x[:, :, start:end]
-        xd = model(xd, adj[i])
-        x_list.append(xd)
-        start = end
-    assert start == x.shape[2]
-    x = torch.cat(x_list, 2)
-    return x
-
-
-def backward_adj_2(x, i, adjs, model):
-    x_list = []
-    start = 0
-    for adj in adjs:
-        seq_len = adj[i].shape[1]
-        end = start + seq_len
-        assert end <= x.shape[2], (end, x.shape, i, adjs)
-        xd = x[:, :, start:end]
-        xd = model(xd, adj[i])
-        x_list.append(xd)
-        start = end
-    assert start == x.shape[2]
-    x = torch.cat(x_list, 2)
-    return x
+            remove_diags=1 + self.kernel_size // 2,
+            add_diags=0,
+        )

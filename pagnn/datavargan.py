@@ -31,8 +31,8 @@ def dataset_to_datavar(ds: DataSetGAN,
                        kernel_size: int,
                        stride: int,
                        padding: int,
-                       bandwidth: int,
-                       add_eye: bool = False) -> DataVarGAN:
+                       remove_diags: int,
+                       add_diags: bool) -> DataVarGAN:
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
     # ds = pad_edges(ds, offset=offset)
     seqs = push_seqs(ds.seqs)
@@ -43,8 +43,8 @@ def dataset_to_datavar(ds: DataSetGAN,
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
-            bandwidth=bandwidth,
-            add_eye=add_eye))
+            remove_diags=remove_diags,
+            add_diags=add_diags))
     return DataVarGAN(seqs, adjs)
 
 
@@ -129,17 +129,15 @@ def gen_adj_pool(adj: sparse.spmatrix,
                  kernel_size: int,
                  stride: int,
                  padding: int,
-                 bandwidth: int,
-                 add_eye: bool = False) -> List[sparse.spmatrix]:
-    adj = remove_eye_sparse(adj, bandwidth, copy=False)
-    if add_eye:
-        adj = add_eye_sparse(adj, bandwidth=1, copy=False)
+                 remove_diags: int,
+                 add_diags: int) -> List[sparse.spmatrix]:
+    adj = remove_eye_sparse(adj, remove_diags, copy=False)
+    adj = add_eye_sparse(adj, add_diags, copy=False)
     adjs = [adj]
     for i in range(n_convs):
         adj = pool_adjacency_mat(adjs[-1], kernel_size=kernel_size, stride=stride, padding=padding)
-        adj = remove_eye_sparse(adj, bandwidth, copy=False)
-        if add_eye:
-            adj = add_eye_sparse(adj, bandwidth=1, copy=False)
+        adj = remove_eye_sparse(adj, remove_diags, copy=False)
+        adj = add_eye_sparse(adj, add_diags, copy=False)
         adjs.append(adj)
     return adjs
 

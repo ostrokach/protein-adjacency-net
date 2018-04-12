@@ -172,5 +172,5 @@ class AESeqAdjAlternating(nn.Module):
             kernel_size=self.kernel_size,
             stride=self.stride,
             padding=self.padding,
-            bandwidth=self.kernel_size // 2,
-            add_eye=True)
+            remove_diags=1 + self.kernel_size // 2,
+            add_diags=1)

@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import pagnn
 from pagnn.datavargan import dataset_to_datavar
 from pagnn.utils import padding_amount, reshape_internal_dim
 
@@ -190,12 +189,6 @@ class AESeqAdjApplyExtra(nn.Module):
 
         return x
 
-    def get_adjs(self, seq):
-        adjs = [seq.shape[2]]
-        for _ in range(self.n_layers + 1):
-            adjs.append(pagnn.utils.conv1d_shape_ceil(adjs[-1], kernel_size=4, stride=2, padding=1))
-        return adjs
-
     def dataset_to_datavar(self, ds):
         return dataset_to_datavar(
             ds,
@@ -203,52 +196,6 @@ class AESeqAdjApplyExtra(nn.Module):
             kernel_size=self.kernel_size,
             stride=self.stride,
             padding=self.padding,
-            bandwidth=self.kernel_size // 2)
-
-
-def forward_adj(x, i, adjs, model):
-    x_list = []
-    start = 0
-    for adj in adjs:
-        seq_len = adj.shape[1]
-        end = start + seq_len
-        assert end <= x.shape[2]
-        xd = x[:, :, start:end]
-        xd = model(xd, adj)
-        x_list.append(xd)
-        start = end
-    assert start == x.shape[2]
-    x = torch.cat(x_list, 2)
-    return x
-
-
-def backward_adj_1(x, i, adjs, model):
-    x_list = []
-    start = 0
-    for adj in adjs:
-        seq_len = adj[i + 1].shape[1]
-        end = start + seq_len
-        assert end <= x.shape[2], (end, x.shape, i, adjs)
-        xd = x[:, :, start:end]
-        xd = model(xd, adj[i])
-        x_list.append(xd)
-        start = end
-    assert start == x.shape[2]
-    x = torch.cat(x_list, 2)
-    return x
-
-
-def backward_adj_2(x, i, adjs, model):
-    x_list = []
-    start = 0
-    for adj in adjs:
-        seq_len = adj[i].shape[1]
-        end = start + seq_len
-        assert end <= x.shape[2], (end, x.shape, i, adjs)
-        xd = x[:, :, start:end]
-        xd = model(xd, adj[i])
-        x_list.append(xd)
-        start = end
-    assert start == x.shape[2]
-    x = torch.cat(x_list, 2)
-    return x
+            remove_diags=1 + self.kernel_size // 2,
+            add_diags=0,
+        )
