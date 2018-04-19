@@ -9,6 +9,7 @@ from typing import List
 import numba
 import numba.cuda
 import pandas as pd
+import torch
 
 from . import settings
 
@@ -26,14 +27,9 @@ def init_gpu(gpu_idx: int = None) -> None:
     """Specify which GPU should be used (or select the least active one)."""
     assert settings.CUDA
     if gpu_idx is None:
-        device_ids = get_available_gpus(max_load=0.5, max_memory=0.5)
-        device_id = ','.join(str(i) for i in device_ids)
-    else:
-        device_id = str(gpu_idx)
-    # TODO: This does not seem to work...
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-    os.environ['CUDA_VISIBLE_DEVICES'] = device_id
-    logger.info("Running on GPU number %s.", os.environ['CUDA_VISIBLE_DEVICES'])
+        gpu_idx = get_available_gpus(max_load=0.5, max_memory=0.5)[0]
+    torch.cuda.set_device(gpu_idx)
+    logger.info("Running on GPU number %s.", gpu_idx)
 
 
 def get_available_gpus(max_load: float = 0.5, max_memory: float = 0.5) -> List[int]:
