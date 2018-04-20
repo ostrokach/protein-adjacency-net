@@ -4,6 +4,7 @@ stages:
   - lint
   - build
   - test
+  - document
   - deploy
 
 # === Variables ===
@@ -93,10 +94,10 @@ build-py36:
     - conda build .
       --test
       --python $PYTHON_VERSION
-  coverage: /^TOTAL.* (\d+\%)/
   artifacts:
     paths:
       - environment-py${PYTHON_VERSION/./}.yml
+      - .coverage
 
 test-py36:
   <<: [*conda_configure, *test]
@@ -105,10 +106,10 @@ test-py36:
   dependencies:
     - build-py36
 
-# === Docs ===
+# === Document ===
 
 docs:
-  stage: test
+  stage: document
   <<: [*conda_configure]
   script:
     # Restore built packages
@@ -117,11 +118,17 @@ docs:
     # Install required packages
     - conda install -yq --use-local "python=$PYTHON_VERSION" ${CI_PROJECT_NAME}
     - conda install -yq nbconvert ipython ipykernel pandoc
-    - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx
+    - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx coverage
     # Build docs
     - sphinx-build docs public
+    # Coverage
+    - coverage report
+    - coverage html
+    - mv htmlcov public/
+  coverage: /^TOTAL.* (\d+\%)/
   dependencies:
     - build-py36
+    - test-py36
   variables:
     <<: [*py36]
   artifacts:
