@@ -1,20 +1,174 @@
 import argparse
 import itertools
 import logging
+import math
+import pickle
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Tuple
+from typing import Callable, Dict, Generator, Iterator, List, Mapping, Optional, Tuple
 
 import numpy as np
+import torch
+import torch.nn as nn
 import tqdm
+from torch.autograd import Variable
 
+import pagnn
 from pagnn import exc, settings
 from pagnn.dataset import get_negative_example, row_to_dataset, to_gan
+from pagnn.datavargan import datasets_to_datavar
 from pagnn.training.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
+from pagnn.training.gan import Args
 from pagnn.types import DataRow, DataSet, DataSetGAN
+from pagnn.utils import remove_eye_sparse, array_to_seq
 
 logger = logging.getLogger(__name__)
 
 RowGen = Generator[DataRow, Tuple[Callable, int], None]
+
+# === Training / Validation Batches ===
+
+
+def get_designed_seqs(args, dataset, net_d, net_g):
+    # TODO: Figure out why this is here
+    seq_wt = dataset.seqs[0].decode()
+
+    designed_seqs = []
+    noise = torch.FloatTensor(args.batch_size, 256)
+    if settings.CUDA:
+        noise = noise.cuda()
+    # for offset in range(0, max(1, math.ceil(len(seq_wt) / 128) * 128 - len(seq_wt))):
+    for offset in range(0, 1):
+        start = offset
+        stop = start + len(seq_wt)
+        datavar = datasets_to_datavar(dataset, offset=offset)
+        noisev = Variable(noise.normal_(0, 1))
+        pred = net_g(noisev, datavar.adjs, net_d)
+        pred_np = pagnn.to_numpy(pred)
+        pred_np = pred_np[:, :, start:stop]
+        designed_seqs.extend([array_to_seq(pred_np[i]) for i in range(pred_np.shape[0])])
+    return designed_seqs
+
+
+def generate_batch(args: Args,
+                   net: nn.Module,
+                   positive_rowgen: RowGen,
+                   negative_ds_gen: Optional[RowGen] = None):
+    """Generate a positive and a negative dataset batch."""
+    pos_seq_list = []
+    neg_seq_list = []
+    adjs = []
+    seq_len = 0
+    # TODO: 128 comes from the fact that we tested with sequences 64-256 AA in length
+    while seq_len < (args.batch_size * 128):
+        pos_row = next(positive_rowgen)
+        pos_ds = to_gan(row_to_dataset(pos_row, 1))
+        # Filter out bad datasets
+        n_aa = len(pos_ds.seqs[0])
+        if not (args.min_seq_length <= n_aa < args.max_seq_length):
+            logger.debug(f"Skipping because wrong sequence length: {n_aa}.")
+            continue
+        adj_nodiag = pagnn.utils.remove_eye_sparse(pos_ds.adjs[0], 3)
+        n_interactions = adj_nodiag.nnz
+        if n_interactions <= 0:
+            logger.debug(f"Skipping because too few interactions: {n_interactions}.")
+            continue
+        # Continue
+        pos_dv = net.dataset_to_datavar(pos_ds)
+        pos_seq_list.append(pos_dv.seqs)
+        adjs.append(pos_dv.adjs)
+        if negative_ds_gen is not None:
+            neg_ds = negative_ds_gen.send(pos_ds)
+            neg_dv = net.dataset_to_datavar(neg_ds)
+            neg_seq_list.append(neg_dv.seqs)
+        seq_len += pos_dv.seqs.shape[2]
+    pos_seq = Variable(torch.cat([s.data for s in pos_seq_list], 2))
+    assert pos_seq.shape[2] == sum(adj[0].shape[1] for adj in adjs)
+    if negative_ds_gen is not None:
+        neg_seq = Variable(torch.cat([s.data for s in neg_seq_list], 2))
+        assert neg_seq.shape[2] == sum(adj[0].shape[1] for adj in adjs)
+    else:
+        neg_seq = None
+    return pos_seq, neg_seq, adjs
+
+
+def generate_noise(net_g, adjs):
+    num_aa_out = sum(adj[net_g.n_layers].shape[1] for adj in adjs)
+    noise_length = math.ceil(num_aa_out * net_g.bottleneck_features / 2048)
+    if settings.CUDA:
+        noise = torch.cuda.FloatTensor(1, net_g.bottleneck_size, noise_length)
+    else:
+        noise = torch.FloatTensor(1, net_g.bottleneck_size, noise_length)
+    return noise
+
+
+# === Generators ===
+
+
+def get_training_datasets(args: argparse.Namespace,
+                          root_path: Path,
+                          data_path: Path,
+                          random_state=None
+                         ) -> Tuple[Iterator[DataRow], Generator[DataSetGAN, DataSetGAN, None]]:
+    logger.info("Setting up training datagen...")
+    positive_rowgen = get_rowgen_pos(
+        'training',
+        args.training_min_seq_identity,
+        data_path,
+        random_state=random_state,
+    )
+    negative_rowgen = get_rowgen_neg(
+        'training',
+        args.training_min_seq_identity,
+        data_path,
+        random_state=random_state,
+    )
+    del negative_rowgen
+    if '.' not in args.training_methods:
+        negative_ds_gen = basic_permuted_sequence_adder(
+            num_sequences=1,
+            keep_pos=False,
+            random_state=random_state,
+        )
+    else:
+        raise NotImplementedError()
+    next(negative_ds_gen)
+    return positive_rowgen, negative_ds_gen
+
+
+def get_internal_validation_datasets(args, root_path, data_path) -> Mapping[str, List[DataSetGAN]]:
+    logger.info("Setting up validation datagen...")
+
+    internal_validation_datasets: Dict[str, List[DataSetGAN]] = {}
+    for method in args.validation_methods.split('.'):
+        datagen_name = (f'validation_gan_{method}_{args.validation_min_seq_identity}'
+                        f'_{args.validation_num_sequences}')
+        cache_file = root_path.joinpath(datagen_name + '.pickle')
+        try:
+            with cache_file.open('rb') as fin:
+                dataset = pickle.load(fin)
+            assert len(dataset) == args.validation_num_sequences
+            logger.info("Loaded validation datagen from file: '%s'.", cache_file)
+        except FileNotFoundError:
+            logger.info("Generating validation datagen: '%s'.", datagen_name)
+            random_state = np.random.RandomState(sum(ord(c) for c in method))
+            dataset = get_validation_dataset(args, method, data_path, random_state)
+
+            with cache_file.open('wb') as fout:
+                pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
+
+        internal_validation_datasets[datagen_name] = dataset
+
+    return internal_validation_datasets
+
+
+def get_external_validation_datasets(args, root_path, data_path) -> Mapping[str, List[DataSetGAN]]:
+    external_validation_datagens: Dict[str, List[DataSetGAN]] = {}
+    # for mutation_class in ['protherm', 'humsavar']:
+    for mutation_class in ['protherm']:
+        external_validation_datagens[f'validation_{mutation_class}'] = get_mutation_dataset(
+            mutation_class, data_path)
+    return external_validation_datagens
+
 
 # === Dataset loaders ===
 
@@ -58,6 +212,17 @@ def get_validation_dataset(
         while len(dataset) < args.validation_num_sequences:
             pos_row = next(positive_rowgen)
             pos_ds = to_gan(row_to_dataset(pos_row, 1))
+            # Filter out bad datasets
+            n_aa = len(pos_ds.seqs[0])
+            if not (args.min_seq_length <= n_aa < args.max_seq_length):
+                logger.debug(f"Skipping because wrong sequence length: {n_aa}.")
+                continue
+            adj_nodiag = remove_eye_sparse(pos_ds.adjs[0], 3)
+            n_interactions = adj_nodiag.nnz
+            if n_interactions <= 0:
+                logger.debug(f"Skipping because too few interactions: {n_interactions}.")
+                continue
+            #
             ds = nsa.send(pos_ds)
             dataset.append(ds)
             progressbar.update(1)

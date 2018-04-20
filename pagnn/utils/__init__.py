@@ -23,9 +23,18 @@
    expand_adjacency
    get_seq_identity
    get_adj_identity
+   AMINO_ACIDS
+   eval_net
+   freeze_net
+   unfreeze_net
+   freeze_adj_conv
+   unfreeze_adj_conv
+   interpolate_adjacencies
+   interpolate_sequences
    iter_forever
    iter_submodules
    make_weblogo
+   add_image
    score_blosum62
    score_edit
    random_sequence
@@ -36,6 +45,7 @@ from .array_ops import (argmax_onehot, conv1d_shape, conv1d_shape_ceil, conv2d_s
                         padding_amount, remove_eye, remove_eye_sparse, add_eye_sparse)
 from .dataset_ops import (expand_adjacency, get_adj_identity, get_adjacency, seq_to_array,
                           array_to_seq, get_seq_identity, AMINO_ACIDS)
+from .network_ops import eval_net, freeze_net, unfreeze_net, freeze_adj_conv, unfreeze_adj_conv
 from .interpolation import interpolate_adjacencies, interpolate_sequences
 from .iter_ops import iter_forever, iter_submodules
 from .weblogo import make_weblogo
