@@ -19,7 +19,7 @@ from pagnn.datavargan import datasets_to_datavar
 from pagnn.training.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
 from pagnn.training.gan import Args
 from pagnn.types import DataRow, DataSet, DataSetGAN
-from pagnn.utils import remove_eye_sparse, array_to_seq
+from pagnn.utils import array_to_seq, remove_eye_sparse
 
 logger = logging.getLogger(__name__)
 
