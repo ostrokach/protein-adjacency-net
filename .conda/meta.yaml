@@ -1,5 +1,7 @@
 {% set name = "pagnn" %}
 {% set version = "0.1.9.dev" %}
+{% set kmbio = "2.0.5" %}
+{% set kmtools = "0.0.26" %}
 
 package:
   name: {{ name }}
@@ -34,6 +36,8 @@ requirements:
     - torchvision
     - scikit-learn
     # Biological Python
+    - kmbio =={{ kmbio }}
+    - kmtools =={{ kmtools }}
     - weblogo
 
 test:
