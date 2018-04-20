@@ -3,6 +3,7 @@
 .. autosummary::
    :toctree: _modules
 
+   ArgsBase
    argmax_onehot
    conv1d_shape
    conv1d_shape_ceil
@@ -40,6 +41,7 @@
    random_sequence
    set_cuda
 """
+from .args import ArgsBase
 from .array_ops import (argmax_onehot, conv1d_shape, conv1d_shape_ceil, conv2d_shape, to_numpy,
                         to_sparse_tensor, to_tensor, reshape_internal_dim, unfold_to, unfold_from,
                         padding_amount, remove_eye, remove_eye_sparse, add_eye_sparse)
