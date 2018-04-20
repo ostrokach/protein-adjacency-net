@@ -32,6 +32,7 @@ requirements:
     - pandas
     - pyarrow >=0.9.*
     - numba
+    - torch-nightly ==2018.04.20
     - tensorboardx
     - torchvision
     - scikit-learn
