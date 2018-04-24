@@ -151,7 +151,8 @@ class AESeqPoolPixelShuffle(nn.Module):
                 setattr(self, f'encoder_post_{i}',
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.BatchNorm1d(output_channels),
+                            nn.InstanceNorm1d(
+                                output_channels, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_post_{i}', nn.Sequential())
@@ -174,7 +175,7 @@ class AESeqPoolPixelShuffle(nn.Module):
                     nn.Sequential(
                         nn.Conv1d(input_channels, input_channels, **conv_kwargs),
                         nn.ReLU(True),
-                        nn.BatchNorm1d(input_channels),
+                        nn.InstanceNorm1d(input_channels, affine=True, track_running_stats=True),
                     ))
             setattr(self, f'decoder_upsample_{i}', Upsample(input_channels, output_channels))
             setattr(self, f'decoder_post_{i}', nn.Sequential())

@@ -55,7 +55,8 @@ class AESeqAdjAlternating(nn.Module):
                 setattr(self, f'encoder_post_0_{i}',
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.BatchNorm1d(output_channels // 2),
+                            nn.InstanceNorm1d(
+                                output_channels // 2, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_0_{i}', SequentialMod())
@@ -68,7 +69,8 @@ class AESeqAdjAlternating(nn.Module):
                 setattr(self, f'encoder_post_1_{i}',
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.BatchNorm1d(output_channels),
+                            nn.InstanceNorm1d(
+                                output_channels, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_post_1_{i}', nn.Sequential())
@@ -100,7 +102,8 @@ class AESeqAdjAlternating(nn.Module):
             setattr(self, f'decoder_post_0_{i}',
                     nn.Sequential(
                         nn.ReLU(True),
-                        nn.BatchNorm1d(input_channels // 2),
+                        nn.InstanceNorm1d(
+                            input_channels // 2, affine=True, track_running_stats=True),
                     ))
             # Adjacency Conv
             if i < self.n_convs:
@@ -114,7 +117,8 @@ class AESeqAdjAlternating(nn.Module):
                 setattr(self, f'decoder_post_1_{i}',
                         nn.Sequential(
                             nn.ReLU(True),
-                            nn.BatchNorm1d(input_channels // 2),
+                            nn.InstanceNorm1d(
+                                input_channels // 2, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'decoder_post_1_{i}', nn.Sequential())

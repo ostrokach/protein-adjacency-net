@@ -140,7 +140,8 @@ class AESeqPoolUpsample(nn.Module):
                         nn.Sequential(
                             nn.Conv1d(input_channels, output_channels, **conv_kwargs),
                             nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.BatchNorm1d(output_channels),
+                            nn.InstanceNorm1d(
+                                output_channels, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_pre_{i}',
@@ -167,7 +168,7 @@ class AESeqPoolUpsample(nn.Module):
                     nn.Sequential(
                         nn.Conv1d(input_channels, output_channels, **conv_kwargs),
                         nn.ReLU(True),
-                        nn.BatchNorm1d(output_channels),
+                        nn.InstanceNorm1d(output_channels, affine=True, track_running_stats=True),
                     ))
             input_channels = output_channels
         setattr(self, 'decoder_pre_0', nn.Sequential())

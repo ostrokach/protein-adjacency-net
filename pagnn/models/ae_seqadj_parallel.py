@@ -159,7 +159,8 @@ class AESeqAdjParallel(nn.Module):
                 setattr(self, f'encoder_post_{i}',
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.BatchNorm1d(output_channels),
+                            nn.InstanceNorm1d(
+                                output_channels, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_post_{i}', nn.Sequential())
@@ -197,7 +198,8 @@ class AESeqAdjParallel(nn.Module):
                 setattr(self, f'decoder_post_{i}',
                         nn.Sequential(
                             nn.ReLU(True),
-                            nn.BatchNorm1d(input_channels // 2),
+                            nn.InstanceNorm1d(
+                                input_channels // 2, affine=True, track_running_stats=True),
                             nn.Conv1d(
                                 input_channels // 2,
                                 output_channels,
@@ -211,7 +213,8 @@ class AESeqAdjParallel(nn.Module):
                     f'decoder_post_{i}',
                     nn.Sequential(
                         nn.ReLU(True),
-                        nn.BatchNorm1d(input_channels // 2),
+                        nn.InstanceNorm1d(
+                            input_channels // 2, affine=True, track_running_stats=True),
                         nn.Conv1d(
                             input_channels // 2,
                             output_channels,

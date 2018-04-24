@@ -94,7 +94,8 @@ class AESeqAdjApplyExtra(nn.Module):
                         SequentialMod(
                             AdjacencyConv(output_channels // 4, output_channels // 4),
                             nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.BatchNorm1d(output_channels // 4),
+                            nn.InstanceNorm1d(
+                                output_channels // 4, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_0_{i}', SequentialMod())
@@ -106,7 +107,8 @@ class AESeqAdjApplyExtra(nn.Module):
                 setattr(self, f'encoder_post_{i}',
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.BatchNorm1d(output_channels),
+                            nn.InstanceNorm1d(
+                                output_channels, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_post_{i}', nn.Sequential())
@@ -142,7 +144,8 @@ class AESeqAdjApplyExtra(nn.Module):
                 setattr(self, f'decoder_pre_{i}',
                         nn.Sequential(
                             nn.ReLU(inplace=True),
-                            nn.BatchNorm1d(input_channels),
+                            nn.InstanceNorm1d(
+                                input_channels, affine=True, track_running_stats=True),
                         ))
             else:
                 setattr(self, f'decoder_pre_{i}', nn.Sequential())
@@ -156,7 +159,8 @@ class AESeqAdjApplyExtra(nn.Module):
                 setattr(self, f'decoder_1_{i}',
                         SequentialMod(
                             nn.ReLU(inplace=True),
-                            nn.BatchNorm1d(input_channels // 4),
+                            nn.InstanceNorm1d(
+                                input_channels // 4, affine=True, track_running_stats=True),
                             AdjacencyConvTranspose(
                                 getattr(encoder_net, f'encoder_0_{i}')[0].spatial_conv),
                         ))
