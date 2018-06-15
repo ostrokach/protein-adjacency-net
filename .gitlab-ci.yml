@@ -11,16 +11,6 @@ stages:
 variables:
   PACKAGE_VERSION: "0.1.0"
   DOCS_SECRET_KEY: "QQRcgz67PxJNFopTWGygv1Y9iqKle0Mb2rxFh22a9cc/"
-  # Notebook environment variables
-  PYTHON_VERSION: "3.6"
-  SPARK_MASTER: "spark://192.168.6.210:7077"
-  SPARK_ARGS:
-    spark.executor.memory=128G,
-    spark.sql.broadcastTimeout=3600,
-    spark.driver.memory=16G,
-    spark.driver.maxResultSize=16G
-  DB_TYPE: "mysql"
-  DB_PORT: "8331"
 
 
 # === Pages ===
@@ -55,13 +45,31 @@ pages:
 # === Deploy ===
 
 .exec-notebook: &exec-notebook
-  script:
-    - jupyter nbconvert "notebooks/{NOTEBOOK_NAME}.ipynb"
+  before_script:
+    - if [[ -z ${NOTEBOOK_NAME} || -z ${DATABIN_DIR} || -z ${CI_PROJECT_NAME} || -z ${CI_COMMIT_SHA} || -z ${CI_JOB_NAME} ]] ; then
+      echo "Not all required environment variables have been set!" ;
+      exit -1 ;
+      done
+    - conda create
+      -n ${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_SHA}-${CI_JOB_NAME}
+      -f environment.yaml
+    - conda activate ${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_SHA}-${CI_JOB_NAME}
+    - export OUTPUT_DIR=${DATABIN_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_SHA}/${CI_JOB_NAME}
+    - export SYSTEM_COMMAND="
+      jupyter nbconvert 'notebooks/${NOTEBOOK_NAME}.ipynb'
       --to=html_ch
-      --output=$NOTEBOOK_NAME.html
-      --output-dir=logs/
+      --output='${NOTEBOOK_NAME}.html'
+      --output-dir='${OUTPUT_DIR}'
       --template=docs/output_toggle.tpl
       --execute
+  script:
+    - sbatch
+  after_script:
+    - conda remove
+      -n ${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_SHA}-${CI_JOB_NAME}
+      --all
+
+
 
 deploy:
   stage: deploy
@@ -69,3 +77,10 @@ deploy:
     NOTEBOOK_NAME: deploy
   <<: *exec-notebook
   when: manual
+
+
+
+
+destroy-environment:
+  script:
+
