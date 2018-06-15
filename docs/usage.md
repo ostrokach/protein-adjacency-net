@@ -1,6 +1,6 @@
 # Usage
 
-To use Adjacency Net in a project:
+To use adjacency-net in a project:
 
 ```python
 import adjacency-net

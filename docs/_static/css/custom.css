@@ -14,11 +14,6 @@ h1 {
   overflow-x: hidden !important;
 }*/
 
-/* Hide sinusoidal logo */
-a.sinusoidal-logo {
-    display: none;
-}
-
 /* Center text logo */
 a.text-logo {
     display: flex;

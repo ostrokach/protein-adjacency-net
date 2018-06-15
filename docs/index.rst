@@ -1,4 +1,4 @@
-Welcome to Adjacency Net's documentation!
+Welcome to adjacency-net's documentation!
 ==============================================================================
 
 Contents:
