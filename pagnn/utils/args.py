@@ -30,7 +30,7 @@ class ArgsBase:
                 else:
                     raise Exception("A boolean attribute must have a default value that is either "
                                     "`True` or `False`.")
-            if 'action' not in kwargs:
+            if attribute.type is not bool and attribute.converter is None:
                 kwargs['type'] = attribute.type
             parser.add_argument(title, **kwargs)
         args = parser.parse_args()

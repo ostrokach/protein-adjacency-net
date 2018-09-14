@@ -19,17 +19,21 @@ class _BytesIO(io.BytesIO):
 def make_weblogo(seqs: List[str],
                  units: str = 'bits',
                  color_scheme: str = 'charge',
-                 stacks_per_line: int = 60):
+                 stacks_per_line: int = 60,
+                 format_='png',
+                 output_file=None):
+    assert format_ in ['eps', 'png', 'png_print', 'pdf', 'jpeg', 'svg', 'logodata']
+
     weblogo_args = [
         'weblogo',
-        f'--format=png',
+        f'--format={format_}',
         f'--units={units}',
         '--sequence-type=protein',
         f'--stacks-per-line={stacks_per_line}',
         f'--color-scheme={color_scheme}',
         '--scale-width=no',
+        '--fineprint=""',
     ]
-
     fin = io.StringIO()
     _write_sequences(seqs, fin)
     fin.seek(0)
@@ -40,9 +44,19 @@ def make_weblogo(seqs: List[str],
             weblogolib._cli.main()
         except RuntimeError as e:
             logger.error("Failed to create WebLogo image because of error: '%s'.", str(e))
-            img = None
-        else:
-            img = Image.open(patch_out)
+            return None
+        finally:
+            patch_out.seek(0)
+            img_data = patch_out.read()
+
+    if output_file:
+        with output_file.open('wb') as fout:
+            fout.write(img_data)
+
+    if format_ in ['eps', 'png', 'png_print', 'jpeg']:
+        img = Image.open(io.BytesIO(img_data))
+    else:
+        img = None
 
     return img
 

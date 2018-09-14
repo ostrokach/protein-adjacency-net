@@ -46,6 +46,7 @@ def argmax_onehot(seq: torch.FloatTensor) -> torch.IntTensor:
         seq.shape[0] * seq.shape[2],
         out=torch.cuda.LongTensor() if settings.CUDA else torch.LongTensor(),
     )
+    # Note: Takes the first value in case of duplicates.
     idx2 = seq.max(1)[1].view(-1)
     mat = torch.zeros(
         seq.shape[0] * seq.shape[2],

@@ -1,7 +1,6 @@
 import numpy as np
 import torch
 
-from pagnn import settings
 from pagnn.utils.dataset_ops import AMINO_ACIDS
 
 
@@ -300,18 +299,13 @@ def _get_blosum62():
 
 BLOSUM62 = _get_blosum62()
 
-BLOSUM62_TENSOR = torch.from_numpy(BLOSUM62)
-
-if settings.CUDA:
-    BLOSUM62_TENSOR_CUDA = torch.from_numpy(BLOSUM62).cuda()
-
 
 def score_blosum62(target: torch.FloatTensor, decoys: torch.FloatTensor) -> float:
     """Calculate the best BLOSUM62 score of a decoy to a target."""
     if target.is_cuda:
-        blosum62 = BLOSUM62_TENSOR_CUDA
+        blosum62 = torch.from_numpy(BLOSUM62).cuda()
     else:
-        blosum62 = BLOSUM62_TENSOR
+        blosum62 = torch.from_numpy(BLOSUM62)
     return ((blosum62 @ target) * decoys).float().sum(1).sum(1).max() / target.shape[1]
 
 
