@@ -1,5 +1,5 @@
 {% set name = "pagnn" %}
-{% set version = "0.1.9.dev" %}
+{% set version = "0.1.9" %}
 {% set kmbio = "2.0.5" %}
 {% set kmtools = "0.0.26" %}
 
