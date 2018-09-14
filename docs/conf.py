@@ -288,9 +288,6 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
-autosummary_generate = True
-locales = 'en'
-
 # Napoleon settings
 napoleon_google_docstring = True
 napoleon_numpy_docstring = False
@@ -304,5 +301,7 @@ napoleon_use_ivar = True
 napoleon_use_param = True
 napoleon_use_rtype = True
 
+autosummary_generate = True
 autodoc_member_order = 'bysource'
 imported_members = True
+locales = 'en'
