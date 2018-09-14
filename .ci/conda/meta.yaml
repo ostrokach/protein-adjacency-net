@@ -12,10 +12,7 @@ build:
 requirements:
   build:
     - python
-    - pandoc
-    - pypandoc
   run:
-    # Basic Python
     - python
     - click
     - tqdm
@@ -44,15 +41,16 @@ test:
     - pytest
     - pytest-cov
     - pytest-benchmark
+    - hypothesis
   imports:
     - pagnn
 
 # outputs:
-#   - name: {{ name }}
+#   - name: pagnn
 #     type: conda
 #   - type: wheel
 
 about:
-  home: http://gitlab.com/kimlab/pagnn
+  home: https://gitlab.com/kimlab/pagnn
   license: MIT License
   summary: "Protein Adjacency Graph Neural Network."
