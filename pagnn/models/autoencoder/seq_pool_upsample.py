@@ -83,11 +83,6 @@ class Downsample(nn.Module):
 
 class Upsample(nn.Module):
 
-    def __init__(self, in_channels, out_channels):
-        super().__init__()
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-
     def forward(self, x, i, adjs):
         x_list = []
         start = 0
@@ -95,8 +90,8 @@ class Upsample(nn.Module):
             stop = start + adj[i + 1].shape[1]
             assert stop <= x.shape[2]
             xd = x[:, :, start:stop]
-            assert xd.shape[1] == self.in_channels
-            xd = xd.transpose(1, 2).reshape(1, -1, self.out_channels).transpose(2, 1)
+            #             xd = F.upsample(xd, size=adj[i], mode='linear', align_corners=False)
+            xd = F.upsample(xd, scale_factor=2, mode='nearest')
             if (xd.shape[2] - adj[i].shape[1]) == 1:
                 xd = xd[:, :, :-1]
             assert xd.shape[2] == adj[i].shape[1]
@@ -107,7 +102,7 @@ class Upsample(nn.Module):
         return x
 
 
-class AESeqPoolPixelShuffle(nn.Module):
+class AESeqPoolUpsample(nn.Module):
 
     def __init__(self,
                  n_layers,
@@ -128,35 +123,34 @@ class AESeqPoolPixelShuffle(nn.Module):
         self.stride = stride
         self.padding = padding
 
+        # === Encoder ===
         conv_kwargs = dict(
             kernel_size=kernel_size,
             stride=stride,
             padding=padding,
             bias=bias,
         )
-
-        print('1')
-
-        # TODO(AS): Split and join operations to divy up dataset
-
         # === Encoder ===
         input_channels = input_size
         for i in range(n_layers):
-            output_channels = hidden_size if i == 0 else int(input_channels * 2)
-            negative_slope = 0.2 if i == 0 else 0.01
-            setattr(self, f'encoder_pre_{i}',
-                    nn.Sequential(nn.Conv1d(input_channels, output_channels, **conv_kwargs),))
-            setattr(self, f'encoder_downsample_{i}', Downsample())
+            output_channels = int(input_channels * 2) if i > 0 else hidden_size
+            negative_slope = 0.01 if i > 0 else 0.2
             if i < (n_layers - 1):
-                setattr(self, f'encoder_post_{i}',
+                setattr(self, f'encoder_pre_{i}',
                         nn.Sequential(
+                            nn.Conv1d(input_channels, output_channels, **conv_kwargs),
                             nn.LeakyReLU(negative_slope, inplace=True),
                             nn.InstanceNorm1d(
-                                output_channels, affine=True, track_running_stats=True),
+                                output_channels,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                         ))
             else:
-                setattr(self, f'encoder_post_{i}', nn.Sequential())
-
+                setattr(self, f'encoder_pre_{i}',
+                        nn.Sequential(nn.Conv1d(input_channels, output_channels, **conv_kwargs),))
+            setattr(self, f'encoder_downsample_{i}', Downsample())
+            setattr(self, f'encoder_post_{i}', nn.Sequential())
             input_channels = output_channels
 
         # === Linear ===
@@ -171,19 +165,20 @@ class AESeqPoolPixelShuffle(nn.Module):
         # === Decoder ===
         for i in range(n_layers - 1, 0, -1):
             output_channels = input_channels // 2
-            setattr(self, f'decoder_pre_{i}',
+            setattr(self, f'decoder_pre_{i}', nn.Sequential())
+            setattr(self, f'decoder_upsample_{i}', Upsample())
+            setattr(self, f'decoder_post_{i}',
                     nn.Sequential(
-                        nn.Conv1d(input_channels, input_channels, **conv_kwargs),
+                        nn.Conv1d(input_channels, output_channels, **conv_kwargs),
                         nn.ReLU(True),
-                        nn.InstanceNorm1d(input_channels, affine=True, track_running_stats=True),
+                        nn.InstanceNorm1d(
+                            output_channels, momentum=0.01, affine=True, track_running_stats=True),
                     ))
-            setattr(self, f'decoder_upsample_{i}', Upsample(input_channels, output_channels))
-            setattr(self, f'decoder_post_{i}', nn.Sequential())
             input_channels = output_channels
-        setattr(self, 'decoder_pre_0',
-                nn.Sequential(nn.Conv1d(input_channels, input_size * 2, **conv_kwargs),))
-        setattr(self, 'decoder_upsample_0', Upsample(input_size * 2, input_size))
-        setattr(self, 'decoder_post_0', nn.Sequential())
+        setattr(self, 'decoder_pre_0', nn.Sequential())
+        setattr(self, 'decoder_upsample_0', Upsample())
+        setattr(self, 'decoder_post_0',
+                nn.Sequential(nn.Conv1d(input_channels, input_size, **conv_kwargs),))
 
     def forward(self, seq, adjs):
         x = seq
@@ -194,7 +189,7 @@ class AESeqPoolPixelShuffle(nn.Module):
             x = getattr(self, f'encoder_downsample_{i}')(x, i, adjs)
             x = getattr(self, f'encoder_post_{i}')(x)
 
-        # === Linear ===
+        # Linear
         if self.bottleneck_size > 0:
             pad_amount = padding_amount(x, 2048)  # 4 x 512
             if pad_amount:

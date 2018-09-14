@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .torch_sparse_mm import SparseMM
+from .sparse_mm import SparseMM
 
 
 def adjacency_conv(seq, adj, weight, bias=None):

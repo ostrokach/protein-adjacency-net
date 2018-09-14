@@ -104,7 +104,10 @@ class AESeqConvDeconv(nn.Module):
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
                             nn.InstanceNorm1d(
-                                output_channels, affine=True, track_running_stats=True),
+                                output_channels,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_post_{i}', nn.Sequential())
@@ -138,7 +141,10 @@ class AESeqConvDeconv(nn.Module):
                         nn.Sequential(
                             nn.ReLU(True),
                             nn.InstanceNorm1d(
-                                output_channels, affine=True, track_running_stats=True),
+                                output_channels,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                         ))
             else:
                 setattr(self, f'decoder_post_{i}', nn.Sequential())

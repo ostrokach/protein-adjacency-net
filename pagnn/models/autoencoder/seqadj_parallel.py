@@ -10,8 +10,8 @@ from pagnn import settings
 from pagnn.datavargan import dataset_to_datavar
 from pagnn.utils import padding_amount, reshape_internal_dim
 
-from .ae_sequence_conv import SequenceConv, SequenceConvTranspose
-from .ae_sequential import SequentialMod
+from .sequence_conv import SequenceConv, SequenceConvTranspose
+from .sequential import SequentialMod
 
 logger = logging.getLogger(__name__)
 
@@ -160,7 +160,10 @@ class AESeqAdjParallel(nn.Module):
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
                             nn.InstanceNorm1d(
-                                output_channels, affine=True, track_running_stats=True),
+                                output_channels,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_post_{i}', nn.Sequential())
@@ -199,7 +202,10 @@ class AESeqAdjParallel(nn.Module):
                         nn.Sequential(
                             nn.ReLU(True),
                             nn.InstanceNorm1d(
-                                input_channels // 2, affine=True, track_running_stats=True),
+                                input_channels // 2,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                             nn.Conv1d(
                                 input_channels // 2,
                                 output_channels,
@@ -214,7 +220,10 @@ class AESeqAdjParallel(nn.Module):
                     nn.Sequential(
                         nn.ReLU(True),
                         nn.InstanceNorm1d(
-                            input_channels // 2, affine=True, track_running_stats=True),
+                            input_channels // 2,
+                            momentum=0.01,
+                            affine=True,
+                            track_running_stats=True),
                         nn.Conv1d(
                             input_channels // 2,
                             output_channels,

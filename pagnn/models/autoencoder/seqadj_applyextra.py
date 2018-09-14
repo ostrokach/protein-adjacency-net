@@ -9,9 +9,9 @@ import torch.nn.functional as F
 from pagnn.datavargan import dataset_to_datavar
 from pagnn.utils import padding_amount, reshape_internal_dim
 
-from .ae_adjacency_conv import AdjacencyConv, AdjacencyConvTranspose
-from .ae_sequence_conv import SequenceConv, SequenceConvTranspose
-from .ae_sequential import SequentialMod
+from .adjacency_conv import AdjacencyConv, AdjacencyConvTranspose
+from .sequence_conv import SequenceConv, SequenceConvTranspose
+from .sequential import SequentialMod
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,10 @@ class AESeqAdjApplyExtra(nn.Module):
                             AdjacencyConv(output_channels // 4, output_channels // 4),
                             nn.LeakyReLU(negative_slope, inplace=True),
                             nn.InstanceNorm1d(
-                                output_channels // 4, affine=True, track_running_stats=True),
+                                output_channels // 4,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_0_{i}', SequentialMod())
@@ -108,7 +111,10 @@ class AESeqAdjApplyExtra(nn.Module):
                         nn.Sequential(
                             nn.LeakyReLU(negative_slope, inplace=True),
                             nn.InstanceNorm1d(
-                                output_channels, affine=True, track_running_stats=True),
+                                output_channels,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                         ))
             else:
                 setattr(self, f'encoder_post_{i}', nn.Sequential())
@@ -145,7 +151,10 @@ class AESeqAdjApplyExtra(nn.Module):
                         nn.Sequential(
                             nn.ReLU(inplace=True),
                             nn.InstanceNorm1d(
-                                input_channels, affine=True, track_running_stats=True),
+                                input_channels,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                         ))
             else:
                 setattr(self, f'decoder_pre_{i}', nn.Sequential())
@@ -160,7 +169,10 @@ class AESeqAdjApplyExtra(nn.Module):
                         SequentialMod(
                             nn.ReLU(inplace=True),
                             nn.InstanceNorm1d(
-                                input_channels // 4, affine=True, track_running_stats=True),
+                                input_channels // 4,
+                                momentum=0.01,
+                                affine=True,
+                                track_running_stats=True),
                             AdjacencyConvTranspose(
                                 getattr(encoder_net, f'encoder_0_{i}')[0].spatial_conv),
                         ))
