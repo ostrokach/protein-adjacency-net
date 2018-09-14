@@ -30,9 +30,9 @@ requirements:
     - numpy
     - scipy
     - pandas
-    - pyarrow >=0.9.*
+    - pyarrow >=0.10.*
     - numba
-    - pytorch-nightly ==2018.04.20
+    - pytorch
     - tensorboardx
     - torchvision
     - scikit-learn
