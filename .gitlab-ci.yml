@@ -4,7 +4,7 @@ stages:
   - lint
   - build
   - test
-  - document
+  - documentation
   - deploy
 
 # === Variables ===
@@ -106,10 +106,10 @@ test-py36:
   dependencies:
     - build-py36
 
-# === Document ===
+# === Documentation ===
 
 docs:
-  stage: document
+  stage: documentation
   <<: [*conda_configure]
   script:
     # Restore built packages
