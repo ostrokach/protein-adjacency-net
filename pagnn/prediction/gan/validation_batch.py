@@ -1,6 +1,8 @@
 import torch  # isort:skip
-
 import concurrent.futures
+import math
+import os
+import pickle
 import tempfile
 from collections import OrderedDict
 from itertools import repeat
@@ -63,7 +65,10 @@ def main():
         raise NotImplementedError("Only PDB and Parquet inputs are supported!")
 
     # Generate sequences
-    df = generate_examples(args, dataset, net_d, net_g)
+    random_state = np.random.RandomState(int(os.getenv('SLURM_ARRAY_TASK_ID', '42')))
+    with args.validation_dataset_file.open('rb') as fin:
+        datagen_ref = pickle.load(fin)
+    df = generate_examples(args, dataset, datagen_ref, net_d, net_g, random_state)
 
     # Add secondary structure
     if args.include_ss:
@@ -88,79 +93,86 @@ def read_parquet_input(args):
     return dataset
 
 
-def generate_examples(args: Args, dataset: DataSetGAN, net_d, net_g) -> pd.DataFrame:
+def get_bottleneck_indices(adjs):
+    idxs = []
+    start = 0
+    for i, adj in enumerate(adjs):
+        stop = start + adj[4].shape[1]
+        idxs.append((
+            math.floor(start / 4),
+            math.ceil(stop / 4),
+        ))
+        start = stop
+    assert idxs[-1][1] == math.ceil(sum(adj[4].shape[1] for adj in adjs) / 4)
+    return idxs
+
+
+def generate_examples(args: Args, dataset: DataSetGAN, datagen_ref: DataSetGAN, net_d, net_g,
+                      random_state) -> pd.DataFrame:
     datavar = net_d.dataset_to_datavar(dataset)
-    seqs = datavar.seqs
-    adjs = [datavar.adjs]
-    min_length = adjs[0][4].shape[1]
 
     # TODO: Eventually, eval mode should work better
     net_g.train()
     net_d.train()
 
-    target = torch.cat([seqs[0, :, :].data] * args.batch_size, 1)
-    assert (target.sum(dim=0) == 1).all()
-
-    noise = generate_noise(net_g, adjs * args.batch_size)
-
     # DataFrame columns
     df_columns = OrderedDict([
-        ('total_discriminator_score', [np.nan]),
-        ('total_blosum62_score', [np.nan]),
-        ('total_edit_score', [np.nan]),
-        ('best_discriminator_score', [np.nan]),
-        ('best_blosum62_score', [np.nan]),
-        ('best_edit_score', [np.nan]),
+        ('discriminator_score', [np.nan]),
+        ('blosum62_score', [np.nan]),
+        ('edit_score', [np.nan]),
         ('sequence', [dataset.seqs[0].decode()]),
         ('sequence_type', ['ref']),
-        ('best_idx', [-1]),
     ])
+
+    # Randomly select a reference dataset for each batch
+    ref_idxs = random_state.choice(np.arange(len(datagen_ref)), args.batch_size - 1, replace=False)
+    dataset_ref = [datagen_ref[i] for i in ref_idxs]
+    datavar_ref = [net_d.dataset_to_datavar(ds) for ds in dataset_ref]
+    seqs_ref = [dv.seqs[0:1, :, :] for dv in datavar_ref]
+    adjs_ref = [dv.adjs for dv in datavar_ref]
+
+    # Create a batch
+    seqs_batch = torch.cat(
+        seqs_ref[:args.batch_size // 2] + [datavar.seqs] + seqs_ref[args.batch_size // 2:], 2)
+    adjs_batch = adjs_ref[:args.batch_size // 2] + [datavar.adjs] + adjs_ref[args.batch_size // 2:]
+
+    bottleneck_idxs = get_bottleneck_indices(adjs_batch)
+    assert len(bottleneck_idxs) == args.batch_size == len(adjs_batch)
+
+    noise = generate_noise(net_g, adjs_batch)
 
     for _ in tqdm.tqdm(range(args.nseqs), total=args.nseqs, disable=not settings.SHOW_PROGRESSBAR):
         noisev = noise.normal_(0, 1)
         with torch.no_grad():
-            fake_seq = net_g(noisev, adjs * args.batch_size).data
-            assert fake_seq.shape[2] == (seqs.shape[2] * args.batch_size)
-            fake_pred = net_d(fake_seq, adjs * args.batch_size)
-            # Not sure why, but seems to work this way...
-            assert (min_length * args.batch_size / 4) <= fake_pred.shape[2] <= (
-                min_length * args.batch_size / 4 + 1), (fake_pred.shape,
-                                                        min_length * args.batch_size / 4 + 1)
+            fake_seq = net_g(noisev, adjs_batch).data
+            assert fake_seq.shape[2] == seqs_batch.shape[2]
+            fake_pred = net_d(fake_seq, adjs_batch)
+            assert bottleneck_idxs[-1][1] <= fake_pred.shape[2] <= (bottleneck_idxs[-1][1] + 1)
 
-        fake_seq_onehot = pagnn.utils.argmax_onehot(fake_seq)
-        assert (fake_seq_onehot.sum(dim=1) == 1).all()
-
-        df_columns['total_discriminator_score'].append(float(fake_pred.sigmoid().mean()))
-        df_columns['total_blosum62_score'].append(
-            float(pagnn.utils.score_blosum62(target, fake_seq_onehot)))
-        df_columns['total_edit_score'].append(
-            float(pagnn.utils.score_edit(target, fake_seq_onehot)))
-
-        best_score = None
-        for i, start in enumerate(range(0, fake_seq_onehot.shape[2], datavar.seqs.shape[2])):
-            stop = start + datavar.seqs.shape[2]
-            fake_pred_slice = fake_pred[:, :, min_length * i // 4:min_length * (i + 1) // 4]
-            assert fake_pred_slice.shape[2] in [min_length // 4, min_length // 4 + 1]
-            score = fake_pred_slice.sigmoid().mean()
-            if best_score is None or score > best_score:
-                best_score = score
-                best_idx = i
-                fake_seq_slice = fake_seq_onehot[:, :, start:stop]
-                best_discriminator_score = float(score)
-                best_blosum62_score = float(
-                    pagnn.utils.score_blosum62(seqs[0, :, :].data, fake_seq_slice))
-                best_edit_score = float(pagnn.utils.score_edit(seqs[0, :, :].data, fake_seq_slice))
-                best_sequence = ''.join(pagnn.AMINO_ACIDS[int(i)]
-                                        for i in np.argmax(pagnn.to_numpy(fake_seq_slice), 1)[0])
+        start = 0
+        for i, adj in enumerate(adjs_batch):
+            stop = start + adj[0].shape[1]
+            if i == args.batch_size // 2:
+                fake_seq_slice = fake_seq[:, :, start:stop]
             start = stop
+        assert stop == fake_seq.shape[2]
 
-        assert i == (args.batch_size - 1)
-        df_columns['best_discriminator_score'].append(best_discriminator_score)
-        df_columns['best_blosum62_score'].append(best_blosum62_score)
-        df_columns['best_edit_score'].append(best_edit_score)
-        df_columns['sequence'].append(best_sequence)
+        for i, (start, stop) in enumerate(bottleneck_idxs):
+            if i == args.batch_size // 2:
+                fake_pred_slice = fake_pred[:, :, start:stop]
+        assert stop <= fake_pred.shape[2] <= (stop + 1)
+
+        fake_seq_slice_onehot = pagnn.utils.argmax_onehot(fake_seq_slice)
+        assert (fake_seq_slice_onehot.sum(dim=1) == 1).all()
+
+        df_columns['discriminator_score'].append(float(fake_pred_slice.sigmoid().mean()))
+        df_columns['blosum62_score'].append(
+            float(pagnn.utils.score_blosum62(datavar.seqs[0, :, :].data, fake_seq_slice_onehot)))
+        df_columns['edit_score'].append(
+            float(pagnn.utils.score_edit(datavar.seqs[0, :, :].data, fake_seq_slice_onehot)))
+        df_columns['sequence'].append(''.join(
+            pagnn.AMINO_ACIDS[int(i)] for i in np.argmax(pagnn.to_numpy(fake_seq_slice), 1)[0]))
         df_columns['sequence_type'].append('gen')
-        df_columns['best_idx'].append(best_idx)
 
     df = pd.DataFrame(df_columns, index=range(len(df_columns['sequence'])))
     assert (df['sequence'].str.len() == len(df['sequence'][0])).all()
