@@ -10,6 +10,7 @@ __pycache__/
 .Python
 env/
 build/
+conda-bld/
 develop-eggs/
 dist/
 downloads/
@@ -43,7 +44,10 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *,cover
+.mypy_cache/
+.pytest_cache/
 .hypothesis/
+.benchmarks/
 
 # Translations
 *.mo
@@ -54,6 +58,9 @@ coverage.xml
 
 # Sphinx documentation
 docs/_build/
+docs/_modules/
+docs/.doctrees/
+public/
 
 # PyBuilder
 target/
@@ -63,18 +70,7 @@ target/
 
 # AS
 .vscode/
-.benchmarks
-.pytest_cache
-.mypy_cache/
+*-bak.py
 
-# Conda
-conda-bld
-.conda_cache
-.conda_packages
-
-# Docs
-docs/.*
-docs/_*
-!docs/_static
-!docs/_templates
-public/
+# Jupyter
+.ipynb_checkpoints

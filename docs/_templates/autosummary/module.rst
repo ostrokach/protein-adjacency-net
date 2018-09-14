@@ -2,7 +2,6 @@
 {{ underline }}
 
 .. automodule:: {{ fullname }}
-   :member-order: bysource
 
    {% block functions %}
    {% if functions %}
@@ -16,7 +15,6 @@
    {% endif %}
    {% endblock %}
 
-
    {% block classes %}
    {% if classes %}
    .. rubric:: Classes
@@ -28,7 +26,6 @@
    {%- endfor %}
    {% endif %}
    {% endblock %}
-
 
    {% block exceptions %}
    {% if exceptions %}

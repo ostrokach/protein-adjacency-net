@@ -5,7 +5,6 @@
 
 .. autoclass:: {{ objname }}
    :members:
-   :member-order: bysource
    :no-private-members:
    :inherited-members:
 

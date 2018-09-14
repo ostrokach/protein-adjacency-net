@@ -2,13 +2,13 @@
 
 ## Stable release
 
-To install Protein Adjacency Graph Neural Network, run this command in your terminal:
+To install `pagnn`, run this command in your terminal:
 
 ```bash
 conda install pagnn -c kimlab
 ```
 
-This is the preferred method to install Protein Adjacency Graph Neural Network, as it will always install the most recent stable release.
+This is the preferred method to install `pagnn`, as it will always install the most recent stable release.
 
 If you don't have [conda] installed, this [Python installation guide] can guide
 you through the process.
@@ -18,7 +18,7 @@ you through the process.
 
 ## From sources
 
-The sources for Protein Adjacency Graph Neural Network can be downloaded from the [GitLab repo].
+The sources for `pagnn` can be downloaded from the [GitLab repo].
 
 You can either clone the public repository:
 

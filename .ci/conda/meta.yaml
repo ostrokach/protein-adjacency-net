@@ -1,14 +1,9 @@
-{% set name = "pagnn" %}
-{% set version = "0.1.9" %}
-{% set kmbio = "2.0.5" %}
-{% set kmtools = "0.0.26" %}
-
 package:
-  name: {{ name }}
-  version: "{{ version }}"
+  name: pagnn
+  version: 0.1.9
 
 source:
-  path: ../
+  path: ../../
 
 build:
   script: $PYTHON setup.py install --single-version-externally-managed --record=record.txt
@@ -37,8 +32,8 @@ requirements:
     - torchvision
     - scikit-learn
     # Biological Python
-    - kmbio =={{ kmbio }}
-    - kmtools =={{ kmtools }}
+    - kmbio
+    - kmtools
     - weblogo
 
 test:
@@ -52,12 +47,12 @@ test:
   imports:
     - pagnn
 
-outputs:
-  - name: {{ name }}
-    type: conda
-  - type: wheel
+# outputs:
+#   - name: {{ name }}
+#     type: conda
+#   - type: wheel
 
 about:
   home: http://gitlab.com/kimlab/pagnn
   license: MIT License
-  summary: "A neural network trained to select real proteins that fold to the provided adjacency matrix."
+  summary: "Protein Adjacency Graph Neural Network."

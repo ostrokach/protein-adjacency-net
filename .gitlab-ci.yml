@@ -1,4 +1,4 @@
-image: registry.gitlab.com/kimlab/linux-anvil:latest
+image: registry.gitlab.com/ostrokach-docker/conda:latest
 
 stages:
   - lint
@@ -10,54 +10,60 @@ stages:
 # === Variables ===
 
 variables:
-  PACKAGE_VERSION: 0.1.9
+  PACKAGE_VERSION: "0.1.9"
 
 .py36: &py36
   PYTHON_VERSION: "3.6"
 
+.py37: &py37
+  PYTHON_VERSION: "3.7"
+
 # === Configurations ===
 
-.conda_configure: &conda_configure
+.configure: &configure
   cache:
-    key: ${CI_JOB_NAME}-mod1
+    key: ${CI_JOB_NAME}
     paths:
-      - .conda_packages/*.tar.bz2
-      - .conda_packages/urls.txt
+      - .ci/conda_packages/*.tar.bz2
+      - .ci/conda_packages/urls.txt
   before_script:
     # Conda environment variables
-    - export CONDA_PKGS_DIRS="${CI_PROJECT_DIR}/.conda_packages"
+    - export CONDA_PKGS_DIRS="$CI_PROJECT_DIR/.ci/conda_packages"
     # Make conda cache and bld folders
-    - mkdir -p "${CI_PROJECT_DIR}/conda-bld" "${CONDA_PKGS_DIRS}"
-    - rm -rf ${CONDA_PKGS_DIRS}/${CI_PROJECT_NAME}-*
+    - mkdir -p "$CI_PROJECT_DIR/conda-bld" "${CONDA_PKGS_DIRS}"
     # Conda configure
     - conda config --set channel_priority true
     - conda config --append pkgs_dirs "${CONDA_PKGS_DIRS}"
+    - conda config --add channels kimlab
     - conda config --append channels pytorch
-    - conda config --append channels ostrokach-forge
-    - conda config --append channels bioconda
-    - case "${PACKAGE_VERSION}" in
-      *dev*)
-        conda config --append channels kimlab;
-        conda config --append channels kimlab/label/dev;
-        conda config --append channels ostrokach;
-        conda config --append channels ostrokach/label/dev;
-      ;;
-      *)
-        conda config --append channels kimlab;
-        conda config --append channels ostrokach;
-      ;;
-      esac
+    - conda config --add channels ostrokach-forge
+    - conda config --add channels defaults
+    - conda config --add channels conda-forge
+    # - case "${PACKAGE_VERSION}" in
+    #   *dev*)
+    #     conda config --append channels kimlab/label/dev;
+    #     conda config --append channels kimlab;
+    #   ;;
+    #   *)
+    #     conda config --append channels kimlab;
+    #   ;;
+    #   esac
+    # Clear cache
+    - rm -rf /opt/conda/pkgs/*
+    # Update conda
+    - conda update -n root -yq conda conda-build --no-channel-priority
 
 # === Lint ===
 
 lint:
   stage: lint
-  <<: [*conda_configure]
+  <<: [*configure]
   variables:
     <<: [*py36]
   script:
+    - cd $(dirname ${CI_CONFIG_PATH})
     - conda install -yq "python=${PYTHON_VERSION}" isort flake8 mypy
-    - python -m isort -p "${CI_PROJECT_NAME}" -c
+    - python -m isort -p ${CI_PROJECT_NAME} -c
     - python -m flake8
     - python -m mypy -p "${CI_PROJECT_NAME}" || true
 
@@ -66,20 +72,25 @@ lint:
 .build: &build
   stage: build
   script:
-    # Build conda packages
-    - cd "${CI_PROJECT_DIR}/.conda"
+    - conda config --add channels defaults
+    - cd "${CI_PROJECT_DIR}/.ci/conda"
     - conda build .
       --no-test
       --python $PYTHON_VERSION
-      --output-folder "${CI_PROJECT_DIR}/conda-bld"
+      --output-folder "$CI_PROJECT_DIR/conda-bld"
   artifacts:
     paths:
       - conda-bld
 
 build-py36:
-  <<: [*conda_configure, *build]
+  <<: [*configure, *build]
   variables:
     <<: [*py36]
+
+build-py37:
+  <<: [*configure, *build]
+  variables:
+    <<: [*py37]
 
 # === Test ===
 
@@ -90,47 +101,54 @@ build-py36:
     - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
     - conda index /opt/conda/conda-bld/
     # Run tests
-    - cd $CI_PROJECT_DIR/.conda
+    - cd ${CI_PROJECT_DIR}/.ci/conda
     - conda build .
       --test
       --python $PYTHON_VERSION
+  coverage: /^TOTAL.* (\d+\%)/
   artifacts:
     paths:
       - environment-py${PYTHON_VERSION/./}.yml
-      - .coverage
+      - .ci/conda/.coverage
 
 test-py36:
-  <<: [*conda_configure, *test]
-  variables:
-    <<: [*py36]
+  <<: [*configure, *test]
   dependencies:
     - build-py36
+  variables:
+    <<: [*py36]
 
-# === Documentation ===
+test-py37:
+  <<: [*configure, *test]
+  dependencies:
+    - build-py37
+  variables:
+    <<: [*py37]
+
+# === Docs ===
 
 docs:
-  stage: documentation
-  <<: [*conda_configure]
+  stage: test
+  <<: [*configure]
   script:
     # Restore built packages
     - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
     - conda index /opt/conda/conda-bld/
     # Install required packages
-    - conda install -yq --use-local "python=$PYTHON_VERSION" ${CI_PROJECT_NAME}
+    - conda install -yq --use-local "python=$PYTHON_VERSION" $CI_PROJECT_NAME
     - conda install -yq nbconvert ipython ipykernel pandoc
     - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx coverage
     # Build docs
-    - sphinx-build docs public
+    - sphinx-build ${CI_PROJECT_DIR}/docs public
     # Coverage
     - coverage report
     - coverage html
     - mv htmlcov public/
   coverage: /^TOTAL.* (\d+\%)/
   dependencies:
-    - build-py36
-    - test-py36
+    - build-py37
   variables:
-    <<: [*py36]
+    <<: [*py37]
   artifacts:
     paths:
       - public
@@ -144,7 +162,7 @@ docs:
   before_script:
     - conda install twine -yq --no-channel-priority
   script:
-    # Rename wheels from `-linux_x86_64.whl` to `-manylinux1_x86_64.whl`
+    # Rename wheels from `*-linux_x86_64.whl` to `*-manylinux1_x86_64.whl`
     # so that they can be uploaded to PyPI.
     - for i in $CI_PROJECT_DIR/conda-bld/linux-64/*.whl ; do
       echo $i ;
@@ -154,12 +172,12 @@ docs:
       done
     # Development releases go to the Anaconda dev channel
     - if [[ ${PACKAGE_VERSION} = *"dev"* ]] ; then
-        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u ${CI_PROJECT_NAMESPACE} --label dev --force --no-progress ;
+        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --label dev --force --no-progress ;
        fi
     # Tagged releases go to the Anaconda and PyPI main channels
     - if [[ -n ${CI_COMMIT_TAG} ]] ; then
-        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u ${CI_PROJECT_NAMESPACE} --no-progress ;
-        twine upload $CI_PROJECT_DIR/conda-bld/linux-64/*.whl ;
+        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --no-progress ;
+        twine upload $CI_PROJECT_DIR/conda-bld/linux-64/*.whl || true ;
       fi
 
 deploy-py36:
@@ -167,36 +185,32 @@ deploy-py36:
   dependencies:
     - build-py36
 
+deploy-py37:
+  <<: *deploy
+  dependencies:
+    - build-py37
+
 # === Pages ===
 
 pages:
   stage: deploy
   before_script:
     - sudo yum install -y -q unzip
-    - curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64 -o jq
-    - md5sum jq | grep 6a342dbb17b2f2ea4ec0e64d2157614d
-    - sudo mv jq /usr/local/bin/jq
-    - sudo chmod +x /usr/local/bin/jq
   script:
     # Create docs folder for the current version
     - mv public "v${PACKAGE_VERSION%.dev}"
     - mkdir public
     - mv "v${PACKAGE_VERSION%.dev}" public/
     # Create docs folder for each tag
-    - echo "${PATH}"
-    - |
-      curl -s -L --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-        "https://gitlab.com/api/v4/projects/kimlab%2Fpagnn/jobs?scope=success" |
-      jq --raw-output '.[] | select(.tag == true) | select(.name == "docs") | "\(.ref) \(.id)"' |
-      while read tag job_id ; do
-        echo $tag $job_id ;
-        curl -s -L --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
-          "https://gitlab.com/kimlab/pagnn/-/jobs/${job_id}/artifacts/download" \
+    - 'for tag in $(git tag) ; do
+      echo ${tag} ;
+      curl -L --header "JOB-TOKEN: $CI_JOB_TOKEN"
+      "https://gitlab.com/${CI_PROJECT_NAME}/${CI_PROJECT_NAMESPACE}/-/jobs/artifacts/${tag}/download?job=docs"
           -o artifact-${tag}.zip || continue ;
-        unzip -q artifact-${tag}.zip -d public || continue ;
+      unzip artifact-${tag}.zip -d public || continue ;
         rm -rf public/${tag} ;
         mv public/public public/${tag} ;
-      done
+      done'
     # Create index file
     # TODO:
   dependencies:

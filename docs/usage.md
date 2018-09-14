@@ -1,6 +1,6 @@
 # Usage
 
-To use Protein Adjacency Graph Neural Network in a project:
+To use `pagnn` in a project:
 
 ```python
 import pagnn
