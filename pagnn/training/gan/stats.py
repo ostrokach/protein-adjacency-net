@@ -22,6 +22,8 @@ class Stats:
         self.step = step
         self.writer = writer
         self._init_containers()
+        self.validation_time_basic: float = None
+        self.validation_time_extended: float = None
 
     def update(self) -> None:
         self.step += 1
@@ -72,6 +74,11 @@ class Stats:
             ('gen_losses', self.gen_losses),
         ]
 
+        training_data_extended = [
+            ('blosum62_scores', self.blosum62_scores),
+            ('edit_scores', self.edit_scores),
+        ]
+
         # === Scalars ===
         for score_name, score_value in self.scores.items():
             if score_value is None:
@@ -79,14 +86,16 @@ class Stats:
                 continue
             self.writer.add_scalar(score_name, score_value, self.step)
 
-        for score_name, score_value in training_data:
-            self.writer.add_scalar(score_name,
+        for score_name, score_value in (training_data + (training_data_extended
+                                                         if self.extended else [])):
+            self.writer.add_scalar(score_name + '-mean',
                                    np.hstack([ar.reshape(-1) for ar in score_value]).astype(
                                        np.float64).mean(), self.step)
 
         # === Histograms ===
-        for score_name, score_value in training_data:
-            self.writer.add_histogram(score_name + '-hist',
+        for score_name, score_value in (training_data + (training_data_extended
+                                                         if self.extended else [])):
+            self.writer.add_histogram(score_name,
                                       np.hstack([ar.reshape(-1) for ar in score_value]).astype(
                                           np.float64), self.step)
 
@@ -114,6 +123,7 @@ class Stats:
 
     def calculate_statistics_basic(self, _prev_stats={}):
         self.basic = True
+        self.validation_time_basic = time.perf_counter()
 
         # Pos AUC
         if self.pos_preds and self.neg_preds:
@@ -121,16 +131,16 @@ class Stats:
                 [ar.mean() for ar in (self.pos_preds + self.neg_preds)])
             self.training_pos_target = np.hstack(
                 [np.ones(1) for _ in self.pos_preds] + [np.zeros(1) for _ in self.neg_preds])
-            self.scores['training_pos_auc'] = metrics.roc_auc_score(self.training_pos_target,
+            self.scores['training_pos-auc'] = metrics.roc_auc_score(self.training_pos_target,
                                                                     self.training_pos_pred)
 
         # Fake AUC
-        if self.pos_preds and self.fake_preds:
+        if self.fake_preds and self.neg_preds:
             self.training_fake_pred = np.hstack(
-                [ar.mean() for ar in (self.pos_preds + self.fake_preds)])
+                [ar.mean() for ar in (self.fake_preds + self.neg_preds)])
             self.training_fake_target = np.hstack(
-                [np.ones(1) for _ in self.pos_preds] + [np.zeros(1) for _ in self.fake_preds])
-            self.scores['training_fake_auc'] = metrics.roc_auc_score(self.training_fake_target,
+                [np.ones(1) for _ in self.fake_preds] + [np.zeros(1) for _ in self.neg_preds])
+            self.scores['training_fake-auc'] = metrics.roc_auc_score(self.training_fake_target,
                                                                      self.training_fake_pred)
 
         # Runtime
@@ -142,6 +152,7 @@ class Stats:
     def calculate_statistics_extended(self, net_d, net_g, internal_validation_datasets,
                                       external_validation_datasets):
         self.extended = True
+        self.validation_time_extended = time.perf_counter()
 
         # Validation accuracy
         for name, datasets in internal_validation_datasets.items():
@@ -152,8 +163,8 @@ class Stats:
             targets_valid, outputs_valid = evaluate_mutation_dataset(net_d, datasets)
             if 'protherm' in name:
                 # Protherm predicts ΔΔG, so positive values are destabilizing
-                self.scores[name + '-spearman'] = sp.stats.spearmanr(-targets_valid,
-                                                                     outputs_valid).correlation
+                self.scores[name + '-spearman_corr'] = sp.stats.spearmanr(
+                    -targets_valid, outputs_valid).correlation
             elif 'humsavar' in name:
                 # For humsavar: 0 = stable, 1 = deleterious
                 self.scores[name + '-auc'] = metrics.roc_auc_score(1 - targets_valid, outputs_valid)
@@ -177,6 +188,3 @@ class Stats:
                 self.validation_sequences.append(seq_wt)
                 self.validation_gen_sequences.append(
                     [array_to_seq(to_numpy(pred[i, :, start:stop])) for i in range(pred.shape[0])])
-
-            self.scores[name + '-blosum62'] = np.mean(self.blosum62_scores).astype(np.float64)
-            self.scores[name + '-edit'] = np.mean(self.edit_scores).astype(np.float64)

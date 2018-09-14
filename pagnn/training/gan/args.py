@@ -9,7 +9,7 @@ from attr.validators import instance_of
 
 import pagnn
 from pagnn import settings
-from pagnn.utils import ArgsBase
+from pagnn.utils import ArgsBase, convert_to_timedelta
 
 
 @attr.s
@@ -63,14 +63,20 @@ class Args(ArgsBase):
     batch_size: int = attr.ib(64, validator=instance_of(int))
 
     #: Number of steps between basic checkpoints.
-    steps_between_checkpoints: int = attr.ib(5, validator=instance_of(int))
+    time_between_checkpoints: float = attr.ib(
+        '1m',
+        converter=lambda s: convert_to_timedelta(s).total_seconds(),
+        validator=instance_of(float))
 
     #: Number of steps between extended checkpoints
     #: (where we evaluate performance on the validation datasets).
-    steps_between_extended_checkpoints: int = attr.ib(100, validator=instance_of(int))
+    time_between_extended_checkpoints: float = attr.ib(
+        '10m',
+        converter=lambda s: convert_to_timedelta(s).total_seconds(),
+        validator=instance_of(float))
 
     #: Number of D network training iterations per round.
-    d_iters: int = attr.ib(4, validator=instance_of(int))
+    d_iters: int = attr.ib(1, validator=instance_of(int))
 
     #: Number of G network training iterations per round.
     g_iters: int = attr.ib(1, validator=instance_of(int))
@@ -84,7 +90,7 @@ class Args(ArgsBase):
 
     # === Validation set arguments ===
 
-    validation_methods: str = attr.ib('exact', validator=instance_of(str))
+    validation_methods: str = attr.ib('permute.exact', validator=instance_of(str))
     validation_min_seq_identity: int = attr.ib(80, validator=instance_of(int))
     validation_num_sequences: int = attr.ib(1_000, validator=instance_of(int))
 
@@ -92,7 +98,10 @@ class Args(ArgsBase):
 
     gpu: int = attr.ib(0, validator=instance_of(int))
     tag: str = attr.ib('', validator=instance_of(str))
-    resume: bool = attr.ib(settings.ARRAY_JOB, validator=instance_of(bool))
+
+    #: Array id of array jobs. 0 means that this is NOT an array job.
+    array_id: int = attr.ib(0, validator=instance_of(int))
+
     num_aa_to_process: Optional[int] = attr.ib(None, validator=instance_of((type(None), int)))
 
     #: Whether to show the progressbar when training.

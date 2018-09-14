@@ -1,6 +1,7 @@
 """Functions for generating and manipulating DataSets."""
+import enum
 import operator
-from typing import Callable, Generator, List, Optional, Tuple
+from typing import Callable, Generator, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy import sparse
@@ -23,7 +24,7 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
     if set(row._fields) - set(known_fields):
         meta = {k: v for k, v in row._asdict().items() if k not in known_fields}
     else:
-        meta = None
+        meta = {}
     return DataSet(seq, adj, target, meta)
 
 
@@ -35,8 +36,18 @@ def to_gan(ds: DataSet) -> DataSetGAN:
 # === Negative training examples ===
 
 
+@enum.unique
+class Method(enum.Enum):
+    PERMUTE = 'permute'
+    EXACT = 'exact'
+    START = 'start'
+    STOP = 'stop'
+    MIDDLE = 'middle'
+    EDGES = 'edges'
+
+
 def get_negative_example(ds: DataSet,
-                         method: str,
+                         method: Union[str, Method],
                          rowgen: Generator[DataRow, Tuple[Callable, int], None],
                          random_state: Optional[np.random.RandomState] = None) -> DataSet:
     """Find a valid negative control for a given `ds`.
@@ -44,7 +55,9 @@ def get_negative_example(ds: DataSet,
     Raises:
         MaxNumberOfTriesExceededError
     """
-    assert method in ['permute', 'exact', 'start', 'stop', 'middle', 'edges'], method
+    if isinstance(method, str):
+        method = Method(method)
+    assert method in Method
     n_tries = 0
     seq_identity = 1.0
     adj_identity = 1.0
@@ -52,14 +65,14 @@ def get_negative_example(ds: DataSet,
         n_tries += 1
         if n_tries > MAX_TRIES:
             raise MaxNumberOfTriesExceededError(n_tries)
-        if method == 'permute':
+        if method == Method.PERMUTE:
             offset = get_offset(len(ds.seq))
             negative_seq = ds.seq[offset:] + ds.seq[:offset]
             negative_adj = None
             seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
             adj_identity = 0
             break
-        elif method == 'exact':
+        elif method == Method.EXACT:
             n_tries_seqlen = 0
             while True:
                 n_tries_seqlen += 1
@@ -79,7 +92,7 @@ def get_negative_example(ds: DataSet,
                     f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
             negative_ds = row_to_dataset(row, target=0)
         start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
-        if method not in ['edges']:
+        if method not in [Method.EDGES]:
             negative_seq = negative_ds.seq[start:stop]
             negative_adj = extract_adjacency_from_middle(start, stop, negative_ds.adj)
         else:
@@ -141,7 +154,7 @@ def get_offset(length: int, random_state: Optional[np.random.RandomState] = None
 
 def get_indices(length: int,
                 full_length: int,
-                method: str,
+                method: Union[str, Method],
                 random_state: Optional[np.random.RandomState] = None):
     """
     Get `start` and `stop` indices for a given slice method.
@@ -158,28 +171,30 @@ def get_indices(length: int,
         >>> get_indices(20, 30, 'edges', np.random.RandomState(42))
         (8, 18)
     """
-    assert method in ['exact', 'start', 'stop', 'middle', 'edges'], method
+    if isinstance(method, str):
+        method = Method(method)
+    assert method in Method
 
     if method in ['middle', 'edges'] and random_state is None:
         random_state = np.random.RandomState()
 
     gap = full_length - length
 
-    if method == 'exact':
+    if method == Method.EXACT:
         assert length == full_length
         start = 0
         stop = full_length
-    elif method == 'start':
+    elif method == Method.START:
         start = 0
         stop = length
-    elif method == 'stop':
+    elif method == Method.STOP:
         start = gap
         stop = start + length
-    elif method == 'middle':
+    elif method == Method.MIDDLE:
         assert length >= 20
         start = random_state.randint(min(10, gap // 2), max(gap - 10, gap // 2) + 1)
         stop = start + length
-    elif method == 'edges':
+    elif method == Method.EDGES:
         assert length >= 20
         start = random_state.randint(min(10, gap // 2), min(length - 10, gap) + 1)
         stop = full_length - (length - start)

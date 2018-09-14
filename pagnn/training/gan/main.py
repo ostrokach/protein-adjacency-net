@@ -59,7 +59,7 @@ def train(args: Args,
     optimizer_g = optim.Adam(
         net_g.parameters(), lr=args.learning_rate_g, betas=(args.beta1, args.beta2))
 
-    if args.resume:
+    if args.array_id:
         net_g.load_state_dict(
             torch.load(
                 args.work_path.joinpath('models').joinpath(
@@ -77,6 +77,16 @@ def train(args: Args,
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
 
     while True:
+        # num_seqs_processed = (stats.step * (args.d_iters * 3 + args.g_iters) * args.batch_size)
+
+        calculate_basic_statistics = (
+            stats.validation_time_basic is None or
+            (time.perf_counter() - stats.validation_time_basic) > args.time_between_checkpoints)
+        calculate_extended_statistics = calculate_basic_statistics and (
+            stats.validation_time_extended is None or
+            (time.perf_counter() - stats.validation_time_extended) >
+            args.time_between_extended_checkpoints)
+
         # === Train discriminator ===
         unfreeze_net(net_d)
         for _ in range(args.d_iters):
@@ -114,7 +124,7 @@ def train(args: Args,
             optimizer_d.step()
 
             # Update stats
-            if step % args.steps_between_checkpoints == 0:
+            if calculate_basic_statistics:
                 stats.pos_preds.append(to_numpy(pos_pred))
                 stats.neg_preds.append(to_numpy(neg_pred))
                 stats.fake_preds.append(to_numpy(fake_pred))
@@ -147,20 +157,20 @@ def train(args: Args,
             optimizer_g.step()
 
             # Update stats
-            if step % args.steps_between_checkpoints == 0:
+            if calculate_basic_statistics:
                 stats.gen_preds.append(to_numpy(gen_pred))
                 stats.gen_losses.append(to_numpy(gen_loss))
 
         # === Write Statistics ===
-        if step % args.steps_between_checkpoints == 0:
-            resume_checkpoint = args.resume and step == checkpoint.get('step')
+        if calculate_basic_statistics:
+            resume_checkpoint = args.array_id and step == checkpoint.get('step')
 
             # Basic statistics
             with torch.no_grad(), eval_net(net_d), eval_net(net_g):
                 stats.calculate_statistics_basic()
 
             # Extended statistics
-            if resume_checkpoint or (step % args.steps_between_extended_checkpoints == 0):
+            if calculate_extended_statistics:
                 with torch.no_grad(), eval_net(net_d), eval_net(net_g):
                     stats.calculate_statistics_extended(net_d, net_g, internal_validation_datasets,
                                                         external_validation_datasets)
@@ -185,11 +195,12 @@ def load_checkpoint(args: Args) -> dict:
     # Load checkpoint
     args_dict = args.to_json()
     checkpoint: dict = {}
-    if args.resume:
+    if args.array_id >= 2:
         with info_file.open('rt') as fin:
             info = json.load(fin)
+        assert info['array_id'] == args.array_id - 1
         for key in info:
-            if key in ['resume']:
+            if key in ['array_id']:
                 continue
             if info[key] != args_dict.get(key):
                 logger.warning("The value for parameter '%s' is different from the previous run. "
@@ -251,9 +262,9 @@ def main():
     else:
         pagnn.init_gpu(args.gpu)
 
-    random.seed(42)
-    np.random.seed(42)
-    torch.manual_seed(42)
+    random.seed(42 + args.array_id)
+    np.random.seed(42 + args.array_id)
+    torch.manual_seed(42 + args.array_id)
 
     # === Paths ===
     tensorboard_path = args.work_path.joinpath('tensorboard')

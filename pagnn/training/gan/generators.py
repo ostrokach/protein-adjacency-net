@@ -14,7 +14,7 @@ from torch.autograd import Variable
 
 import pagnn
 from pagnn import exc, settings
-from pagnn.dataset import get_negative_example, row_to_dataset, to_gan
+from pagnn.dataset import get_negative_example, get_offset, row_to_dataset, to_gan
 from pagnn.datavargan import datasets_to_datavar
 from pagnn.training.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
 from pagnn.training.gan import Args
@@ -116,13 +116,12 @@ def get_training_datasets(args: argparse.Namespace,
         data_path,
         random_state=random_state,
     )
-    negative_rowgen = get_rowgen_neg(
-        'training',
-        args.training_min_seq_identity,
-        data_path,
-        random_state=random_state,
-    )
-    del negative_rowgen
+    # negative_rowgen = get_rowgen_neg(
+    #     'training',
+    #     args.training_min_seq_identity,
+    #     data_path,
+    #     random_state=random_state,
+    # )
     if '.' not in args.training_methods:
         negative_ds_gen = basic_permuted_sequence_adder(
             num_sequences=1,
@@ -276,11 +275,12 @@ def basic_permuted_sequence_adder(num_sequences: int,
         seq = dsg.seqs[0]
         negative_seqs = []
         for _ in range(num_sequences):
-            offset = random_state.randint(0, len(seq))
+            offset = get_offset(len(seq), random_state)
             negative_seq = seq[offset:] + seq[:offset]
             negative_seqs.append(negative_seq)
         negative_dsg = dsg._replace(
             seqs=(dsg.seqs if keep_pos else []) + negative_seqs,
+            adjs=(dsg.adjs if keep_pos else []) + dsg.adjs * len(negative_seqs),
             targets=(dsg.targets if keep_pos else []) + [0] * num_sequences,
         )
 
