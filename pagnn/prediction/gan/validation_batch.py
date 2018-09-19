@@ -89,7 +89,7 @@ def read_parquet_input(args):
     assert len(rowgen) == 1
     row = rowgen[0]
     dataset = pagnn.dataset.row_to_dataset(row, target=1)
-    dataset = pagnn.dataset.to_gan(dataset)
+    dataset = pagnn.dataset.dataset_to_gan(dataset)
     return dataset
 
 

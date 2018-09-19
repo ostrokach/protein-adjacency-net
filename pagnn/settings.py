@@ -15,29 +15,30 @@ import sys
 
 import torch
 
-CUDA = torch.cuda.is_available()
-"""We are using a CUDA GPU."""
+#: ``True`` if computations should be performed on an NVIDIA GPU.
+CUDA: bool = torch.cuda.is_available()
 
-GAP_LENGTH = 0
-"""."""
+#: Number of amino acids to add between sequences when doing contract / expand operation.
+GAP_LENGTH: int = 0
 
-MIN_SEQUENCE_LENGTH = 20
-"""."""
+#: Skip over sequences that are less then ``MIN_SEQUENCE_LENGTH`` amino acids long.
+MIN_SEQUENCE_LENGTH: int = 20
 
 
 def _is_array_job():
-    array_job_id = (os.getenv('SGE_TASK_ID') or os.getenv('PBS_ARRAYID') or
-                    os.getenv('SLURM_ARRAY_TASK_ID'))
+    array_job_id = (
+        os.getenv("SGE_TASK_ID") or os.getenv("PBS_ARRAYID") or os.getenv("SLURM_ARRAY_TASK_ID")
+    )
     return array_job_id is not None and int(array_job_id) > 1
 
 
-ARRAY_JOB = _is_array_job()
-"""We are running an array job and it is not the first array job."""
+#: ``True`` if we are running an array job and this is not the first job in the array.
+ARRAY_JOB: bool = _is_array_job()
 
 
 def _show_progressbar():
     return sys.stderr.isatty()
 
 
-SHOW_PROGRESSBAR = _show_progressbar()
-"""Show progress bar for training / validation."""
+#: ``True`` if we should show a progressbar for training / validation.
+SHOW_PROGRESSBAR: bool = _show_progressbar()

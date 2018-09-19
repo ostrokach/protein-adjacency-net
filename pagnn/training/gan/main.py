@@ -15,33 +15,39 @@ from torch.autograd import Variable
 import pagnn
 from pagnn import settings
 from pagnn.models import AESeqAdjApplyExtra
-from pagnn.training.gan import (Args, Stats, generate_batch, generate_noise,
-                                get_external_validation_datasets, get_internal_validation_datasets,
-                                get_training_datasets)
 from pagnn.utils import eval_net, freeze_net, to_numpy, unfreeze_net
+
+from .args import Args
+from .stats import Stats
+from .generators import (
+    generate_batch,
+    generate_noise,
+    get_internal_validation_datasets,
+    get_training_datasets,
+)
+from .utils import load_checkpoint, validate_checkpoint, write_checkpoint
 
 logger = logging.getLogger(__name__)
 
-get_datagen_gan = None
-training_datagen = None
 
-
-def train(args: Args,
-          writer: SummaryWriter,
-          positive_rowgen,
-          negative_ds_gen,
-          internal_validation_datasets,
-          external_validation_datasets,
-          checkpoint,
-          current_performance: Optional[Dict[str, Union[str, float]]] = None):
-    """"""
-    args.work_path.joinpath('models').mkdir(exist_ok=True)
-    args.work_path.joinpath('checkpoints').mkdir(exist_ok=True)
+def train(
+    args: Args,
+    writer: SummaryWriter,
+    positive_rowgen,
+    negative_ds_gen,
+    internal_validation_datasets,
+    checkpoint,
+    current_performance: Optional[Dict[str, Union[str, float]]] = None,
+):
+    """Train GAN network."""
+    args.root_path.joinpath("models").mkdir(exist_ok=True)
+    args.root_path.joinpath("checkpoints").mkdir(exist_ok=True)
 
     # Set up network
-    net_d = AESeqAdjApplyExtra('discriminator', hidden_size=args.hidden_size, bottleneck_size=1)
+    net_d = AESeqAdjApplyExtra("discriminator", hidden_size=args.hidden_size, bottleneck_size=1)
     net_g = AESeqAdjApplyExtra(
-        'generator', hidden_size=args.hidden_size, bottleneck_size=16, encoder_network=net_d)
+        "generator", hidden_size=args.hidden_size, bottleneck_size=16, encoder_network=net_d
+    )
 
     loss = nn.BCELoss()
     one = torch.FloatTensor([1])
@@ -55,24 +61,28 @@ def train(args: Args,
         mone = mone.cuda()
 
     optimizer_d = optim.Adam(
-        net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2))
+        net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2)
+    )
     optimizer_g = optim.Adam(
-        net_g.parameters(), lr=args.learning_rate_g, betas=(args.beta1, args.beta2))
+        net_g.parameters(), lr=args.learning_rate_g, betas=(args.beta1, args.beta2)
+    )
 
     if args.array_id:
         net_g.load_state_dict(
             torch.load(
-                args.work_path.joinpath('models').joinpath(
-                    checkpoint['net_g_path_name']).as_posix()))
+                args.root_path.joinpath("models").joinpath(checkpoint["net_g_path_name"]).as_posix()
+            )
+        )
         net_d.load_state_dict(
             torch.load(
-                args.work_path.joinpath('models').joinpath(
-                    checkpoint['net_d_path_name']).as_posix()))
+                args.root_path.joinpath("models").joinpath(checkpoint["net_d_path_name"]).as_posix()
+            )
+        )
         write_graph = False
     else:
         write_graph = True
 
-    step = checkpoint.get('step', 0)
+    step = checkpoint.get("step", 0)
     stats = Stats(step, writer)
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
 
@@ -80,12 +90,14 @@ def train(args: Args,
         # num_seqs_processed = (stats.step * (args.d_iters * 3 + args.g_iters) * args.batch_size)
 
         calculate_basic_statistics = (
-            stats.validation_time_basic is None or
-            (time.perf_counter() - stats.validation_time_basic) > args.time_between_checkpoints)
+            stats.validation_time_basic is None
+            or (time.perf_counter() - stats.validation_time_basic) > args.time_between_checkpoints
+        )
         calculate_extended_statistics = calculate_basic_statistics and (
-            stats.validation_time_extended is None or
-            (time.perf_counter() - stats.validation_time_extended) >
-            args.time_between_extended_checkpoints)
+            stats.validation_time_extended is None
+            or (time.perf_counter() - stats.validation_time_extended)
+            > args.time_between_extended_checkpoints
+        )
 
         # === Train discriminator ===
         unfreeze_net(net_d)
@@ -93,7 +105,8 @@ def train(args: Args,
             net_d.zero_grad()
 
             pos_seq, neg_seq, adjs = generate_batch(
-                args, net_d, positive_rowgen, negative_ds_gen=negative_ds_gen)
+                args, net_d, positive_rowgen, negative_ds_gen=negative_ds_gen
+            )
 
             # Pos
             pos_pred = net_d(pos_seq, adjs).sigmoid()
@@ -163,7 +176,7 @@ def train(args: Args,
 
         # === Write Statistics ===
         if calculate_basic_statistics:
-            resume_checkpoint = args.array_id and step == checkpoint.get('step')
+            resume_checkpoint = args.array_id and step == checkpoint.get("step")
 
             # Basic statistics
             with torch.no_grad(), eval_net(net_d), eval_net(net_g):
@@ -172,8 +185,7 @@ def train(args: Args,
             # Extended statistics
             if calculate_extended_statistics:
                 with torch.no_grad(), eval_net(net_d), eval_net(net_g):
-                    stats.calculate_statistics_extended(net_d, net_g, internal_validation_datasets,
-                                                        external_validation_datasets)
+                    stats.calculate_statistics_extended(net_d, net_g, internal_validation_datasets)
 
             # Write to disk
             if resume_checkpoint:
@@ -188,72 +200,10 @@ def train(args: Args,
         progressbar.update()
 
 
-def load_checkpoint(args: Args) -> dict:
-    info_file = args.work_path.joinpath('info.json')
-    checkpoint_file = args.work_path.joinpath('checkpoint.json')
-
-    # Load checkpoint
-    args_dict = args.to_json()
-    checkpoint: dict = {}
-    if args.array_id >= 2:
-        with info_file.open('rt') as fin:
-            info = json.load(fin)
-        assert info['array_id'] == args.array_id - 1
-        for key in info:
-            if key in ['array_id']:
-                continue
-            if info[key] != args_dict.get(key):
-                logger.warning("The value for parameter '%s' is different from the previous run. "
-                               "('%s' != '%s')", key, info[key], args_dict.get(key))
-        with checkpoint_file.open('rt') as fin:
-            checkpoint = json.load(fin)
-        assert checkpoint['unique_name'] == args.unique_name
-        assert checkpoint['step'] > 0
-    else:
-        if info_file.is_file():
-            raise Exception(f"Info file '{info_file}' already exists!")
-        with info_file.open('wt') as fout:
-            json.dump(args_dict, fout, sort_keys=True, indent=4)
-    return checkpoint
-
-
-def validate_checkpoint(checkpoint, scores):
-    common_scores = set(checkpoint) & set(scores)
-    assert common_scores
-    assert all(checkpoint[s] == scores[s] for s in common_scores)
-
-
-def write_checkpoint(args: Args, stats: Stats, net_d: nn.Module, net_g: nn.Module):
-    if not stats.extended:
-        return
-
-    checkpoint = {
-        'step': stats.step,
-        'unique_name': args.unique_name,
-        **stats.scores,
-    }
-
-    # Save model
-    net_d_dump_path = args.work_path.joinpath('models').joinpath(f'net_d-step_{stats.step}.model')
-    torch.save(net_d.state_dict(), net_d_dump_path.as_posix())
-    checkpoint['net_d_path_name'] = net_d_dump_path.name
-
-    net_g_dump_path = args.work_path.joinpath('models').joinpath(f'net_g-step_{stats.step}.model')
-    torch.save(net_g.state_dict(), net_g_dump_path.as_posix())
-    checkpoint['net_g_path_name'] = net_g_dump_path.name
-
-    # Save checkpoint
-    with args.work_path.joinpath('checkpoints').joinpath(f'checkpoint-step{stats.step}.json').open(
-            'wt') as fout:
-        json.dump(checkpoint, fout, sort_keys=True, indent=4)
-    with args.work_path.joinpath('checkpoints').joinpath('checkpoint.json').open('wt') as fout:
-        json.dump(checkpoint, fout, sort_keys=True, indent=4)
-
-
 def main():
-    logging.basicConfig(format='%(message)s', level=logging.INFO)
+    logging.basicConfig(format="%(message)s", level=logging.INFO)
 
-    # Arguments
+    # === Arguments ===
     args = Args.from_cli()
 
     if args.gpu == -1:
@@ -262,27 +212,26 @@ def main():
     else:
         pagnn.init_gpu(args.gpu)
 
+    # === Random Seed ===
     random.seed(42 + args.array_id)
     np.random.seed(42 + args.array_id)
     torch.manual_seed(42 + args.array_id)
+    random_state = np.random.RandomState(42)
 
     # === Paths ===
-    tensorboard_path = args.work_path.joinpath('tensorboard')
+    tensorboard_path = args.root_path.joinpath("tensorboard")
     tensorboard_path.mkdir(parents=True, exist_ok=True)
 
     # === Checkpoint ===
     checkpoint = load_checkpoint(args)
 
-    # === Training ===
-    positive_rowgen, negative_ds_gen = get_training_datasets(args, args.root_path, args.data_path)
+    # === Training Dataset ===
+    positive_rowgen, negative_ds_gen = get_training_datasets(
+        args, args.training_data_path, random_state
+    )
 
-    # === Internal Validation ===
-    internal_validation_datasets = get_internal_validation_datasets(args, args.root_path,
-                                                                    args.data_path)
-
-    # === Mutation Validation ===
-    external_validation_datasets = get_external_validation_datasets(args, args.root_path,
-                                                                    args.data_path)
+    # === Internal Validation Dataset ===
+    internal_validation_datasets = get_internal_validation_datasets(args, args.validation_data_path)
 
     # === Train ===
     start_time = time.perf_counter()
@@ -295,36 +244,14 @@ def main():
             positive_rowgen,
             negative_ds_gen,
             internal_validation_datasets,
-            external_validation_datasets,
             checkpoint,
-            current_performance=result)
+            current_performance=result,
+        )
     except KeyboardInterrupt:
         pass
     finally:
         writer.close()
-    result['time_elapsed'] = time.perf_counter() - start_time
+    result["time_elapsed"] = time.perf_counter() - start_time
 
     # === Output ===
     print(json.dumps(result, sort_keys=True, indent=4))
-
-
-if __name__ == '__main__':
-    # === Basic ===
-    main()
-    # === Profiled ===
-    # from memory_profiler import profile
-    # from line_profiler import LineProfiler
-    # lp = LineProfiler()
-    # # Add additional functions to profile
-    # lp.add_function(score_edit)
-    # lp.add_function(score_blosum62)
-    # lp.add_function(calculate_statistics_basic)
-    # lp.add_function(calculate_statistics_extended)
-    # lp.add_function(evaluate_validation_dataset)
-    # lp.add_function(evaluate_mutation_dataset)
-    # lp.add_function(train)
-    # # Profile the main function
-    # lp_wrapper = lp(main)
-    # lp_wrapper()
-    # # Print results
-    # lp.print_stats()

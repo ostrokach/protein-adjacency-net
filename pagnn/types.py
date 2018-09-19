@@ -52,13 +52,13 @@ class DataSetGAN(NamedTuple):
 
 
 class DataVar(NamedTuple):
-    """Input variables for the Dynamic Convolutional Neural Network."""
+    """Input variables for the Deep Convolutional Network."""
     seq: Variable
     adj: Variable
 
 
 class DataVarGAN(NamedTuple):
-    """Input variables for the Generative Adverserial Neural Network."""
+    """Input variables for the Generative Adverserial Network."""
     seqs: Variable
     adjs: Variable
 

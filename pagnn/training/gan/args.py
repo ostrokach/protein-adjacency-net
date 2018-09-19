@@ -1,6 +1,5 @@
 import hashlib
 import json
-import os
 from pathlib import Path
 from typing import Optional
 
@@ -9,7 +8,7 @@ from attr.validators import instance_of
 
 import pagnn
 from pagnn import settings
-from pagnn.utils import ArgsBase, convert_to_timedelta
+from pagnn.utils import ArgsBase, convert_to_timedelta, str_to_path
 
 
 @attr.s
@@ -18,14 +17,13 @@ class Args(ArgsBase):
     # === Paths ===
 
     #: Location where to create subfolders for storing network data and cache files.
-    root_path: Path = attr.ib(converter=lambda p: Path(p).resolve(), validator=instance_of(Path))
+    root_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
 
-    #: Location of the `adjacency-net` databin folder.
-    data_path: Path = attr.ib(
-        Path(os.getenv('DATABIN_DIR')).joinpath('adjacency-net').resolve()
-        if os.getenv('DATABIN_DIR') else attr.NOTHING,
-        converter=lambda p: Path(p).resolve(),
-        validator=instance_of(Path))
+    #: Location of the `adjacency_matrix.parquet` folder with training data.
+    training_data_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
+
+    #: Location of the `adjacency_matrix.parquet` folder with validation data.
+    validation_data_path: Path = attr.ib(None, converter=str_to_path, validator=instance_of(Path))
 
     # === Properties ===
 
@@ -64,16 +62,18 @@ class Args(ArgsBase):
 
     #: Number of steps between basic checkpoints.
     time_between_checkpoints: float = attr.ib(
-        '1m',
+        "1m",
         converter=lambda s: convert_to_timedelta(s).total_seconds(),
-        validator=instance_of(float))
+        validator=instance_of(float),
+    )
 
     #: Number of steps between extended checkpoints
     #: (where we evaluate performance on the validation datasets).
     time_between_extended_checkpoints: float = attr.ib(
-        '10m',
+        "10m",
         converter=lambda s: convert_to_timedelta(s).total_seconds(),
-        validator=instance_of(float))
+        validator=instance_of(float),
+    )
 
     #: Number of D network training iterations per round.
     d_iters: int = attr.ib(1, validator=instance_of(int))
@@ -83,21 +83,22 @@ class Args(ArgsBase):
 
     # === Training set arguments ===
 
-    training_methods: str = attr.ib('permute', validator=instance_of(str))
+    training_methods: str = attr.ib("permute", validator=instance_of(str))
     training_min_seq_identity: int = attr.ib(0, validator=instance_of(int))
     training_permutations: str = attr.ib(
-        'seq', validator=[attr.validators.in_(['seq', 'adj', 'seq.adj'])])
+        "seq", validator=[attr.validators.in_(["seq", "adj", "seq.adj"])]
+    )
 
     # === Validation set arguments ===
 
-    validation_methods: str = attr.ib('permute.exact', validator=instance_of(str))
+    validation_methods: str = attr.ib("permute.exact", validator=instance_of(str))
     validation_min_seq_identity: int = attr.ib(80, validator=instance_of(int))
     validation_num_sequences: int = attr.ib(1_000, validator=instance_of(int))
 
     # === Other things to process ===
 
     gpu: int = attr.ib(0, validator=instance_of(int))
-    tag: str = attr.ib('', validator=instance_of(str))
+    tag: str = attr.ib("", validator=instance_of(str))
 
     #: Array id of array jobs. 0 means that this is NOT an array job.
     array_id: int = attr.ib(0, validator=instance_of(int))
@@ -114,7 +115,8 @@ class Args(ArgsBase):
 
     unique_name: str = attr.ib(
         attr.Factory(lambda self: self._get_unique_name(), takes_self=True),
-        validator=instance_of(str))
+        validator=instance_of(str),
+    )
 
     # === Methods ===
 
@@ -124,17 +126,14 @@ class Args(ArgsBase):
 
     def _get_unique_name(self) -> str:
         args_dict = vars(self)
-        state_keys = ['learning_rate_d', 'learning_rate_g', 'weight_decay', 'hidden_size']
+        state_keys = ["learning_rate_d", "learning_rate_g", "weight_decay", "hidden_size"]
         # Calculating hash of dictionary: https://stackoverflow.com/a/22003440/2063031
         state_dict = {k: args_dict[k] for k in state_keys}
-        state_bytes = json.dumps(state_dict, sort_keys=True).encode('ascii')
+        state_bytes = json.dumps(state_dict, sort_keys=True).encode("ascii")
         state_hash = hashlib.md5(state_bytes).hexdigest()[:7]
-        unique_name = '-'.join([
-            self.training_methods,
-            self.training_permutations,
-            str(self.training_min_seq_identity),
-        ] + ([self.tag] if self.tag else []) + [
-            pagnn.__version__,
-            state_hash,
-        ])
+        unique_name = "-".join(
+            [self.training_methods, self.training_permutations, str(self.training_min_seq_identity)]
+            + ([self.tag] if self.tag else [])
+            + [pagnn.__version__, state_hash]
+        )
         return unique_name

@@ -69,7 +69,6 @@ target/
 .python-version
 
 # AS
-.vscode/
 *-bak.py
 
 # Jupyter

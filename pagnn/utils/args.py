@@ -37,13 +37,13 @@ class ArgsBase:
         return cls(**vars(args))  # type: ignore
 
     @classmethod
-    def from_json(cls: Type[T], data: dict) -> T:
+    def from_dict(cls: Type[T], data: dict) -> T:
         args = dict()
         for attribute in cls.__attrs_attrs__:  # type: ignore
             args[attribute.name] = data[attribute.name]
         return cls(**args)  # type: ignore
 
-    def to_json(self) -> dict:
+    def to_dict(self) -> dict:
         data = dict()
         for attribute in self.__attrs_attrs__:  # type: ignore
             if attribute.type is Path:

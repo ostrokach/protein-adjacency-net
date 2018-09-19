@@ -14,9 +14,9 @@ from torch.autograd import Variable
 
 import pagnn
 from pagnn import exc, settings
-from pagnn.dataset import get_negative_example, get_offset, row_to_dataset, to_gan
+from pagnn.dataset import get_negative_example, get_offset, row_to_dataset, dataset_to_gan
 from pagnn.datavargan import datasets_to_datavar
-from pagnn.training.common import get_rowgen_mut, get_rowgen_neg, get_rowgen_pos
+from pagnn.training.common import get_rowgen_mut, get_rowgen
 from pagnn.training.gan import Args
 from pagnn.types import DataRow, DataSet, DataSetGAN
 from pagnn.utils import array_to_seq, remove_eye_sparse
@@ -49,10 +49,9 @@ def get_designed_seqs(args, dataset, net_d, net_g):
     return designed_seqs
 
 
-def generate_batch(args: Args,
-                   net: nn.Module,
-                   positive_rowgen: RowGen,
-                   negative_ds_gen: Optional[RowGen] = None):
+def generate_batch(
+    args: Args, net: nn.Module, positive_rowgen: RowGen, negative_ds_gen: Optional[RowGen] = None
+):
     """Generate a positive and a negative dataset batch."""
     pos_seq_list = []
     neg_seq_list = []
@@ -61,7 +60,7 @@ def generate_batch(args: Args,
     # TODO: 128 comes from the fact that we tested with sequences 64-256 AA in length
     while seq_len < (args.batch_size * 128):
         pos_row = next(positive_rowgen)
-        pos_ds = to_gan(row_to_dataset(pos_row, 1))
+        pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
         # Filter out bad datasets
         n_aa = len(pos_ds.seqs[0])
         if not (args.min_seq_length <= n_aa < args.max_seq_length):
@@ -104,29 +103,14 @@ def generate_noise(net_g, adjs):
 # === Generators ===
 
 
-def get_training_datasets(args: argparse.Namespace,
-                          root_path: Path,
-                          data_path: Path,
-                          random_state=None
-                         ) -> Tuple[Iterator[DataRow], Generator[DataSetGAN, DataSetGAN, None]]:
+def get_training_datasets(
+    args: argparse.Namespace, data_path: Path, random_state=None
+) -> Tuple[Iterator[DataRow], Generator[DataSetGAN, DataSetGAN, None]]:
     logger.info("Setting up training datagen...")
-    positive_rowgen = get_rowgen_pos(
-        'training',
-        args.training_min_seq_identity,
-        data_path,
-        random_state=random_state,
-    )
-    # negative_rowgen = get_rowgen_neg(
-    #     'training',
-    #     args.training_min_seq_identity,
-    #     data_path,
-    #     random_state=random_state,
-    # )
-    if '.' not in args.training_methods:
+    positive_rowgen = get_rowgen(data_path, filterable=False, random_state=random_state)
+    if "." not in args.training_methods:
         negative_ds_gen = basic_permuted_sequence_adder(
-            num_sequences=1,
-            keep_pos=False,
-            random_state=random_state,
+            num_sequences=1, keep_pos=False, random_state=random_state
         )
     else:
         raise NotImplementedError()
@@ -134,38 +118,43 @@ def get_training_datasets(args: argparse.Namespace,
     return positive_rowgen, negative_ds_gen
 
 
-def get_internal_validation_datasets(args, root_path, data_path) -> Mapping[str, List[DataSetGAN]]:
+def get_internal_validation_datasets(
+    args: Args, validation_data_path: Optional[Path]
+) -> Mapping[str, List[DataSetGAN]]:
     logger.info("Setting up validation datagen...")
-
     internal_validation_datasets: Dict[str, List[DataSetGAN]] = {}
-    for method in args.validation_methods.split('.'):
-        datagen_name = (f'validation_gan_{method}_{args.validation_min_seq_identity}'
-                        f'_{args.validation_num_sequences}')
-        cache_file = root_path.joinpath(datagen_name + '.pickle')
+    for method in args.validation_methods.split("."):
+        datagen_name = (
+            f"validation_gan_{method}_{args.validation_min_seq_identity}"
+            f"_{args.validation_num_sequences}"
+        )
+        cache_file = Path(__file__).resolve().parent.joinpath("data", datagen_name + ".pickle")
         try:
-            with cache_file.open('rb') as fin:
+            with cache_file.open("rb") as fin:
                 dataset = pickle.load(fin)
             assert len(dataset) == args.validation_num_sequences
             logger.info("Loaded validation datagen from file: '%s'.", cache_file)
         except FileNotFoundError:
             logger.info("Generating validation datagen: '%s'.", datagen_name)
+            if validation_data_path is None:
+                raise Exception(
+                    "Cached validation data not found; `validation_data_path` must be provided!"
+                )
             random_state = np.random.RandomState(sum(ord(c) for c in method))
-            dataset = get_validation_dataset(args, method, data_path, random_state)
-
-            with cache_file.open('wb') as fout:
+            dataset = get_validation_dataset(args, method, validation_data_path, random_state)
+            with cache_file.open("wb") as fout:
                 pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
-
         internal_validation_datasets[datagen_name] = dataset
-
     return internal_validation_datasets
 
 
 def get_external_validation_datasets(args, root_path, data_path) -> Mapping[str, List[DataSetGAN]]:
     external_validation_datagens: Dict[str, List[DataSetGAN]] = {}
     # for mutation_class in ['protherm', 'humsavar']:
-    for mutation_class in ['protherm']:
-        external_validation_datagens[f'validation_{mutation_class}'] = get_mutation_dataset(
-            mutation_class, data_path)
+    for mutation_class in ["protherm"]:
+        external_validation_datagens[f"validation_{mutation_class}"] = get_mutation_dataset(
+            mutation_class, data_path
+        )
     return external_validation_datagens
 
 
@@ -173,44 +162,36 @@ def get_external_validation_datasets(args, root_path, data_path) -> Mapping[str,
 
 
 def get_validation_dataset(
-        args: argparse.Namespace,
-        method: str,
-        data_path: Path,
-        random_state: Optional[np.random.RandomState] = None) -> List[DataSetGAN]:
-
-    if random_state is None:
-        random_state = np.random.RandomState(42)
-
-    positive_rowgen = get_rowgen_pos(
-        'validation',
-        args.validation_min_seq_identity,
+    args: argparse.Namespace, method: str, data_path: Path, random_state: np.random.RandomState
+) -> List[DataSetGAN]:
+    rowgen_pos = get_rowgen(
         data_path,
+        # The validation dataset should already be filtered to >= 80% sequence identity
+        # filters=[lambda df: df[df["pc_identity"] >= 80]],
+        filterable=False,
+        extra_columns=["pc_identity"],
         random_state=random_state,
     )
-
-    negative_rowgen = get_rowgen_neg(
-        'validation',
-        args.validation_min_seq_identity,
+    rowgen_neg = get_rowgen(
         data_path,
+        # The validation dataset should already be filtered to >= 80% sequence identity
+        # filters=[lambda df: df[df["pc_identity"] >= 80]],
+        filterable=True,
+        extra_columns=["pc_identity"],
         random_state=random_state,
     )
-
     nsa = negative_sequence_adder(
-        negative_rowgen,
-        method,
-        num_sequences=1,
-        keep_pos=True,
-        random_state=random_state,
+        rowgen_neg, method, num_sequences=1, keep_pos=True, random_state=random_state
     )
     next(nsa)
 
     dataset = []
     with tqdm.tqdm(
-            total=args.validation_num_sequences, desc=method,
-            disable=not settings.SHOW_PROGRESSBAR) as progressbar:
+        total=args.validation_num_sequences, desc=method, disable=not settings.SHOW_PROGRESSBAR
+    ) as progressbar:
         while len(dataset) < args.validation_num_sequences:
-            pos_row = next(positive_rowgen)
-            pos_ds = to_gan(row_to_dataset(pos_row, 1))
+            pos_row = next(rowgen_pos)
+            pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
             # Filter out bad datasets
             n_aa = len(pos_ds.seqs[0])
             if not (args.min_seq_length <= n_aa < args.max_seq_length):
@@ -233,18 +214,17 @@ def get_validation_dataset(
 def get_mutation_dataset(mutation_class: str, data_path: Path) -> List[DataSetGAN]:
 
     mutation_datarows = get_rowgen_mut(mutation_class, data_path)
-    mutation_datasets = (to_gan(row_to_dataset(row, target=1)) for row in mutation_datarows)
+    mutation_datasets = (dataset_to_gan(row_to_dataset(row, target=1)) for row in mutation_datarows)
 
     mutation_dsg = []
     for pos_ds in mutation_datasets:
         neg_seq = bytearray(pos_ds.seqs[0])
-        mutation = pos_ds.meta['mutation']
+        mutation = pos_ds.meta["mutation"]
         mutation_idx = int(mutation[1:-1]) - 1
         assert neg_seq[mutation_idx] == ord(mutation[0]), (chr(neg_seq[mutation_idx]), mutation[0])
         neg_seq[mutation_idx] = ord(mutation[-1])
         ds = pos_ds._replace(
-            seqs=pos_ds.seqs + [neg_seq],
-            targets=pos_ds.targets + [pos_ds.meta['score']],
+            seqs=pos_ds.seqs + [neg_seq], targets=pos_ds.targets + [pos_ds.meta["score"]]
         )
         mutation_dsg.append(ds)
 
@@ -254,21 +234,12 @@ def get_mutation_dataset(mutation_class: str, data_path: Path) -> List[DataSetGA
 # === Negative dataset generators ===
 
 
-def chain_generators(gens: List[Generator[DataSetGAN, DataSetGAN, None]]
-                    ) -> Generator[DataSetGAN, DataSetGAN, None]:
-    ds = None
-    while True:
-        ds = yield ds
-        for gen in gens:
-            ds = gen.send(ds)
-
-
-def basic_permuted_sequence_adder(num_sequences: int,
-                                  keep_pos: bool,
-                                  random_state: Optional[np.random.RandomState] = None):
-
+def basic_permuted_sequence_adder(
+    num_sequences: int, keep_pos: bool, random_state: Optional[np.random.RandomState] = None
+):
     if random_state is None:
         random_state = np.random.RandomState()
+
     negative_dsg = None
     while True:
         dsg = yield negative_dsg
@@ -285,11 +256,12 @@ def basic_permuted_sequence_adder(num_sequences: int,
         )
 
 
-def permuted_sequence_adder(rowgen: RowGen,
-                            num_sequences: int,
-                            keep_pos: bool = False,
-                            random_state: Optional[np.random.RandomState] = None
-                           ) -> Generator[DataSetGAN, DataSetGAN, None]:
+def buffered_permuted_sequence_adder(
+    rowgen: RowGen,
+    num_sequences: int,
+    keep_pos: bool = False,
+    random_state: Optional[np.random.RandomState] = None,
+) -> Generator[DataSetGAN, DataSetGAN, None]:
     """
 
     Args:
@@ -298,16 +270,17 @@ def permuted_sequence_adder(rowgen: RowGen,
     """
     if random_state is None:
         random_state = np.random.RandomState()
+
     seq_buffer = [row_to_dataset(r, 0).seq for r in itertools.islice(rowgen, 512)]
     negative_dsg = None
     while True:
         dsg = yield negative_dsg
         seq = dsg.seqs[0]
-        negative_seq_big = b''.join(seq_buffer)
+        negative_seq_big = b"".join(seq_buffer)
         negative_seqs = []
         for _ in range(num_sequences):
             offset = random_state.randint(0, len(negative_seq_big) - len(seq))
-            negative_seq = (negative_seq_big[offset:] + negative_seq_big[:offset])[:len(seq)]
+            negative_seq = (negative_seq_big[offset:] + negative_seq_big[:offset])[: len(seq)]
             negative_seqs.append(negative_seq)
         negative_dsg = dsg._replace(
             seqs=(dsg.seqs if keep_pos else []) + negative_seqs,
@@ -319,12 +292,13 @@ def permuted_sequence_adder(rowgen: RowGen,
         random_state.pop()
 
 
-def negative_sequence_adder(rowgen: RowGen,
-                            method: str,
-                            num_sequences: int,
-                            keep_pos: bool = False,
-                            random_state: Optional[np.random.RandomState] = None
-                           ) -> Generator[DataSetGAN, DataSetGAN, None]:
+def negative_sequence_adder(
+    rowgen: RowGen,
+    method: str,
+    num_sequences: int,
+    keep_pos: bool = False,
+    random_state: Optional[np.random.RandomState] = None,
+) -> Generator[DataSetGAN, DataSetGAN, None]:
     """
 
     Args:
