@@ -1,0 +1,13 @@
+default_context:
+    full_name: "Alexey Strokach"
+    email: "alex.strokach@utoronto.ca"
+    host_url: "https://gitlab.com"
+    project_namespace: "datapkg"
+    project_name: "adjacency-net-v2"
+    project_slug: "adjacency-net-v2"
+    project_short_description: "Train and validate the Protein Adjacency Graph Neural Network (PAGNN)."
+    docs_secret_key: "SWKhaBJiG8O53MTcw97h1vRjVgimQCb4mzTIH4H8dD10vrb6NWOUantGWhqHMoY7"
+    version: "0.1"
+    create_author_file: "y"
+    open_source_license: "MIT License"
+    _copy_without_render: ['docs/output_toggle.tpl', 'docs/_templates/logo-image.html']

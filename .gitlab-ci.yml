@@ -1,0 +1,198 @@
+image: registry.gitlab.com/ostrokach-docker/conda:latest
+
+stages:
+  - init
+  - notebooks-01
+  - deploy
+
+
+# === Variables ===
+
+variables:
+  PROJECT_VERSION: "0.1"
+  DOCS_SECRET_KEY: "SWKhaBJiG8O53MTcw97h1vRjVgimQCb4mzTIH4H8dD10vrb6NWOUantGWhqHMoY7"
+  CONDA_ENVIRONMENT_NAME: ci-${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}
+
+.niagara-envs: &niagara-envs
+  SBATCH_ARGS: "--account=def-pmkim"
+  # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
+
+.graham-envs: &graham-envs
+  SBATCH_ARGS: "--account=def-pmkim --exclusive --mem=0"
+  # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
+
+.cedar-envs: &cedar-envs
+  SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem=0"
+  # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
+
+.cluster-tags: &cluster-tags
+  tags:
+    - cedar-ssh
+
+.cluster-envs: &cluster-envs
+  SBATCH_SCRIPT: "./scripts/qsub.sh"
+  <<: *cedar-envs
+
+
+# === Basic GitLab runner tests ===
+
+.test: &test
+  stage: init
+  script:
+    - echo "starting test..."
+    - find .
+    - sleep 1
+    - mkdir -p some-folder
+    - echo "hello world" > some-folder/greeting.txt
+    - echo "$(date --iso-8601=seconds)" > some-folder/time.txt
+    - echo "done"
+  artifacts:
+    paths:
+      - some-folder
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*tests(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*tests(,\s?.*)*\]/i
+
+test-niagara-ssh:
+  <<: *test
+  tags:
+    - niagara-ssh
+
+test-graham-ssh:
+  <<: *test
+  tags:
+    - graham-ssh
+
+test-cedar-ssh:
+  <<: *test
+  tags:
+    - cedar-ssh
+
+
+# === Conda environment ===
+
+create-conda-environment:
+  stage: init
+  <<: *cluster-tags
+  script:
+    - conda env update -q -n ${CONDA_ENVIRONMENT_NAME} -f environment.yaml
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*create-conda-environment(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*create-conda-environment(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /all/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*all\]/i
+
+
+# === Batch jobs ===
+
+.sbatch-setup: &sbatch-setup
+  before_script:
+    # Make sure all required environment variables have been set
+    - REQUIRED_VARS=(
+      CONDA_ENVIRONMENT_NAME
+      NOTEBOOK_NAME
+      DATAPKG_INPUT_DIR
+      DATAPKG_OUTPUT_DIR
+      CI_PROJECT_NAME
+      CI_COMMIT_REF_SLUG
+      CI_JOB_NAME
+      CI_JOB_ID
+      )
+    - for var in ${REQUIRED_VARS[*]} ; do
+      if [[ -z "${!var}" ]] ; then
+      echo "Environment variable '${var}' has not been set!" ;
+      exit -1 ;
+      fi ;
+      done
+    # Activate conda environment
+    - source activate ${CONDA_ENVIRONMENT_NAME}
+    # Set output directory
+    - export OUTPUT_DIR=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}/${CI_JOB_NAME}
+    - if [[ -d ${OUTPUT_DIR} ]] ; then echo "OUTPUT_DIR '${OUTPUT_DIR}' already exists!" ; exit -1 ; fi
+    - mkdir -p "${OUTPUT_DIR}"
+    - echo "export OUTPUT_DIR=${OUTPUT_DIR}" | tee -a env.sh
+
+.sbatch: &sbatch
+  script:
+    - sbatch
+      --time=12:00:00
+      --nodes=1
+      --ntasks-per-node=1
+      --job-name=${CI_JOB_NAME}
+      --mail-user=alexey.strokach@kimlab.org
+      --mail-type=ALL
+      --chdir=`pwd`
+      --output=${OUTPUT_DIR}/sbatch-${CI_JOB_ID}-%N-%A-%a.log
+      --export=ALL
+      --wait
+      ${SBATCH_ARGS}
+      ${SBATCH_EXTRA_ARGS}
+      ${SBATCH_SCRIPT} |
+      tee sbatch.out
+
+.sbatch-teardown: &sbatch-teardown
+  after_script:
+    # Activate conda environment
+    - source activate ${CONDA_ENVIRONMENT_NAME}
+    # Set JOB_ID
+    - JOB_ID=$(rg "Submitted batch job" sbatch.out | rg -o '\d+$')
+    - echo "export JOB_ID=${JOB_ID}" >> env.sh
+    # Load environment variables from previous stages
+    - source env.sh
+    # Save job output
+    - mkdir -p output
+    - cp ${OUTPUT_DIR}/sbatch-${CI_JOB_ID}-*.log output
+    - cp ${OUTPUT_DIR}/*.html output || true  # files may not exist if job failed
+    # - cp -al ${OUTPUT_DIR} output
+    # Display job output
+    - for file in output/sbatch-${CI_JOB_ID}-*.log ; do
+      echo -e "\e[1m\e[35m${file}\e[0m" ;
+      cat $file ;
+      done
+    # Display job resource consumption
+    - sacct -j ${JOB_ID} -p | xsv table -d '|'
+  artifacts:
+    paths:
+      - env.sh
+      - output
+    when: always
+
+.sbatch-output: &sbatch-output
+  script:
+    - cat env.sh
+    - source env.sh
+    - ./scripts/wait-for-job-to-finish.sh
+    - mkdir -p output
+    - cp -al ${OUTPUT_DIR} output/$(basename ${OUTPUT_DIR})
+    - (cd output; ln -s )
+  artifacts:
+    paths:
+      - output
+
+
+# === Pages ===
+
+pages:
+  stage: deploy
+  before_script:
+    # Install conda packages
+    - conda install -y -q
+      git pip ipython jupyter ipykernel pypandoc
+    # Install pip packages
+    - pip install -q
+      sphinx recommonmark sphinx_bootstrap_theme
+  script:
+    # Generate notebooks.csv
+    - ./scripts/create_notebook_table.py -i notebooks/ -o docs/notebooks.csv
+    # Build pages
+    - sphinx-build docs public/$DOCS_SECRET_KEY
+    # Convert notebooks
+    - mkdir -p public/$DOCS_SECRET_KEY/notebooks
+    - ./scripts/convert_notebooks.sh notebooks/ public/$DOCS_SECRET_KEY/notebooks/
+  artifacts:
+    paths:
+      - public
+  only:
+    - tags

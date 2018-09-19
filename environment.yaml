@@ -1,0 +1,39 @@
+channels:
+  # NB: conda-forge has to be first because it has the newest versions of everything
+  - conda-forge
+  - defaults
+  - ostrokach-forge
+  - kimlab
+  - bioconda
+  - pytorch
+dependencies:
+  # Binary utils
+  - xsv
+  - ripgrep
+  - fd-find
+  - ostrokach-forge::parallel
+  # Python
+  - python
+  - ipython
+  # Jupyter
+  - jupyter
+  - jupyter_contrib_nbextensions
+  - isort
+  - psutil
+  # Scientific Python
+  - numpy
+  - scipy
+  - pandas
+  - scikit-learn
+  - pyarrow
+  # Plotting
+  - matplotlib
+  - matplotlib-venn
+  - seaborn
+  # Spark
+  - findspark
+  # PyTorch
+  - pytorch::pytorch
+  # KimLab
+  - kmbio
+  - kmtools
