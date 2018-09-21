@@ -13,7 +13,6 @@ import pagnn
 from pagnn.dataset import row_to_dataset
 from pagnn.datavardcn import dataset_to_datavar
 from pagnn.types import DataRow, DataSet, DataVarCollection
-from pagnn.utils import to_numpy
 
 from .args import Args
 
@@ -30,7 +29,7 @@ def make_predictions(args: Args, datagen: Callable[[], Iterator[DataSet]]) -> np
         datavar = dataset_to_datavar(dataset)
         datavarcol: DataVarCollection = ([datavar], [])
         outputs = net(datavarcol)
-        outputs_list.append(to_numpy(outputs))
+        outputs_list.append(outputs.data.numpy())
     outputs = np.vstack(outputs_list).squeeze()
     return outputs
 
@@ -40,7 +39,7 @@ def main():
 
     args = Args.from_cli()
 
-    pagnn.settings.CUDA = False
+    pagnn.settings.device = torch.device("cpu")
 
     def datagen():
         df = pq.read_table(args.input_file, columns=DataRow._fields).to_pandas()

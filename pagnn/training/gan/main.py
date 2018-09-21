@@ -12,20 +12,26 @@ import tqdm
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 
-import pagnn
-from pagnn import settings
+from pagnn import init_gpu, settings
 from pagnn.models import AESeqAdjApplyExtra
-from pagnn.utils import eval_net, freeze_net, to_numpy, unfreeze_net
+from pagnn.utils import (
+    eval_net,
+    freeze_net,
+    load_checkpoint,
+    to_numpy,
+    unfreeze_net,
+    validate_checkpoint,
+    write_checkpoint,
+)
 
 from .args import Args
 from .stats import Stats
-from .generators import (
+from .utils import (
     generate_batch,
     generate_noise,
     get_internal_validation_datasets,
     get_training_datasets,
 )
-from .utils import load_checkpoint, validate_checkpoint, write_checkpoint
 
 logger = logging.getLogger(__name__)
 
@@ -45,20 +51,16 @@ def train(
 
     # Set up network
     net_d = AESeqAdjApplyExtra("discriminator", hidden_size=args.hidden_size, bottleneck_size=1)
+    net_d = net_d.to(settings.device)
     net_g = AESeqAdjApplyExtra(
         "generator", hidden_size=args.hidden_size, bottleneck_size=16, encoder_network=net_d
     )
+    net_g = net_g.to(settings.device)
 
-    loss = nn.BCELoss()
-    one = torch.FloatTensor([1])
-    mone = one * -1
-
-    if settings.CUDA:
-        net_d.cuda()
-        net_g.cuda()
-        loss = loss.cuda()
-        one = one.cuda()
-        mone = mone.cuda()
+    print("initialized networks")
+    loss = nn.BCELoss().to(settings.device)
+    one = torch.FloatTensor([1]).to(settings.device)
+    mone = (one * -1).to(settings.device)
 
     optimizer_d = optim.Adam(
         net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2)
@@ -90,11 +92,11 @@ def train(
         # num_seqs_processed = (stats.step * (args.d_iters * 3 + args.g_iters) * args.batch_size)
 
         calculate_basic_statistics = (
-            stats.validation_time_basic is None
+            stats.validation_time_basic == 0
             or (time.perf_counter() - stats.validation_time_basic) > args.time_between_checkpoints
         )
         calculate_extended_statistics = calculate_basic_statistics and (
-            stats.validation_time_extended is None
+            stats.validation_time_extended == 0
             or (time.perf_counter() - stats.validation_time_extended)
             > args.time_between_extended_checkpoints
         )
@@ -110,15 +112,13 @@ def train(
 
             # Pos
             pos_pred = net_d(pos_seq, adjs).sigmoid()
-            pos_target = torch.ones(pos_pred.shape)
-            pos_target = pos_target.cuda() if settings.CUDA else pos_target
+            pos_target = torch.ones(pos_pred.shape, device=settings.device)
             pos_loss = loss(pos_pred, pos_target)
             pos_loss.backward(one * 2)
 
             # Neg
             neg_pred = net_d(neg_seq, adjs).sigmoid()
-            neg_target = torch.zeros(neg_pred.shape)
-            neg_target = neg_target.cuda() if settings.CUDA else neg_target
+            neg_target = torch.zeros(neg_pred.shape, device=settings.device)
             neg_loss = loss(neg_pred, neg_target)
             neg_loss.backward(one)
 
@@ -129,8 +129,7 @@ def train(
                 fake_seq = net_g(noisev, adjs).data
             fake_seq = Variable(fake_seq)
             fake_pred = net_d(fake_seq, adjs).sigmoid()
-            fake_target = torch.zeros(fake_pred.shape)
-            fake_target = fake_target.cuda() if settings.CUDA else fake_target
+            fake_target = torch.zeros(fake_pred.shape, device=settings.device)
             fake_loss = loss(fake_pred, fake_target)
             fake_loss.backward(one)
 
@@ -161,8 +160,7 @@ def train(
             noisev = Variable(noise.normal_(0, 1))
             gen_seq = net_g(noisev, adjs)
             gen_pred = net_d(gen_seq, adjs).sigmoid()
-            gen_target = torch.ones(gen_pred.shape)
-            gen_target = gen_target.cuda() if settings.CUDA else gen_target
+            gen_target = torch.ones(gen_pred.shape, device=settings.device)
             gen_loss = loss(gen_pred, gen_target)
             gen_loss.backward()
             del gen_seq
@@ -207,15 +205,16 @@ def main():
     args = Args.from_cli()
 
     if args.gpu == -1:
-        pagnn.settings.CUDA = False
+        settings.device = torch.device("cpu")
         logger.info("Running on the CPU.")
     else:
-        pagnn.init_gpu(args.gpu)
+        init_gpu(args.gpu)
 
     # === Random Seed ===
     random.seed(42 + args.array_id)
     np.random.seed(42 + args.array_id)
     torch.manual_seed(42 + args.array_id)
+    torch.cuda.manual_seed(42 + args.array_id)
     random_state = np.random.RandomState(42)
 
     # === Paths ===

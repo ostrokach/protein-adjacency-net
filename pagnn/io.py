@@ -4,12 +4,13 @@ Training and validation data are stored in *Parquet* files.
 """
 import logging
 from pathlib import Path
-from typing import Callable, Generator, List, Optional, Tuple, Union
-import pandas as pd
+from typing import Callable, List, Optional, Union
+
 import numpy as np
+import pandas as pd
 import pyarrow.parquet as pq
 
-from pagnn.types import DataRow
+from pagnn.types import DataRow, RowGen, RowGenF
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def iter_datarows(
     columns: Union[dict, tuple] = DataRow._fields,
     filters: List[Callable] = [],
     random_state: Optional[np.random.RandomState] = None,
-) -> Generator[DataRow, None, None]:
+) -> RowGen:
     """Iterate over rows in `parquet_file` in pseudo-random order.
 
     Args:
@@ -52,7 +53,7 @@ def gen_datarows(
     columns: Union[dict, tuple] = DataRow._fields,
     filters: List[Callable] = [],
     random_state: Optional[np.random.RandomState] = None,
-) -> Generator[DataRow, Callable, None]:
+) -> RowGenF:
     """Iterate over rows in `parquet_file` in pseudo-random order.
 
     Args:
@@ -93,7 +94,7 @@ def _read_random_row_group(
     TODO: Refactor this ugly function to take fewer arguments.
     """
     row_group_idx = random_state.randint(parquet_file_obj.num_row_groups)
-    logger.info("Reading row group %s from parquet file '%s'.", row_group_idx, parquet_file)
+    logger.debug("Reading row group %s from parquet file '%s'.", row_group_idx, parquet_file)
     df = (
         parquet_file_obj.read_row_group(row_group_idx, columns=list(columns))
         .to_pandas()
@@ -120,9 +121,9 @@ def _get_column_renames(columns: Union[dict, tuple]) -> dict:
 def iter_datarows_shuffled(
     parquet_files: List[Path],
     columns: Union[dict, tuple] = DataRow._fields,
-    filters: List[Tuple[str, str, float]] = [],
+    filters: List[Callable] = [],
     random_state: Optional[np.random.RandomState] = None,
-) -> Generator[DataRow, None, None]:
+) -> RowGen:
     """Iterate over parquet data in multiple `parquet_files`, randomly chosing the next row.
 
     Notes:
@@ -161,9 +162,9 @@ def iter_datarows_shuffled(
 def gen_datarows_shuffled(
     parquet_files: List[Path],
     columns: Union[dict, tuple] = DataRow._fields,
-    filters: List[Tuple[str, str, float]] = [],
+    filters: List[Callable] = [],
     random_state: Optional[np.random.RandomState] = None,
-) -> Generator[DataRow, Callable, None]:
+) -> RowGenF:
     """."""
     if random_state is None:
         random_state = np.random.RandomState()

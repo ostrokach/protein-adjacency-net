@@ -1,13 +1,13 @@
 """Functions for generating and manipulating DataSets."""
 import enum
-from typing import Callable, Generator, List, Optional, Union
+from typing import List, Optional, Union
 
 import numpy as np
 from scipy import sparse
 
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.types import DataRow, DataSet, DataSetGAN
+from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF
 
 MAX_TRIES = 1024
 MAX_TRIES_SEQLEN = 8192
@@ -50,7 +50,7 @@ class Method(enum.Enum):
 def get_negative_example(
     ds: DataSet,
     method: Union[str, Method],
-    rowgen: Generator[DataRow, Callable, None],
+    rowgen: RowGenF,
     random_state: Optional[np.random.RandomState] = None,
 ) -> DataSet:
     """Find a valid negative control for a given `ds`.
@@ -164,10 +164,7 @@ def get_offset(length: int, random_state: Optional[np.random.RandomState] = None
 
 
 def get_indices(
-    length: int,
-    full_length: int,
-    method: Union[str, Method],
-    random_state: Optional[np.random.RandomState] = None,
+    length: int, full_length: int, method: Union[str, Method], random_state: np.random.RandomState
 ):
     """
     Get `start` and `stop` indices for a given slice method.

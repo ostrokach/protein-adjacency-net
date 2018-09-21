@@ -7,27 +7,30 @@ from PIL import Image
 from sklearn import metrics
 from torch.autograd import Variable
 
-from pagnn.training.gan import evaluate_validation_dataset, generate_noise
 from pagnn.utils import (
+    StatsBase,
     add_image,
     argmax_onehot,
     array_to_seq,
+    evaluate_validation_dataset,
     make_weblogo,
     score_blosum62,
     score_edit,
     to_numpy,
 )
 
+from .utils import generate_noise
+
 logger = logging.getLogger(__name__)
 
 
-class Stats:
+class Stats(StatsBase):
     def __init__(self, step, writer) -> None:
-        self.step = step
+        super().__init__(step)
         self.writer = writer
         self._init_containers()
-        self.validation_time_basic: float = None
-        self.validation_time_extended: float = None
+        self.validation_time_basic: float = 0
+        self.validation_time_extended: float = 0
 
     def update(self) -> None:
         self.step += 1

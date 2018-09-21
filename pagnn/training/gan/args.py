@@ -1,29 +1,13 @@
-import hashlib
-import json
-from pathlib import Path
-from typing import Optional
 
 import attr
 from attr.validators import instance_of
 
-import pagnn
 from pagnn import settings
-from pagnn.utils import ArgsBase, convert_to_timedelta, str_to_path
+from pagnn.utils import ArgsBase, str_to_seconds
 
 
 @attr.s
 class Args(ArgsBase):
-
-    # === Paths ===
-
-    #: Location where to create subfolders for storing network data and cache files.
-    root_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
-
-    #: Location of the `adjacency_matrix.parquet` folder with training data.
-    training_data_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
-
-    #: Location of the `adjacency_matrix.parquet` folder with validation data.
-    validation_data_path: Path = attr.ib(None, converter=str_to_path, validator=instance_of(Path))
 
     # === Properties ===
 
@@ -60,19 +44,20 @@ class Args(ArgsBase):
     #: Number of negative sequences per batch.
     batch_size: int = attr.ib(64, validator=instance_of(int))
 
-    #: Number of steps between basic checkpoints.
-    time_between_checkpoints: float = attr.ib(
-        "1m",
-        converter=lambda s: convert_to_timedelta(s).total_seconds(),
-        validator=instance_of(float),
+    #: Number of seconds between basic checkpoints (default = ``1m``).
+    time_between_checkpoints: float = attr.ib(  # type: ignore
+        "1m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
-    #: Number of steps between extended checkpoints
+    #: Number of seconds between extended checkpoints (default = ``10m``).
     #: (where we evaluate performance on the validation datasets).
-    time_between_extended_checkpoints: float = attr.ib(
-        "10m",
-        converter=lambda s: convert_to_timedelta(s).total_seconds(),
-        validator=instance_of(float),
+    time_between_extended_checkpoints: float = attr.ib(  # type: ignore
+        "10m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+    )
+
+    #: Number of seconds after which training should be terminated (default = `999d``).
+    runtime: float = attr.ib(  # type: ignore
+        "999d", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
     #: Number of D network training iterations per round.
@@ -103,37 +88,10 @@ class Args(ArgsBase):
     #: Array id of array jobs. 0 means that this is NOT an array job.
     array_id: int = attr.ib(0, validator=instance_of(int))
 
-    num_aa_to_process: Optional[int] = attr.ib(None, validator=instance_of((type(None), int)))
+    num_aa_to_process: int = attr.ib(0, validator=instance_of(int))
 
     #: Whether to show the progressbar when training.
     progressbar: bool = attr.ib(settings.SHOW_PROGRESSBAR, validator=instance_of(bool))
 
     #: Number of jobs to run concurrently (not implemented).
     num_concurrent_jobs: int = attr.ib(1, validator=instance_of(int))
-
-    # === Cache ===
-
-    unique_name: str = attr.ib(
-        attr.Factory(lambda self: self._get_unique_name(), takes_self=True),
-        validator=instance_of(str),
-    )
-
-    # === Methods ===
-
-    @property
-    def work_path(self) -> Path:
-        return self.root_path.joinpath(self.unique_name)
-
-    def _get_unique_name(self) -> str:
-        args_dict = vars(self)
-        state_keys = ["learning_rate_d", "learning_rate_g", "weight_decay", "hidden_size"]
-        # Calculating hash of dictionary: https://stackoverflow.com/a/22003440/2063031
-        state_dict = {k: args_dict[k] for k in state_keys}
-        state_bytes = json.dumps(state_dict, sort_keys=True).encode("ascii")
-        state_hash = hashlib.md5(state_bytes).hexdigest()[:7]
-        unique_name = "-".join(
-            [self.training_methods, self.training_permutations, str(self.training_min_seq_identity)]
-            + ([self.tag] if self.tag else [])
-            + [pagnn.__version__, state_hash]
-        )
-        return unique_name

@@ -7,16 +7,17 @@ from torch.nn import Module
 
 from pagnn.datavardcn import push_dataset_collection
 from pagnn.types import DataGen, DataSet
-from pagnn.utils import to_numpy
 
 logger = logging.getLogger(__name__)
 
 
-def evaluate_validation_dataset(net: Module,
-                                datagen: DataGen,
-                                keep_neg_seq: bool = False,
-                                keep_neg_adj: bool = False,
-                                fake_adj: bool = False):
+def evaluate_validation_dataset(
+    net: Module,
+    datagen: DataGen,
+    keep_neg_seq: bool = False,
+    keep_neg_adj: bool = False,
+    fake_adj: bool = False,
+):
     """Evaluate the performance of a network on a validation dataset."""
     assert keep_neg_seq or keep_neg_adj
     if fake_adj:
@@ -27,15 +28,19 @@ def evaluate_validation_dataset(net: Module,
     for idx, (pos, neg) in enumerate(datagen()):
         if fake_adj:
             pos = [
-                DataSet(ds.seq,
-                        sparse.coo_matrix((np.ones(len(ds.seq)), (np.arange(len(ds.seq)),
-                                                                  np.arange(len(ds.seq))))),
-                        ds.target) for ds in pos
+                DataSet(
+                    ds.seq,
+                    sparse.coo_matrix(
+                        (np.ones(len(ds.seq)), (np.arange(len(ds.seq)), np.arange(len(ds.seq))))
+                    ),
+                    ds.target,
+                )
+                for ds in pos
             ]
         dvc, targets = push_dataset_collection((pos, neg), keep_neg_seq, keep_neg_adj)
         outputs = net(dvc)
-        outputs_list.append(to_numpy(outputs))
-        targets_list.append(to_numpy(targets))
+        outputs_list.append(outputs.data.numpy())
+        targets_list.append(targets.data.numpy())
     outputs = np.vstack(outputs_list).squeeze()
     targets = np.vstack(targets_list).squeeze()
     assert outputs.ndim == 1
@@ -69,9 +74,9 @@ def evaluate_mutation_dataset(net: Module, datagen: DataGen) -> Tuple[np.ndarray
     for idx, (pos, neg) in enumerate(datagen()):
         dvc, targets = push_dataset_collection((pos, neg), push_seq=True, push_adj=False)
         outputs = net(dvc)
-        targets_arr = to_numpy(targets)
+        targets_arr = targets.data.numpy()
         targets_arr_diff = targets_arr[1::2]  # - targets_arr[0::2]
-        outputs_arr = to_numpy(outputs)
+        outputs_arr = outputs.data.numpy()
         outputs_arr_diff = outputs_arr[1::2] - outputs_arr[0::2]
         assert targets_arr_diff.shape == outputs_arr_diff.shape
         targets_list.append(targets_arr_diff)
