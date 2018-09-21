@@ -41,9 +41,7 @@ def train(
     checkpoint_file = args.work_path.joinpath("checkpoint.json")
 
     # Set up network
-    net = getattr(pagnn.models, args.network_name)(**args.network_settings)
-    if pagnn.settings.CUDA:
-        net = net.cuda()
+    net = getattr(pagnn.models, args.network_name)(**args.network_settings).to(settings.device)
 
     criterion = getattr(nn, args.loss_name)()
 
@@ -233,7 +231,7 @@ def main():
     args = Args.from_cli()
 
     if args.gpu == -1:
-        pagnn.settings.CUDA = False
+        pagnn.settings.device = torch.device("cpu")
         logger.info("Running on the CPU.")
     else:
         pagnn.init_gpu(args.gpu)

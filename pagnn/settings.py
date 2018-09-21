@@ -15,8 +15,8 @@ import sys
 
 import torch
 
-#: ``True`` if computations should be performed on an NVIDIA GPU.
-CUDA: bool = torch.cuda.is_available()
+#:
+device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 #: Number of amino acids to add between sequences when doing contract / expand operation.
 GAP_LENGTH: int = 0

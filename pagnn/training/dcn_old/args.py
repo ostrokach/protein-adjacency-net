@@ -13,14 +13,6 @@ from pagnn.utils import ArgsBase, str_to_path
 @attr.s
 class Args(ArgsBase):
 
-    # === Paths ===
-
-    #: Location where we will create subfolders for storing network data and cache files.
-    root_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
-
-    #: Location of the training data.
-    data_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
-
     # === Network settings ===
 
     #: Name of the network class.

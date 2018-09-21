@@ -173,30 +173,11 @@ class Stats(StatsBase):
         if prev_validation_time:
             self.scores["time_between_checkpoints"] = time.perf_counter() - prev_validation_time
 
-    def calculate_statistics_extended(self, net_d, net_g, internal_validation_datasets):
+    def calculate_statistics_extended(self, net, internal_validation_datasets):
         self.extended = True
         self.validation_time_extended = time.perf_counter()
 
         # Validation accuracy
         for name, datasets in internal_validation_datasets.items():
-            targets_valid, outputs_valid = evaluate_validation_dataset(net_d, datasets)
+            targets_valid, outputs_valid = evaluate_validation_dataset(net, datasets)
             self.scores[name + "-auc"] = metrics.roc_auc_score(targets_valid, outputs_valid)
-
-        for name in ["validation_gan_permute_80_1000"]:
-            for i, dataset in enumerate(internal_validation_datasets[name]):
-                seq_wt = dataset.seqs[0].decode()
-                start = 0
-                stop = start + len(seq_wt)
-                datavar = net_g.dataset_to_datavar(dataset)
-                noise = generate_noise(net_g, [datavar.adjs])
-                noisev = Variable(noise.normal_(0, 1))
-                pred = net_g(noisev, [datavar.adjs])
-                pred_argmax = argmax_onehot(pred[:, :, start:stop].data)
-                target = datavar.seqs[0, :, start:stop].data
-
-                self.blosum62_scores.append(score_blosum62(target, pred_argmax))
-                self.edit_scores.append(score_edit(target, pred_argmax))
-                self.validation_sequences.append(seq_wt)
-                self.validation_gen_sequences.append(
-                    [array_to_seq(to_numpy(pred[i, :, start:stop])) for i in range(pred.shape[0])]
-                )

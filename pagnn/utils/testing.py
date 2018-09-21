@@ -7,13 +7,13 @@ from pagnn import settings
 
 
 @contextmanager
-def set_cuda(use_cuda):
-    _cuda = settings.CUDA
+def set_device(device: str):
+    _device = settings.device
     try:
-        settings.CUDA = use_cuda
+        settings.device = torch.device(device)
         yield
     finally:
-        settings.CUDA = _cuda
+        settings.device = _device
 
 
 def random_sequence(batch_size, seq_size, seq_length, random_state=None):
@@ -31,9 +31,7 @@ def random_sequence(batch_size, seq_size, seq_length, random_state=None):
         random_state = np.random.RandomState()
 
     seq_idxs = random_state.randint(0, seq_size, size=(batch_size, 1, seq_length))
-    seq = torch \
-        .zeros(batch_size, seq_size, seq_length) \
-        .scatter_(1, torch.from_numpy(seq_idxs), 1)
+    seq = torch.zeros(batch_size, seq_size, seq_length).scatter_(1, torch.from_numpy(seq_idxs), 1)
 
     assert seq.shape == (batch_size, seq_size, seq_length)
     assert (seq.sum(1) == 1).all()

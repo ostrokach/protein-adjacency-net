@@ -4,7 +4,7 @@ Notes:
   * Not sure if its good practice to have all your types defined in a separate file,
     but it's the only way I've been able to get it to work with mypy.
 """
-from typing import Callable, Iterator, List, NamedTuple, Optional, Tuple
+from typing import Callable, Generator, Iterator, List, NamedTuple, Optional, Tuple
 
 from scipy import sparse
 from torch.autograd import Variable
@@ -16,10 +16,16 @@ class DataRow(NamedTuple):
     Notes:
         * This data structure can contain other attributes as neccessary.
     """
+
     sequence: str
     adjacency_idx_1: List[int]
     adjacency_idx_2: List[int]
     # ...other columns as neccessary
+
+
+RowGen = Generator[DataRow, None, None]
+
+RowGenF = Generator[Optional[DataRow], Callable, None]
 
 
 class DataSet(NamedTuple):
@@ -28,8 +34,9 @@ class DataSet(NamedTuple):
     Contains the sequences, the adjacency matric, and the label (target)
     of a protein domain.
     """
+
+    #: Sequence.
     seq: bytes
-    """Sequence."""
     adj: sparse.spmatrix
     target: float
     meta: Optional[dict] = None
@@ -41,6 +48,7 @@ class DataSetGAN(NamedTuple):
     Contains one or more sequences, the adjacency matric, and the label (target)
     of a protein domain.
     """
+
     #: List of sequences that match a single adjacency.
     seqs: List[bytes]
     #: List of adjacencies, ranging from unpooled to 4x pooled.
@@ -51,14 +59,19 @@ class DataSetGAN(NamedTuple):
     meta: Optional[dict] = None
 
 
+DataSetGenM = Generator[Optional[DataSetGAN], DataSetGAN, None]
+
+
 class DataVar(NamedTuple):
     """Input variables for the Deep Convolutional Network."""
+
     seq: Variable
     adj: Variable
 
 
 class DataVarGAN(NamedTuple):
     """Input variables for the Generative Adverserial Network."""
+
     seqs: Variable
     adjs: Variable
 

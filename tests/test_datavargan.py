@@ -18,16 +18,6 @@ from pagnn.types import DataSetGAN
 from pagnn.utils import AMINO_ACIDS, to_numpy, to_sparse_tensor
 
 
-@contextmanager
-def no_cuda():
-    cuda = settings.CUDA
-    try:
-        settings.CUDA = False
-        yield
-    finally:
-        settings.CUDA = cuda
-
-
 # === Fixtures ===
 
 
@@ -71,7 +61,7 @@ def ds(request):
 
 
 def test_dataset_to_datavar_perf(benchmark, ds):
-    with no_cuda():
+    with set_device("cpu"):
         benchmark(dataset_to_datavar, ds)
 
 
@@ -82,7 +72,7 @@ def test_push_seq(benchmark):
     indexes = random_state.randint(0, 20, batch_size)
     seqs = [AMINO_ACIDS[idx].encode("ascii") * seq_len for idx in indexes]
     # Actual
-    with no_cuda():
+    with set_device("cpu"):
         seqs_var = benchmark(push_seqs, seqs)
     # Referebce
     seqs_var_ = np.zeros((batch_size, 20, seq_len), dtype=float)

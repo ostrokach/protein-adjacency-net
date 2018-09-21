@@ -42,24 +42,56 @@
    set_cuda
 
 .. autosummary::
+    :caption: py_ops
     :toctree: _modules
 
     str_to_path
     load_yaml
     dump_yaml
 """
-from .args import ArgsBase
-from .array_ops import (argmax_onehot, conv1d_shape, conv1d_shape_ceil, conv2d_shape, to_numpy,
-                        to_sparse_tensor, to_tensor, reshape_internal_dim, unfold_to, unfold_from,
-                        padding_amount, remove_eye, remove_eye_sparse, add_eye_sparse)
-from .dataset_ops import (expand_adjacency, get_adj_identity, get_adjacency, seq_to_array,
-                          array_to_seq, get_seq_identity, AMINO_ACIDS)
-from .datetime_ops import convert_to_timedelta
-from .network_ops import eval_net, freeze_net, unfreeze_net, freeze_adj_conv, unfreeze_adj_conv
+# No interdependencies
+from .array_ops import (
+    add_eye_sparse,
+    argmax_onehot,
+    conv1d_shape,
+    conv1d_shape_ceil,
+    conv2d_shape,
+    padding_amount,
+    remove_eye,
+    remove_eye_sparse,
+    reshape_internal_dim,
+    to_numpy,
+    to_sparse_tensor,
+    to_tensor,
+    unfold_from,
+    unfold_to,
+)
+from .converters import dump_yaml, load_yaml, str_to_path, str_to_seconds
+from .dataset_ops import (
+    AMINO_ACIDS,
+    array_to_seq,
+    expand_adjacency,
+    get_adj_identity,
+    get_adjacency,
+    get_seq_identity,
+    seq_to_array,
+)
+from .stats import StatsBase
+from .tensorboard import add_image
 from .interpolation import interpolate_adjacencies, interpolate_sequences
 from .iter_ops import iter_forever, iter_submodules
+from .network_ops import eval_net, freeze_adj_conv, freeze_net, unfreeze_adj_conv, unfreeze_net
+from .testing import random_sequence, set_device
 from .weblogo import make_weblogo
-from .tensorboard import add_image
+
+# Other
+from .args import ArgsBase
+from .checkpoint import load_checkpoint, validate_checkpoint, write_checkpoint
+from .evaluators import evaluate_validation_dataset, evaluate_mutation_dataset
+from .generators import (
+    basic_permuted_sequence_adder,
+    get_rowgen_mut,
+    buffered_permuted_sequence_adder,
+    negative_sequence_adder,
+)
 from .scoring import score_blosum62, score_edit
-from .testing import random_sequence, set_cuda
-from .py_ops import str_to_path, load_yaml, dump_yaml

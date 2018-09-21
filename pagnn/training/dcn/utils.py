@@ -74,14 +74,6 @@ def generate_batch(
     return pos_seq, neg_seq, adjs
 
 
-def generate_noise(net_g, adjs):
-    num_aa_out = sum(adj[net_g.n_layers].shape[1] for adj in adjs)
-    noise_length = math.ceil(num_aa_out * net_g.bottleneck_features / 2048)
-    # noise = torch.cuda.FloatTensor(1, net_g.bottleneck_size, noise_length, device=settings.device)
-    noise = torch.empty(1, net_g.bottleneck_size, noise_length, device=settings.device)
-    return noise
-
-
 # === Generators ===
 
 

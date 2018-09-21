@@ -50,34 +50,20 @@ def train(
     args.root_path.joinpath("checkpoints").mkdir(exist_ok=True)
 
     # Set up network
-    net_d = AESeqAdjApplyExtra("discriminator", hidden_size=args.hidden_size, bottleneck_size=1)
-    net_d = net_d.to(settings.device)
-    net_g = AESeqAdjApplyExtra(
-        "generator", hidden_size=args.hidden_size, bottleneck_size=16, encoder_network=net_d
+    net = AESeqAdjApplyExtra("discriminator", hidden_size=args.hidden_size, bottleneck_size=1).to(
+        settings.device
     )
-    net_g = net_g.to(settings.device)
 
-    print("initialized networks")
     loss = nn.BCELoss().to(settings.device)
-    one = torch.FloatTensor([1]).to(settings.device)
-    mone = (one * -1).to(settings.device)
+    one = torch.ones(1, device=settings.device)
+    mone = one * -1
 
-    optimizer_d = optim.Adam(
-        net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2)
-    )
-    optimizer_g = optim.Adam(
-        net_g.parameters(), lr=args.learning_rate_g, betas=(args.beta1, args.beta2)
-    )
+    optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
     if args.array_id:
-        net_g.load_state_dict(
+        net.load_state_dict(
             torch.load(
-                args.root_path.joinpath("models").joinpath(checkpoint["net_g_path_name"]).as_posix()
-            )
-        )
-        net_d.load_state_dict(
-            torch.load(
-                args.root_path.joinpath("models").joinpath(checkpoint["net_d_path_name"]).as_posix()
+                args.root_path.joinpath("models").joinpath(checkpoint["net_path_name"]).as_posix()
             )
         )
         write_graph = False
@@ -102,53 +88,51 @@ def train(
         )
 
         # === Train discriminator ===
-        unfreeze_net(net_d)
-        for _ in range(args.d_iters):
-            net_d.zero_grad()
+        net.zero_grad()
 
-            pos_seq, neg_seq, adjs = generate_batch(
-                args, net_d, positive_rowgen, negative_ds_gen=negative_ds_gen
-            )
+        pos_seq, neg_seq, adjs = generate_batch(
+            args, net, positive_rowgen, negative_ds_gen=negative_ds_gen
+        )
 
-            # Pos
-            pos_pred = net_d(pos_seq, adjs).sigmoid()
-            pos_target = torch.ones(pos_pred.shape, device=settings.device)
-            pos_loss = loss(pos_pred, pos_target)
-            pos_loss.backward(one * 2)
+        # Pos
+        pos_pred = net(pos_seq, adjs).sigmoid()
+        pos_target = torch.ones(pos_pred.shape).to(settings.device)
+        pos_loss = loss(pos_pred, pos_target)
+        pos_loss.backward(one * 2)
 
-            # Neg
-            neg_pred = net_d(neg_seq, adjs).sigmoid()
-            neg_target = torch.zeros(neg_pred.shape, device=settings.device)
-            neg_loss = loss(neg_pred, neg_target)
-            neg_loss.backward(one)
+        # Neg
+        neg_pred = net(neg_seq, adjs).sigmoid()
+        neg_target = torch.zeros(neg_pred.shape).to(settings.device)
+        neg_loss = loss(neg_pred, neg_target)
+        neg_loss.backward(one)
 
-            # Fake
-            noise = generate_noise(net_g, adjs)
-            noisev = Variable(noise.normal_(0, 1))
-            with torch.no_grad():
-                fake_seq = net_g(noisev, adjs).data
-            fake_seq = Variable(fake_seq)
-            fake_pred = net_d(fake_seq, adjs).sigmoid()
-            fake_target = torch.zeros(fake_pred.shape, device=settings.device)
-            fake_loss = loss(fake_pred, fake_target)
-            fake_loss.backward(one)
+        # Fake
+        noise = generate_noise(net_g, adjs)
+        noisev = Variable(noise.normal_(0, 1))
+        with torch.no_grad():
+            fake_seq = net_g(noisev, adjs).data
+        fake_seq = Variable(fake_seq)
+        fake_pred = net_d(fake_seq, adjs).sigmoid()
+        fake_target = torch.zeros(fake_pred.shape).to(settings.device)
+        fake_loss = loss(fake_pred, fake_target)
+        fake_loss.backward(one)
 
-            optimizer_d.step()
+        optimizer_d.step()
 
-            # Update stats
-            if calculate_basic_statistics:
-                stats.pos_preds.append(to_numpy(pos_pred))
-                stats.neg_preds.append(to_numpy(neg_pred))
-                stats.fake_preds.append(to_numpy(fake_pred))
-                stats.pos_losses.append(to_numpy(pos_loss))
-                stats.neg_losses.append(to_numpy(neg_loss))
-                stats.fake_losses.append(to_numpy(fake_loss))
+        # Update stats
+        if calculate_basic_statistics:
+            stats.pos_preds.append(to_numpy(pos_pred))
+            stats.neg_preds.append(to_numpy(neg_pred))
+            stats.fake_preds.append(to_numpy(fake_pred))
+            stats.pos_losses.append(to_numpy(pos_loss))
+            stats.neg_losses.append(to_numpy(neg_loss))
+            stats.fake_losses.append(to_numpy(fake_loss))
 
-                if write_graph:
-                    # TODO: Uncomment when this works in tensorboardX
-                    # writer.add_graph(net_d, (pos_seq, adjs))
-                    # writer.add_graph(net_g, (noisev, adjs))
-                    write_graph = False
+            if write_graph:
+                # TODO: Uncomment when this works in tensorboardX
+                # writer.add_graph(net_d, (pos_seq, adjs))
+                # writer.add_graph(net_g, (noisev, adjs))
+                write_graph = False
 
         # === Train generator ===
         freeze_net(net_d)
@@ -214,7 +198,6 @@ def main():
     random.seed(42 + args.array_id)
     np.random.seed(42 + args.array_id)
     torch.manual_seed(42 + args.array_id)
-    torch.cuda.manual_seed(42 + args.array_id)
     random_state = np.random.RandomState(42)
 
     # === Paths ===

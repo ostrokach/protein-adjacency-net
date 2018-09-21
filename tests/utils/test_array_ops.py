@@ -4,30 +4,36 @@ import torch
 import torch.nn as nn
 from scipy import sparse
 
-from pagnn.utils.array_ops import (add_eye_sparse, argmax_onehot, remove_eye, remove_eye_sparse,
-                                   unfold_from, unfold_to)
-from pagnn.utils.testing import random_sequence, set_cuda
+from pagnn.utils.array_ops import (
+    add_eye_sparse,
+    argmax_onehot,
+    remove_eye,
+    remove_eye_sparse,
+    unfold_from,
+    unfold_to,
+)
+from pagnn.utils.testing import random_sequence, set_device
 
 
 @pytest.fixture(
-    scope='module',
+    scope="module",
     params=[False] + ([True] if torch.cuda.is_available() else []),
-    ids=lambda r: f'seq_cuda{int(r.cuda)}')
+    ids=lambda r: f"seq_cuda{int(r.cuda)}",
+)
 def seq(request):
     random_state = np.random.RandomState(42)
-    use_cuda = request.param
-    seq = torch.zeros(
-        64, 20, 512, out=torch.cuda.FloatTensor() if use_cuda else torch.FloatTensor())
+    device = torch.device("cuda") if request.param else torch.device("cpu")
+    seq = torch.zeros(64, 20, 512, dtype=torch.float32, device=device)
     for i in range(seq.shape[0]):
         for j in range(seq.shape[2]):
             idx = random_state.randint(0, 20)
             seq[i, idx, j] = 1
-    assert seq.is_cuda == use_cuda
+    assert seq.is_cuda == request.param
     return seq
 
 
 def test_argmax_onehot(benchmark, seq):
-    with set_cuda(seq.is_cuda):
+    with set_device("cuda" if seq.is_cuda else "cpu"):
         seq_onehot = benchmark(argmax_onehot, seq)
     assert (seq == seq_onehot).all()
 
@@ -46,7 +52,8 @@ def test_unfold():
 
 @pytest.mark.parametrize(
     "size, bandwidth",
-    [(size, bandwidth) for size in range(3, 20) for bandwidth in range(0, 4) if bandwidth <= size])
+    [(size, bandwidth) for size in range(3, 20) for bandwidth in range(0, 4) if bandwidth <= size],
+)
 def test_remove_eye(size, bandwidth):
     ar = np.ones((size, size))
     ar_noeye = remove_eye(ar, bandwidth)
@@ -63,7 +70,8 @@ def test_remove_eye(size, bandwidth):
 
 @pytest.mark.parametrize(
     "size, bandwidth",
-    [(size, bandwidth) for size in range(3, 20) for bandwidth in range(0, 4) if bandwidth <= size])
+    [(size, bandwidth) for size in range(3, 20) for bandwidth in range(0, 4) if bandwidth <= size],
+)
 def test_add_eye(size, bandwidth):
     ar = np.ones((size, size))
     spar = sparse.coo_matrix(ar)
@@ -74,7 +82,8 @@ def test_add_eye(size, bandwidth):
 
 @pytest.mark.parametrize(
     "size, bandwidth",
-    [(size, bandwidth) for size in range(3, 20) for bandwidth in range(1, 4) if bandwidth <= size])
+    [(size, bandwidth) for size in range(3, 20) for bandwidth in range(1, 4) if bandwidth <= size],
+)
 def test_add_eye_inplace(size, bandwidth):
     ar = np.ones((size, size))
     spar = sparse.coo_matrix(ar)
