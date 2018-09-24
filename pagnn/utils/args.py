@@ -6,7 +6,7 @@ from typing import Any, Dict, Type, TypeVar
 import attr
 from attr.validators import instance_of
 
-from .converters import str_to_path
+from .converters import str_to_path, str_to_path_opt
 
 T = TypeVar("T", bound="ArgsBase")
 
@@ -23,7 +23,9 @@ class ArgsBase:
     training_data_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
 
     #: Location of the `adjacency_matrix.parquet` folder with validation data.
-    validation_data_path: Path = attr.ib(None, converter=str_to_path, validator=instance_of(Path))
+    validation_data_path: Path = attr.ib(  # type: ignore
+        None, converter=str_to_path_opt, validator=instance_of((Path, type(None)))  # type: ignore
+    )
 
     # === Environment ===
 

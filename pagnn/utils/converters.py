@@ -1,13 +1,17 @@
 
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Optional, Union
 
 import yaml
 
 
 def str_to_path(file: str) -> Path:
     return Path(file).resolve()
+
+
+def str_to_path_opt(file: Optional[str]) -> Optional[Path]:
+    return str_to_path(file) if file is not None else None
 
 
 def str_to_timedelta(time_val: str) -> timedelta:
