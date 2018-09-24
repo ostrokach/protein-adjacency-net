@@ -59,8 +59,8 @@ def train(
 
     print("initialized networks")
     loss = nn.BCELoss().to(settings.device)
-    one = torch.FloatTensor([1]).to(settings.device)
-    mone = (one * -1).to(settings.device)
+    one = torch.tensor(1, dtype=torch.float, device=settings.device)
+    # mone = torch.tensor(-1, dtype=torch.float, device=settings.device)
 
     optimizer_d = optim.Adam(
         net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2)
