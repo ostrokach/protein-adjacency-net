@@ -42,17 +42,17 @@ class Args(ArgsBase):
     max_seq_length: int = attr.ib(2048, validator=instance_of(int))
 
     #: Number of negative sequences per batch.
-    batch_size: int = attr.ib(64, validator=instance_of(int))
+    batch_size: int = attr.ib(3, validator=instance_of(int))
 
     #: Number of seconds between basic checkpoints (default = ``1m``).
     time_between_checkpoints: float = attr.ib(  # type: ignore
-        "1m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+        "10s", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
     #: Number of seconds between extended checkpoints (default = ``10m``).
     #: (where we evaluate performance on the validation datasets).
     time_between_extended_checkpoints: float = attr.ib(  # type: ignore
-        "10m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+        "1m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
     #: Number of seconds after which training should be terminated (default = `999d``).
@@ -95,3 +95,6 @@ class Args(ArgsBase):
 
     #: Number of jobs to run concurrently (not implemented).
     num_concurrent_jobs: int = attr.ib(1, validator=instance_of(int))
+
+    #:
+    verbosity: int = attr.ib(1, validator=instance_of(int))
