@@ -1,5 +1,6 @@
 import json
 import logging
+from typing import Any, Dict, Optional
 
 import torch
 import torch.nn as nn
@@ -49,20 +50,25 @@ def validate_checkpoint(checkpoint, scores):
     assert all(checkpoint[s] == scores[s] for s in common_scores)
 
 
-def write_checkpoint(args: ArgsBase, stats: StatsBase, net_d: nn.Module, net_g: nn.Module):
+def write_checkpoint(
+    args: ArgsBase, stats: StatsBase, net_d: nn.Module, net_g: Optional[nn.Module] = None
+):
     if not stats.extended:
         return
 
-    checkpoint = {"step": stats.step, **stats.scores}
+    checkpoint: Dict[str, Any] = {"step": stats.step, **stats.scores}
 
     # Save model
     net_d_dump_path = args.root_path.joinpath("models").joinpath(f"net_d-step_{stats.step}.model")
     torch.save(net_d.state_dict(), net_d_dump_path.as_posix())
     checkpoint["net_d_path_name"] = net_d_dump_path.name
 
-    net_g_dump_path = args.root_path.joinpath("models").joinpath(f"net_g-step_{stats.step}.model")
-    torch.save(net_g.state_dict(), net_g_dump_path.as_posix())
-    checkpoint["net_g_path_name"] = net_g_dump_path.name
+    if net_g is not None:
+        net_g_dump_path = args.root_path.joinpath("models").joinpath(
+            f"net_g-step_{stats.step}.model"
+        )
+        torch.save(net_g.state_dict(), net_g_dump_path.as_posix())
+        checkpoint["net_g_path_name"] = net_g_dump_path.name
 
     # Save checkpoint
     with args.root_path.joinpath("checkpoints").joinpath(f"checkpoint-step{stats.step}.json").open(
