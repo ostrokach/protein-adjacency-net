@@ -7,14 +7,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from pagnn.datavargan import dataset_to_datavar
-from pagnn.models.common import (
+from pagnn.utils import padding_amount, reshape_internal_dim
+
+from .common import (
     AdjacencyConv,
     AdjacencyConvTranspose,
     SequenceConv,
     SequenceConvTranspose,
     SequentialMod,
 )
-from pagnn.utils import padding_amount, reshape_internal_dim
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class NetworkMode(enum.Enum):
     GENERATOR = enum.auto()
 
 
-class AESeqAdjApplyExtra(nn.Module):
+class DCN2(nn.Module):
     def __init__(
         self,
         mode: Union[NetworkMode, str],
