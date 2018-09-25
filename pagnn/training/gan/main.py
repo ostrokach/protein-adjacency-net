@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import tqdm
-from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 
 from pagnn import init_gpu, settings
@@ -38,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 def train(
     args: Args,
-    writer: SummaryWriter,
+    writer,
     positive_rowgen,
     negative_ds_gen,
     internal_validation_datasets,
@@ -235,7 +234,7 @@ def main():
     # === Train ===
     start_time = time.perf_counter()
     result: Dict[str, Union[str, float]] = {}
-    writer = SummaryWriter(tensorboard_path.as_posix())
+    writer = tensorboard_path
     try:
         train(
             args,

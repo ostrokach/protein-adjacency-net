@@ -3,31 +3,17 @@ import time
 from typing import List, Optional
 
 import numpy as np
-from PIL import Image
+import sqlalchemy as sa
 from sklearn import metrics
-from torch.autograd import Variable
 
-from pagnn.utils import (
-    StatsBase,
-    add_image,
-    argmax_onehot,
-    array_to_seq,
-    evaluate_validation_dataset,
-    make_weblogo,
-    score_blosum62,
-    score_edit,
-    to_numpy,
-)
-
-from .utils import generate_noise
+from pagnn.utils import StatsBase, evaluate_validation_dataset
 
 logger = logging.getLogger(__name__)
 
 
 class Stats(StatsBase):
-    def __init__(self, step, writer) -> None:
+    def __init__(self, step: int, engine: sa.engine.Engine) -> None:
         super().__init__(step)
-        self.writer = writer
         self._init_containers()
         self.validation_time_basic: float = 0
         self.validation_time_extended: float = 0
@@ -40,12 +26,12 @@ class Stats(StatsBase):
         # === Training Data ===
         self.pos_preds: List[np.ndarray] = []
         self.neg_preds: List[np.ndarray] = []
-        self.fake_preds: List[np.ndarray] = []
+        # self.fake_preds: List[np.ndarray] = []
         self.gen_preds: List[np.ndarray] = []
         self.pos_losses: List[np.ndarray] = []
         self.neg_losses: List[np.ndarray] = []
-        self.fake_losses: List[np.ndarray] = []
-        self.gen_losses: List[np.ndarray] = []
+        # self.fake_losses: List[np.ndarray] = []
+        # self.gen_losses: List[np.ndarray] = []
 
         self.scores: dict = {}
 
@@ -73,12 +59,12 @@ class Stats(StatsBase):
         training_data = [
             ("pos_preds", self.pos_preds),
             ("neg_preds", self.neg_preds),
-            ("fake_preds", self.fake_preds),
-            ("gen_preds", self.gen_preds),
+            # ("fake_preds", self.fake_preds),
+            # ("gen_preds", self.gen_preds),
             ("pos_losses", self.pos_losses),
             ("neg_losses", self.neg_losses),
-            ("fake_losses", self.fake_losses),
-            ("gen_losses", self.gen_losses),
+            # ("fake_losses", self.fake_losses),
+            # ("gen_losses", self.gen_losses),
         ]
 
         training_data_extended = [
@@ -128,17 +114,6 @@ class Stats(StatsBase):
                 "validation_gen_sequences_0", "\n".join(self.validation_gen_sequences[0]), self.step
             )
 
-        # === Images ===
-        if self.extended:
-            weblogo_wt = make_weblogo(
-                [self.validation_sequences[0]], units="probability", color_scheme="chemistry"
-            )
-            weblogo_design = make_weblogo(
-                self.validation_gen_sequences[0], units="probability", color_scheme="chemistry"
-            )
-            weblogo1 = Image.fromarray(np.vstack([weblogo_design, weblogo_wt]))
-            add_image(self.writer, "weblogo1", weblogo1, self.step)
-
     def calculate_statistics_basic(self, _prev_stats={}):
         self.basic = True
         self.validation_time_basic = time.perf_counter()
@@ -156,16 +131,16 @@ class Stats(StatsBase):
             )
 
         # Fake AUC
-        if self.fake_preds and self.neg_preds:
-            self.training_fake_pred = np.hstack(
-                [ar.mean() for ar in (self.fake_preds + self.neg_preds)]
-            )
-            self.training_fake_target = np.hstack(
-                [np.ones(1) for _ in self.fake_preds] + [np.zeros(1) for _ in self.neg_preds]
-            )
-            self.scores["training_fake-auc"] = metrics.roc_auc_score(
-                self.training_fake_target, self.training_fake_pred
-            )
+        # if self.fake_preds and self.neg_preds:
+        #     self.training_fake_pred = np.hstack(
+        #         [ar.mean() for ar in (self.fake_preds + self.neg_preds)]
+        #     )
+        #     self.training_fake_target = np.hstack(
+        #         [np.ones(1) for _ in self.fake_preds] + [np.zeros(1) for _ in self.neg_preds]
+        #     )
+        #     self.scores["training_fake-auc"] = metrics.roc_auc_score(
+        #         self.training_fake_target, self.training_fake_pred
+        #     )
 
         # Runtime
         prev_validation_time = _prev_stats.get("validation_time")
@@ -173,11 +148,11 @@ class Stats(StatsBase):
         if prev_validation_time:
             self.scores["time_between_checkpoints"] = time.perf_counter() - prev_validation_time
 
-    def calculate_statistics_extended(self, net, internal_validation_datasets):
+    def calculate_statistics_extended(self, net_d, internal_validation_datasets):
         self.extended = True
         self.validation_time_extended = time.perf_counter()
 
         # Validation accuracy
         for name, datasets in internal_validation_datasets.items():
-            targets_valid, outputs_valid = evaluate_validation_dataset(net, datasets)
+            targets_valid, outputs_valid = evaluate_validation_dataset(net_d, datasets)
             self.scores[name + "-auc"] = metrics.roc_auc_score(targets_valid, outputs_valid)

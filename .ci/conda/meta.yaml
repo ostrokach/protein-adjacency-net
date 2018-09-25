@@ -14,24 +14,19 @@ requirements:
     - python
   run:
     - python
-    - click
-    - tqdm
     - attrs
-    - protobuf
+    - click
+    - pyyaml
+    - tqdm
     # Numerical Python
     - numpy
     - scipy
     - pandas
+    - scikit-learn
+    - sqlalchemy
     - pyarrow >=0.10.*
     - numba
     - pytorch
-    - tensorboardx
-    - torchvision
-    - scikit-learn
-    # Biological Python
-    - kmbio
-    - kmtools
-    - weblogo
 
 test:
   source_files:

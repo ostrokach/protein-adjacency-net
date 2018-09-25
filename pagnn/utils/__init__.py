@@ -34,8 +34,6 @@
    interpolate_sequences
    iter_forever
    iter_submodules
-   make_weblogo
-   add_image
    score_blosum62
    score_edit
    random_sequence
@@ -77,12 +75,10 @@ from .dataset_ops import (
     seq_to_array,
 )
 from .stats import StatsBase
-from .tensorboard import add_image
 from .interpolation import interpolate_adjacencies, interpolate_sequences
 from .iter_ops import iter_forever, iter_submodules
 from .network_ops import eval_net, freeze_adj_conv, freeze_net, unfreeze_adj_conv, unfreeze_net
 from .testing import random_sequence, set_device
-from .weblogo import make_weblogo
 
 # Other
 from .args import ArgsBase
