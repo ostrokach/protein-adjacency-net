@@ -3,17 +3,14 @@ import time
 from typing import List, Optional
 
 import numpy as np
-from PIL import Image
 from sklearn import metrics
 from torch.autograd import Variable
 
 from pagnn.utils import (
     StatsBase,
-    add_image,
     argmax_onehot,
     array_to_seq,
     evaluate_validation_dataset,
-    make_weblogo,
     score_blosum62,
     score_edit,
     to_numpy,
@@ -127,17 +124,6 @@ class Stats(StatsBase):
             self.writer.add_text(
                 "validation_gen_sequences_0", "\n".join(self.validation_gen_sequences[0]), self.step
             )
-
-        # === Images ===
-        if self.extended:
-            weblogo_wt = make_weblogo(
-                [self.validation_sequences[0]], units="probability", color_scheme="chemistry"
-            )
-            weblogo_design = make_weblogo(
-                self.validation_gen_sequences[0], units="probability", color_scheme="chemistry"
-            )
-            weblogo1 = Image.fromarray(np.vstack([weblogo_design, weblogo_wt]))
-            add_image(self.writer, "weblogo1", weblogo1, self.step)
 
     def calculate_statistics_basic(self, _prev_stats={}):
         self.basic = True
