@@ -1,6 +1,9 @@
+import json
 import logging
+import pickle
 import time
-from typing import List, Optional
+import gzip
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 import sqlalchemy as sa
@@ -11,43 +14,69 @@ from pagnn.utils import StatsBase, evaluate_validation_dataset
 logger = logging.getLogger(__name__)
 
 
+def pickle_dump(col: Any) -> bytes:
+    return pickle.dumps(col, pickle.HIGHEST_PROTOCOL)
+
+
+def pickle_dump_compressed(col: Any) -> bytes:
+    return gzip.compress(pickle_dump(col))
+
+
 class Stats(StatsBase):
+    # Class attributes
+    columns_to_write: Dict[str, Optional[Callable]] = {
+        "step": None,
+        "stats": pickle_dump,
+        "pos_preds": pickle_dump,
+        "neg_preds": pickle_dump,
+        "pos_losses": pickle_dump,
+        "neg_losses": pickle_dump,
+    }
+
+    # Instance attributes
+    step: int
+    engine: sa.engine.Engine
+
+    validation_time_basic: float
+    validation_time_extended: float
+
+    scores: Dict[str, Any]
+    pos_preds: List[np.ndarray]
+    neg_preds: List[np.ndarray]
+    pos_losses: List[np.ndarray]
+    neg_losses: List[np.ndarray]
+    basic: bool
+    training_pos_pred: Optional[np.ndarray]
+    training_pos_target: Optional[np.ndarray]
+    extended: bool
+
     def __init__(self, step: int, engine: sa.engine.Engine) -> None:
         super().__init__(step)
+        self.validation_time_basic = 0
+        self.validation_time_extended = 0
         self._init_containers()
-        self.validation_time_basic: float = 0
-        self.validation_time_extended: float = 0
 
     def update(self) -> None:
         self.step += 1
         self._init_containers()
 
     def _init_containers(self) -> None:
-        # === Training Data ===
-        self.pos_preds: List[np.ndarray] = []
-        self.neg_preds: List[np.ndarray] = []
-        # self.fake_preds: List[np.ndarray] = []
-        self.gen_preds: List[np.ndarray] = []
-        self.pos_losses: List[np.ndarray] = []
-        self.neg_losses: List[np.ndarray] = []
-        # self.fake_losses: List[np.ndarray] = []
-        # self.gen_losses: List[np.ndarray] = []
+        # === Summary statistics ===
+        self.scores = {}
 
-        self.scores: dict = {}
+        # === Training Data ===
+        self.pos_preds = []
+        self.neg_preds = []
+        self.pos_losses = []
+        self.neg_losses = []
 
         # === Basic Statistics ===
-        self.basic: bool = False
-        self.training_pos_pred: Optional[np.ndarray] = None
-        self.training_pos_target: Optional[np.ndarray] = None
-        self.training_fake_pred: Optional[np.ndarray] = None
-        self.training_fake_target: Optional[np.ndarray] = None
+        self.basic = False
+        self.training_pos_pred = None
+        self.training_pos_target = None
 
         # === Extended Statistics ===
-        self.extended: bool = False
-        self.blosum62_scores: List[np.ndarray] = []
-        self.edit_scores: List[np.ndarray] = []
-        self.validation_sequences: List[str] = []
-        self.validation_gen_sequences: List[List[str]] = []
+        self.extended = False
 
     def write(self):
         # === Network parameters ===
@@ -59,17 +88,8 @@ class Stats(StatsBase):
         training_data = [
             ("pos_preds", self.pos_preds),
             ("neg_preds", self.neg_preds),
-            # ("fake_preds", self.fake_preds),
-            # ("gen_preds", self.gen_preds),
             ("pos_losses", self.pos_losses),
             ("neg_losses", self.neg_losses),
-            # ("fake_losses", self.fake_losses),
-            # ("gen_losses", self.gen_losses),
-        ]
-
-        training_data_extended = [
-            ("blosum62_scores", self.blosum62_scores),
-            ("edit_scores", self.edit_scores),
         ]
 
         # === Scalars ===
@@ -78,6 +98,8 @@ class Stats(StatsBase):
                 logger.warning(f"Score {score_name} is None!")
                 continue
             self.writer.add_scalar(score_name, score_value, self.step)
+
+        training_data_extended = []
 
         for score_name, score_value in training_data + (
             training_data_extended if self.extended else []
