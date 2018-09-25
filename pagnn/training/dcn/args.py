@@ -11,11 +11,8 @@ class Args(ArgsBase):
 
     # === Properties ===
 
-    #: Learning rate for Discriminator (Critic).
-    learning_rate_d: float = attr.ib(0.00005, validator=instance_of(float))
-
-    #: Learning rate for Generator.
-    learning_rate_g: float = attr.ib(0.00005, validator=instance_of(float))
+    #: Learning rate for Classifier.
+    learning_rate: float = attr.ib(0.00005, validator=instance_of(float))
 
     #: beta1 for Adam.
     beta1: float = attr.ib(0.5, validator=instance_of(float))
@@ -46,13 +43,13 @@ class Args(ArgsBase):
 
     #: Number of seconds between basic checkpoints (default = ``1m``).
     time_between_checkpoints: float = attr.ib(  # type: ignore
-        "10s", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+        "30s", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
     #: Number of seconds between extended checkpoints (default = ``10m``).
     #: (where we evaluate performance on the validation datasets).
     time_between_extended_checkpoints: float = attr.ib(  # type: ignore
-        "1m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+        "2m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
     #: Number of seconds after which training should be terminated (default = `999d``).
