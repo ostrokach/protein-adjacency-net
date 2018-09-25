@@ -9,9 +9,10 @@
     gan
 """
 from .common import *
+from .dcn_old import *
 from .dcn import *
 from .autoencoder import *
 from .gan import *
 
-__all__ = ["common", "dcn", "autoencoder", "gan"]
+__all__ = ["common", "dcn_old", "dcn", "autoencoder", "gan"]
 from . import *

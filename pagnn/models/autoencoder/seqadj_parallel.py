@@ -8,10 +8,8 @@ import torch.nn.functional as F
 import pagnn
 from pagnn import settings
 from pagnn.datavargan import dataset_to_datavar
+from pagnn.models.common import SequenceConv, SequenceConvTranspose, SequentialMod
 from pagnn.utils import padding_amount, reshape_internal_dim
-
-from .sequence_conv import SequenceConv, SequenceConvTranspose
-from .sequential import SequentialMod
 
 logger = logging.getLogger(__name__)
 
