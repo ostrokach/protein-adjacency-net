@@ -14,7 +14,7 @@ import tqdm
 
 from pagnn import init_gpu, settings
 from pagnn.models import DCN
-from pagnn.utils import eval_net, load_checkpoint, to_numpy, validate_checkpoint, write_checkpoint
+from pagnn.utils import eval_net
 
 from .args import Args
 from .stats import Stats
@@ -23,8 +23,13 @@ from .utils import generate_batch, get_internal_validation_datasets, get_trainin
 logger = logging.getLogger(__name__)
 
 
+class RuntimeExceededError(Exception):
+    pass
+
+
 def train(
     args: Args,
+    stats: Stats,
     positive_rowgen,
     negative_ds_gen,
     internal_validation_datasets,
@@ -36,106 +41,88 @@ def train(
     if checkpoint is None:
         checkpoint = {}
 
-    args.root_path.joinpath("models").mkdir(exist_ok=True)
-    args.root_path.joinpath("checkpoints").mkdir(exist_ok=True)
-
     # Set up network
-    net_d = DCN("discriminator", hidden_size=args.hidden_size, bottleneck_size=1)
-    net_d = net_d.to(settings.device)
-
+    net = DCN("discriminator", hidden_size=args.hidden_size, bottleneck_size=1).to(settings.device)
     loss = nn.BCELoss().to(settings.device)
-    # one = torch.tensor(1, dtype=torch.float, device=settings.device)
-    # mone = torch.tensor(-1, dtype=torch.float, device=settings.device)
-
-    optimizer_d = optim.Adam(
-        net_d.parameters(), lr=args.learning_rate_d, betas=(args.beta1, args.beta2)
-    )
+    optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
     if args.array_id:
-        net_d.load_state_dict(
-            torch.load(
-                args.root_path.joinpath("models").joinpath(checkpoint["net_d_path_name"]).as_posix()
-            )
-        )
+        net.load_state_dict(stats.load_model_state())
         write_graph = False
     else:
         write_graph = True
 
-    step = checkpoint.get("step", 0)
-    stats = Stats(step, engine)
     progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
 
     while True:
-        # num_seqs_processed = (stats.step * (args.d_iters * 3 + args.g_iters) * args.batch_size)
+        current_time = time.perf_counter()
 
+        if (current_time - stats.start_time) > args.runtime:
+            raise RuntimeExceededError(
+                f"Runtime exceeded! ({(current_time - stats.start_time)} > {args.runtime})"
+            )
         calculate_basic_statistics = (
             stats.validation_time_basic == 0
-            or (time.perf_counter() - stats.validation_time_basic) > args.time_between_checkpoints
+            or (current_time - stats.validation_time_basic) > args.time_between_checkpoints
         )
         calculate_extended_statistics = calculate_basic_statistics and (
             stats.validation_time_extended == 0
-            or (time.perf_counter() - stats.validation_time_extended)
+            or (current_time - stats.validation_time_extended)
             > args.time_between_extended_checkpoints
         )
 
         # === Train discriminator ===
-        logger.debug("Zeroing out the network...")
-        net_d.zero_grad()
+        net.zero_grad()
 
-        logger.debug("Generating batch...")
         pos_seq, neg_seq, adjs = generate_batch(
-            args, net_d, positive_rowgen, negative_ds_gen=negative_ds_gen
+            args, net, positive_rowgen, negative_ds_gen=negative_ds_gen
         )
 
-        # adjs = [[a.to_dense() for a in adj] for adj in adjs]
-
         # Pos
-        logger.debug("Training on +ive examples...")
-        pos_pred = net_d(pos_seq, adjs).sigmoid()
+        pos_pred = net(pos_seq, adjs).sigmoid()
         pos_target = torch.ones(pos_pred.shape, device=settings.device)
         pos_loss = loss(pos_pred, pos_target)
         pos_loss.backward()
 
         # Neg
-        logger.debug("Training on -ive examples...")
-        neg_pred = net_d(neg_seq, adjs).sigmoid()
+        neg_pred = net(neg_seq, adjs).sigmoid()
         neg_target = torch.zeros(neg_pred.shape, device=settings.device)
         neg_loss = loss(neg_pred, neg_target)
         neg_loss.backward()
 
-        optimizer_d.step()
+        optimizer.step()
 
         # === Calculate Statistics ===
+        if write_graph:
+            # adjs_dense = [[a.to_dense() for a in adj] for adj in adjs]
+            # torch.onnx.export(
+            #     net, (neg_seq, adjs_dense), args.root_path.joinpath("model.onnx").as_posix()
+            # )
+            write_graph = False
+
         if calculate_basic_statistics:
-            stats.pos_preds.append(to_numpy(pos_pred))
-            stats.neg_preds.append(to_numpy(neg_pred))
-            stats.pos_losses.append(to_numpy(pos_loss))
-            stats.neg_losses.append(to_numpy(neg_loss))
+            logger.debug("Calculating basic statistics...")
 
-            if write_graph:
-                # TODO: Uncomment when this works in tensorboardX
-                # torch.onnx.export(net_d, (pos_seq, adjs), "alexnet.onnx", verbose=True)
-                write_graph = False
+            stats.pos_preds.append(pos_pred.detach().numpy())
+            stats.neg_preds.append(neg_pred.detach().numpy())
+            stats.pos_losses.append(pos_loss.detach().numpy())
+            stats.neg_losses.append(neg_loss.detach().numpy())
 
-        # === Write Statistics ===
-        if calculate_basic_statistics:
-            resume_checkpoint = args.array_id and step == checkpoint.get("step")
-
-            # Basic statistics
-            with torch.no_grad(), eval_net(net_d):
+            with torch.no_grad(), eval_net(net):
                 stats.calculate_statistics_basic()
 
-                if calculate_extended_statistics:
-                    stats.calculate_statistics_extended(net_d, internal_validation_datasets)
+        if calculate_extended_statistics:
+            logger.debug("Calculating extended statistics...")
 
-            # Write to disk
-            if resume_checkpoint:
-                validate_checkpoint(checkpoint, stats.scores)
-            else:
-                stats.write_row()
-                write_checkpoint(args, stats, net_d)
-                if current_performance is not None:
-                    current_performance.update(stats.scores)
+            with torch.no_grad(), eval_net(net):
+                stats.calculate_statistics_extended(net, internal_validation_datasets)
+
+            stats.dump_model_state(net)
+
+        if calculate_basic_statistics or calculate_extended_statistics:
+            stats.write_row()
+            if current_performance is not None:
+                current_performance.update(stats.scores)
 
         stats.update()
         progressbar.update()
@@ -161,12 +148,10 @@ def main():
     torch.cuda.manual_seed(42 + args.array_id)
     random_state = np.random.RandomState(42)
 
-    # === Ststs ===
+    # === Stats ===
     db_path = args.root_path.joinpath("stats.db")
     engine = sa.create_engine(f"sqlite:///{db_path}")
-
-    # === Checkpoint ===
-    checkpoint = load_checkpoint(args)
+    stats = Stats(engine, args)
 
     # === Training Dataset ===
     logger.debug("Initializing training dataset...")
@@ -185,15 +170,15 @@ def main():
     try:
         train(
             args,
+            stats,
             positive_rowgen,
             negative_ds_gen,
             internal_validation_datasets,
-            engine,
-            checkpoint,
             current_performance=result,
         )
-    except KeyboardInterrupt:
-        pass
+    except (KeyboardInterrupt, RuntimeExceededError) as e:
+        logger.error("Training terminated with error: '%s'", e)
+
     result["time_elapsed"] = time.perf_counter() - start_time
 
     # === Output ===

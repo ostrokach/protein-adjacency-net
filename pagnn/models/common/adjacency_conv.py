@@ -68,7 +68,6 @@ class AdjacencyConvTranspose(nn.Module):
             if np.prod(adj[i].shape) == 0:
                 xd.zero_()
             else:
-
                 xd = self._conv(
                     xd, (adj[i].to_dense() if adj[i].layout == torch.sparse_coo else adj[i])
                 )

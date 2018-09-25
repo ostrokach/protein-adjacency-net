@@ -92,7 +92,6 @@ def _read_random_row_group(
         df = fn(df)
     df = df.reindex(random_state.permutation(df.index))
     assert not set(DataRow._fields) - set(df.columns)
-    logger.debug("Done reading row group %s", row_group_idx)
     return df
 
 
