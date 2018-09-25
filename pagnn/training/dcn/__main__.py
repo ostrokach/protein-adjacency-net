@@ -6,6 +6,9 @@ from .main import main
 sys.exit(main())
 
 # === Profiled ===
+# with torch.autograd.profiler.profile() as prof:
+#     main()
+# print(prof)
 # from memory_profiler import profile
 # from line_profiler import LineProfiler
 # lp = LineProfiler()
