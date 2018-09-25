@@ -133,15 +133,19 @@ def iter_datarows_shuffled(
     # weights = np.array(
     #     [pq.ParquetFile(f).scan_contents(columns=["__index_level_0__"]) for f in parquet_files]
     # )
-    weights = np.array([pq.ParquetFile(f).metadata.num_rows for f in parquet_files])
+
+    weights_list = []
+    generator_list = []
+    for parquet_file in parquet_files:
+        weight = pq.ParquetFile(parquet_file).metadata.num_rows
+        generator = iter_datarows(parquet_file, columns, filters, random_state)
+        weights_list.append(weight)
+        generator_list.append(generator)
+
+    weights = np.array(weights_list)
     weights = weights[:] / weights.sum()
 
-    generators = np.array(
-        [
-            iter_datarows(parquet_file, columns, filters, random_state)
-            for parquet_file in parquet_files
-        ]
-    )
+    generators = np.array(generator_list)
 
     while True:
         gen = random_state.choice(generators, p=weights)
@@ -158,14 +162,18 @@ def gen_datarows_shuffled(
     if random_state is None:
         random_state = np.random.RandomState()
 
-    weights = np.array([pq.ParquetFile(f).metadata.num_rows for f in parquet_files])
-    weights = weights[:] / weights.sum()
-
+    weights_list = []
     generator_list = []
     for parquet_file in parquet_files:
-        generator = gen_datarows(parquet_file, columns, filters, random_state)
+        weight = pq.ParquetFile(parquet_file).metadata.num_rows
+        generator = iter_datarows(parquet_file, columns, filters, random_state)
         next(generator)
+        weights_list.append(weight)
         generator_list.append(generator)
+
+    weights = np.array(weights_list)
+    weights = weights[:] / weights.sum()
+
     generators = np.array(generator_list)
 
     input_ = yield None
