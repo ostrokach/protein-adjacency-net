@@ -43,13 +43,13 @@ class Args(ArgsBase):
 
     #: Number of seconds between basic checkpoints (default = ``1m``).
     time_between_checkpoints: float = attr.ib(  # type: ignore
-        "30s", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+        "1m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
     #: Number of seconds between extended checkpoints (default = ``10m``).
     #: (where we evaluate performance on the validation datasets).
     time_between_extended_checkpoints: float = attr.ib(  # type: ignore
-        "2m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+        "10m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
     #: Number of seconds after which training should be terminated (default = `999d``).
