@@ -37,13 +37,8 @@ def iter_datarows(
     if random_state is None:
         random_state = np.random.RandomState()
 
-    parquet_file_obj = pq.ParquetFile(parquet_file)
-    column_renames = _get_column_renames(columns)
-
     while True:
-        df = _read_random_row_group(
-            parquet_file, parquet_file_obj, columns, column_renames, filters, random_state
-        )
+        df = _read_random_row_group(parquet_file, columns, filters, random_state)
         for row in df.itertuples():
             yield row
 
@@ -67,14 +62,9 @@ def gen_datarows(
     if random_state is None:
         random_state = np.random.RandomState()
 
-    parquet_file_obj = pq.ParquetFile(parquet_file)
-    column_renames = _get_column_renames(columns)
-
     fn = yield None
     while True:
-        df = _read_random_row_group(
-            parquet_file, parquet_file_obj, columns, column_renames, filters, random_state
-        )
+        df = _read_random_row_group(parquet_file, columns, filters, random_state)
         if fn is not None:
             df = fn(df)
         tup = next(df.itertuples()) if not df.empty else None
@@ -83,9 +73,7 @@ def gen_datarows(
 
 def _read_random_row_group(
     parquet_file: Path,
-    parquet_file_obj: pq.ParquetFile,
     columns: Union[dict, tuple],
-    column_renames: dict,
     filters: List[Callable],
     random_state: np.random.RandomState,
 ) -> pd.DataFrame:
@@ -93,17 +81,18 @@ def _read_random_row_group(
 
     TODO: Refactor this ugly function to take fewer arguments.
     """
+    column_renames = _get_column_renames(columns)
+    parquet_file_obj = pq.ParquetFile(parquet_file)
     row_group_idx = random_state.randint(parquet_file_obj.num_row_groups)
     logger.debug("Reading row group %s from parquet file '%s'.", row_group_idx, parquet_file)
-    df = (
-        parquet_file_obj.read_row_group(row_group_idx, columns=list(columns))
-        .to_pandas()
-        .rename(columns=column_renames)
-    )
+    table = parquet_file_obj.read_row_group(row_group_idx, columns=list(columns))
+    df = table.to_pandas()
+    df = df.rename(columns=column_renames)
     for fn in filters:
         df = fn(df)
     df = df.reindex(random_state.permutation(df.index))
     assert not set(DataRow._fields) - set(df.columns)
+    logger.debug("Done reading row group %s", row_group_idx)
     return df
 
 
