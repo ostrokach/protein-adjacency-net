@@ -41,8 +41,10 @@ def generate_batch(
     neg_seq_list = []
     adjs = []
     seq_len = 0
+    num_seqs = 0
     # TODO: 128 comes from the fact that we tested with sequences 64-256 AA in length
-    while seq_len < (args.batch_size * 128):
+    # while seq_len < (args.batch_size * 128):
+    while num_seqs < args.batch_size:
         pos_row = next(positive_rowgen)
         pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
         # Filter out bad datasets
@@ -64,6 +66,7 @@ def generate_batch(
             neg_dv = net.dataset_to_datavar(neg_ds)
             neg_seq_list.append(neg_dv.seqs)
         seq_len += pos_dv.seqs.shape[2]
+        num_seqs += 1
     pos_seq = Variable(torch.cat([s.data for s in pos_seq_list], 2))
     assert pos_seq.shape[2] == sum(adj[0].shape[1] for adj in adjs)
     if negative_ds_gen is not None:
@@ -72,6 +75,14 @@ def generate_batch(
     else:
         neg_seq = None
     return pos_seq, neg_seq, adjs
+
+
+def generate_noise(net_g, adjs):
+    num_aa_out = sum(adj[net_g.n_layers].shape[1] for adj in adjs)
+    noise_length = math.ceil(num_aa_out * net_g.bottleneck_features / 2048)
+    # noise = torch.cuda.FloatTensor(1, net_g.bottleneck_size, noise_length, device=settings.device)
+    noise = torch.empty(1, net_g.bottleneck_size, noise_length, device=settings.device)
+    return noise
 
 
 # === Generators ===
