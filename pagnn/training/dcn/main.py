@@ -115,8 +115,6 @@ def train(
             if write_graph:
                 # TODO: Uncomment when this works in tensorboardX
                 # torch.onnx.export(net_d, (pos_seq, adjs), "alexnet.onnx", verbose=True)
-                # writer.add_graph(net_d, (pos_seq, adjs, ), verbose=True)
-                # writer.add_graph(net_g, (noisev, adjs))
                 write_graph = False
 
         # === Write Statistics ===
@@ -134,10 +132,10 @@ def train(
             if resume_checkpoint:
                 validate_checkpoint(checkpoint, stats.scores)
             else:
-                stats.write()
+                stats.write_row()
                 write_checkpoint(args, stats, net_d)
                 if current_performance is not None:
-                    current_performance.update(writer.scalar_dict)
+                    current_performance.update(stats.scores)
 
         stats.update()
         progressbar.update()
@@ -196,8 +194,6 @@ def main():
         )
     except KeyboardInterrupt:
         pass
-    finally:
-        writer.close()
     result["time_elapsed"] = time.perf_counter() - start_time
 
     # === Output ===
