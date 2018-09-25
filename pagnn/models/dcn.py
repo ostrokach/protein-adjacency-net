@@ -239,7 +239,7 @@ class DCN(nn.Module):
             x = torch.cat([x[:, : x.shape[1] // 2, :], x_adj], 1)
             x = getattr(self, f"encoder_1_{i}")(x, i, adjs)
             x = getattr(self, f"encoder_post_{i}")(x)
-            logger.debug(f"{i}, {x.shape}")
+            logger.debug(f"Encoder layer: {i}, input shape: {x.shape}")
 
         if self.bottleneck_size > 0:
             pad_amount = padding_amount(x, 2048)  # 4 x 512
