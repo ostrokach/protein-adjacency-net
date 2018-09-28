@@ -101,12 +101,11 @@ build-py37:
     - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
     - conda index /opt/conda/conda-bld/
     # Run tests
-    - cd ${CI_PROJECT_DIR}/.ci/conda
+    - pushd ${CI_PROJECT_DIR}/.ci/conda
     - conda build .
       --test
       --python $PYTHON_VERSION
-    - pwd
-    - ls .ci/conda
+    - popd
     - mv .ci/conda/.coverage .coverage
   artifacts:
     paths:
