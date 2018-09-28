@@ -2,7 +2,6 @@ from typing import Sequence, Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 
 from pagnn.types import DataVarCollection
@@ -48,5 +47,5 @@ class Classifier(nn.Module):
             # x = x.squeeze()
             scores.append(x)
         scores = torch.cat(scores)
-        scores = F.sigmoid(scores)
+        scores = torch.sigmoid(scores)
         return scores
