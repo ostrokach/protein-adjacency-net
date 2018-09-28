@@ -191,8 +191,6 @@ train_network:
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
-  dependencies:
-    - create-conda-environment
 
 # === Pages ===
 
