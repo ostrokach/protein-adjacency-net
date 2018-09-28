@@ -165,7 +165,7 @@ def gen_datarows_shuffled(
     generator_list = []
     for parquet_file in parquet_files:
         weight = pq.ParquetFile(parquet_file).metadata.num_rows
-        generator = iter_datarows(parquet_file, columns, filters, random_state)
+        generator = gen_datarows(parquet_file, columns, filters, random_state)
         next(generator)
         weights_list.append(weight)
         generator_list.append(generator)
