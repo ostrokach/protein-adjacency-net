@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def read_md(file):
@@ -14,7 +14,7 @@ setup(
     author="Alexey Strokach",
     author_email="alex.strokach@utoronto.ca",
     url="https://gitlab.com/kimlab/pagnn",
-    packages=["pagnn"],
+    packages=find_packages(),
     package_data={},
     include_package_data=True,
     zip_safe=False,
