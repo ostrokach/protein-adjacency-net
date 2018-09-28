@@ -3,11 +3,12 @@ import attr
 from attr.validators import instance_of
 
 from pagnn import settings
-from pagnn.utils import ArgsBase, str_to_seconds
+from pagnn.utils import str_to_seconds
+from pagnn.training.utils import TrainingArgsBase
 
 
 @attr.s
-class Args(ArgsBase):
+class Args(TrainingArgsBase):
 
     # === Properties ===
 
