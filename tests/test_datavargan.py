@@ -59,7 +59,16 @@ def ds(request):
 
 def test_dataset_to_datavar_perf(benchmark, ds):
     with set_device("cpu"):
-        benchmark(dataset_to_datavar, ds)
+        benchmark(
+            dataset_to_datavar,
+            ds,
+            kernel_size=3,
+            stride=2,
+            padding=1,
+            n_convs=1,
+            remove_diags=None,
+            add_diags=None,
+        )
 
 
 def test_push_seq(benchmark):
@@ -100,8 +109,8 @@ def test_pool_adjacency_mat(benchmark, dims, density, kernel_size, stride, paddi
     shape = conv2d_shape(adj.shape, kernel_size, stride, padding)
 
     adj_pooled = pool_adjacency_mat_reference(
-        Variable(to_sparse_tensor(adj).to_dense()), kernel_size, stride, padding
-    )
+        to_sparse_tensor(adj).to_dense(), kernel_size, stride, padding
+    ).to("cpu")
     assert adj_pooled.shape[0] == shape[0]
 
     with set_device("cpu"):
@@ -135,8 +144,8 @@ def test_pool_adjacency_mat_forplot(benchmark, dims, density, kernel_size, strid
     shape = conv2d_shape(adj.shape, kernel_size, stride, padding)
 
     adj_pooled = pool_adjacency_mat_reference(
-        Variable(to_sparse_tensor(adj).to_dense()), kernel_size, stride, padding
-    )
+        to_sparse_tensor(adj).to_dense(), kernel_size, stride, padding
+    ).to("cpu")
     assert adj_pooled.shape[0] == shape[0]
 
     with set_device("cpu"):

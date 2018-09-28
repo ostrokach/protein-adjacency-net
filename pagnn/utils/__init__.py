@@ -36,7 +36,6 @@
    score_blosum62
    score_edit
    random_sequence
-   set_cuda
 
 .. autosummary::
     :caption: py_ops
