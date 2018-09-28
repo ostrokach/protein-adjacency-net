@@ -3,7 +3,6 @@ import random
 import numpy as np
 import pytest
 from scipy import sparse
-from torch.autograd import Variable
 
 from pagnn.datavargan import (
     conv2d_shape,
