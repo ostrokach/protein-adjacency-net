@@ -19,6 +19,9 @@ __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
 __version__ = '0.1.9'
 
+# See: https://github.com/apache/arrow/issues/2637
+import pyarrow  # noqa
+
 from . import settings, exc
 from .types import *
 from .gpu import init_gpu
