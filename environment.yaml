@@ -35,7 +35,7 @@ dependencies:
   # Spark
   - findspark
   # PyTorch
-  - pytorch::pytorch
+  - pytorch::pytorch >=0.4.1
   # KimLab
   - kmbio
   - kmtools
