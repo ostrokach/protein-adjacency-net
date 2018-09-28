@@ -3,8 +3,8 @@ import attr
 from attr.validators import instance_of
 
 from pagnn import settings
-from pagnn.utils import str_to_seconds
 from pagnn.training.utils import TrainingArgsBase
+from pagnn.utils import str_to_seconds
 
 
 @attr.s
