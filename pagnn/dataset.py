@@ -9,8 +9,8 @@ from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
 from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF
 
-MAX_TRIES = 1024
-MAX_TRIES_SEQLEN = 8192
+MAX_TRIES = 8192
+
 
 # === Positive training examples ===
 
@@ -56,7 +56,8 @@ def get_negative_example(
     """Find a valid negative control for a given `ds`.
 
     Raises:
-        MaxNumberOfTriesExceededError
+        - MaxNumberOfTriesExceededError
+        - SequenceTooLongError
     """
     if isinstance(method, str):
         method = Method(method)
@@ -76,10 +77,9 @@ def get_negative_example(
             adj_identity = 0
             break
         elif method == Method.EXACT:
-            n_tries_seqlen = 0
             row = None
-            while row is None and n_tries_seqlen < MAX_TRIES_SEQLEN:
-                n_tries_seqlen += 1
+            while row is None and n_tries < MAX_TRIES:
+                n_tries += 1
                 row = rowgen.send(
                     lambda df: df[df["sequence"].str.replace("-", "").str.len() == len(ds.seq)]
                 )
@@ -89,10 +89,9 @@ def get_negative_example(
                 )
             negative_ds = row_to_dataset(row, target=0)
         else:
-            n_tries_seqlen = 0
             row = None
-            while row is None and n_tries_seqlen < MAX_TRIES_SEQLEN:
-                n_tries_seqlen += 1
+            while row is None and n_tries < MAX_TRIES:
+                n_tries += 1
                 row = rowgen.send(
                     lambda df: df[df["sequence"].str.replace("-", "").str.len() >= len(ds.seq)]
                 )
