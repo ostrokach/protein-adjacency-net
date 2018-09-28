@@ -7,6 +7,7 @@ from attr.validators import instance_of
 from pagnn.utils import ArgsBase, str_to_path, str_to_path_opt
 
 
+@attr.s
 class TrainingArgsBase(ArgsBase):
     # === Paths ===
 
