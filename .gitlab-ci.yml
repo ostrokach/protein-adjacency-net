@@ -105,6 +105,8 @@ build-py37:
     - conda build .
       --test
       --python $PYTHON_VERSION
+    - pwd
+    - ls .ci/conda
     - mv .ci/conda/.coverage .coverage
   artifacts:
     paths:

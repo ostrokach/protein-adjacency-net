@@ -10,4 +10,7 @@ python -m pytest \
     tests/
 
 sed -i "s|${SP_DIR}||g" .coverage
+
+pwd
 mv .coverage "${RECIPE_DIR}/.coverage"
+ls "${RECIPE_DIR}/.coverage"
