@@ -184,7 +184,9 @@ def _get_internal_validation_dataset(
                 continue
             #
             ds = nsa.send(pos_ds)
-            assert ds is not None
+            if ds is None:
+                logger.debug("Skipping this sequence...")
+                continue
             dataset.append(ds)
             progressbar.update(1)
 
