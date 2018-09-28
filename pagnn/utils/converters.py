@@ -58,7 +58,9 @@ def str_to_seconds(duration: str) -> float:
     return str_to_timedelta(duration).total_seconds()
 
 
-def load_yaml(file: Union[str, Path]) -> Dict[str, Any]:
+def load_yaml(file: Any) -> Dict[str, Any]:
+    if not isinstance(file, (str, Path)):
+        return file
     with open(file, "rt") as fin:
         data = yaml.load(fin)
     return data
