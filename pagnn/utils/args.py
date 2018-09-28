@@ -51,7 +51,9 @@ class ArgsBase:
         data = dict()
         for attribute in self.__attrs_attrs__:  # type: ignore
             if attribute.type is Path:
-                value = getattr(self, attribute.name).as_posix()
+                value = getattr(self, attribute.name)
+                if value is not None:
+                    value = value.as_posix()
             else:
                 value = getattr(self, attribute.name)
             data[attribute.name] = value
