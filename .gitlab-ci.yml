@@ -124,6 +124,7 @@ test-py37:
     - build-py37
   variables:
     <<: [*py37]
+  allow_failure: true
 
 # === Docs ===
 
@@ -146,9 +147,9 @@ docs:
     - mv htmlcov public/
   coverage: /^TOTAL.* (\d+\%)/
   dependencies:
-    - build-py37
+    - build-py36
   variables:
-    <<: [*py37]
+    <<: [*py36]
   artifacts:
     paths:
       - public
