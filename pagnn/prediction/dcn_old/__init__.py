@@ -1,3 +1,3 @@
-"""Make predictions using a trained DCN network."""
-from .args import *
-from .main import *
+"""Make predictions using a trained network."""
+from .args import Args
+from .main import main, make_predictions
