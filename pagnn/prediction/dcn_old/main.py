@@ -1,5 +1,5 @@
 import logging
-from typing import Callable, Iterator, List
+from typing import Callable, Iterator, List, Optional
 
 import numpy as np
 import pandas as pd
@@ -33,10 +33,12 @@ def make_predictions(args: Args, datagen: Callable[[], Iterator[DataSet]]) -> np
     return outputs
 
 
-def main():
-    logging.basicConfig(format="%(message)s", level=logging.INFO)
+def main(args: Optional[Args] = None) -> pd.DataFrame:
 
-    args = Args.from_cli()
+    if args is None:
+        args = Args.from_cli()
+
+    logging.basicConfig(format="%(message)s", level=logging.INFO)
 
     pagnn.settings.device = torch.device("cpu")
 
@@ -49,5 +51,8 @@ def main():
     outputs = make_predictions(args, datagen)
     outputs_df = pd.DataFrame({"predictions": outputs}, index=range(len(outputs)))
 
-    table = pa.Table.from_pandas(outputs_df, preserve_index=False)
-    pq.write_table(table, args.output_file, version="2.0", flavor="spark")
+    if args.output_file is not None:
+        table = pa.Table.from_pandas(outputs_df, preserve_index=False)
+        pq.write_table(table, args.output_file, version="2.0", flavor="spark")
+
+    return outputs_df
