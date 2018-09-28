@@ -40,7 +40,7 @@ class Args(TrainingArgsBase):
     max_seq_length: int = attr.ib(2048, validator=instance_of(int))
 
     #: Number of negative sequences per batch.
-    batch_size: int = attr.ib(3, validator=instance_of(int))
+    batch_size: int = attr.ib(64, validator=instance_of(int))
 
     #: Number of seconds between basic checkpoints (default = ``1m``).
     time_between_checkpoints: float = attr.ib(  # type: ignore
