@@ -11,7 +11,7 @@ stages:
 variables:
   PROJECT_VERSION: "0.1"
   DOCS_SECRET_KEY: "SWKhaBJiG8O53MTcw97h1vRjVgimQCb4mzTIH4H8dD10vrb6NWOUantGWhqHMoY7"
-  CONDA_ENVIRONMENT_NAME: ci-${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}
+  CONDA_ENVIRONMENT_NAME: ci-${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}-${PYPROJECT_GIT_REV}
 
 .niagara-envs: &niagara-envs
   SBATCH_ARGS: "--account=def-pmkim"
@@ -76,7 +76,13 @@ create-conda-environment:
   stage: init
   <<: *cluster-tags
   script:
+    - if [[ -z ${PYPROJECT_GIT_REV} ]] ; then
+      echo "The PYPROJECT_GIT_REV must be set!"
+      exit -1
+      fi
     - conda env update -q -n ${CONDA_ENVIRONMENT_NAME} -f environment.yaml
+    - source activate ${CONDA_ENVIRONMENT_NAME}
+    - pip install -U git+https://gitlab.com/kimlab/pagnn.git@${PYPROJECT_GIT_REV}
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*create-conda-environment(,\s?.*)*\z/i
@@ -171,6 +177,23 @@ create-conda-environment:
     paths:
       - output
 
+# === User code ===
+
+.notebook: &notebook
+  <<: *cluster-tags
+  <<: [*sbatch-setup, *sbatch, *sbatch-teardown]
+
+train_network:
+  <<: *notebook
+  stage: notebooks-03
+  variables:
+    <<: *cluster-envs
+    NOTEBOOK_NAME: "03-run_hhblits"
+    HHBLITS_DATABASE_NAME: "uniprot20_2016_02"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 --array=1-10 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*run_hhblits-uniprot20_2016_02(,\s?.*)*\z/i
 
 # === Pages ===
 
