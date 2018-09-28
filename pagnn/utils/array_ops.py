@@ -4,14 +4,8 @@ import numpy as np
 import torch
 from numba import jit
 from scipy import sparse
-from torch.autograd import Variable
 
 from pagnn import settings
-
-
-def to_numpy(array: Variable) -> np.ndarray:
-    """Convert torch `Variable` into a numpy `ndarray`."""
-    return array.to(torch.device("cpu")).data.numpy()
 
 
 def to_tensor(array: np.ndarray) -> torch.FloatTensor:

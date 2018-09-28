@@ -8,13 +8,7 @@ from PIL import Image
 from sklearn import metrics
 from torch.autograd import Variable
 
-from pagnn.utils import (
-    argmax_onehot,
-    array_to_seq,
-    score_blosum62,
-    score_edit,
-    to_numpy,
-)
+from pagnn.utils import argmax_onehot, array_to_seq, score_blosum62, score_edit
 
 from .generators import evaluate_mutation_dataset, evaluate_validation_dataset, generate_noise
 
@@ -63,9 +57,9 @@ class Stats:
     def write(self):
         # === Network parameters ===
         # for name, param in net_g.named_parameters():
-        #     writer.add_histogram("net_g_" + name, to_numpy(param), self.step)
+        #     writer.add_histogram("net_g_" + name, param.numpy(), self.step)
         # for name, param in net_d.named_parameters():
-        #     writer.add_histogram("net_d_" + name, to_numpy(param), self.step)
+        #     writer.add_histogram("net_d_" + name, param.numpy(), self.step)
 
         training_data = [
             ("pos_preds", self.pos_preds),
@@ -199,5 +193,5 @@ class Stats:
                 self.edit_scores.append(score_edit(target, pred_argmax))
                 self.validation_sequences.append(seq_wt)
                 self.validation_gen_sequences.append(
-                    [array_to_seq(to_numpy(pred[i, :, start:stop])) for i in range(pred.shape[0])]
+                    [array_to_seq(pred[i, :, start:stop].numpy()) for i in range(pred.shape[0])]
                 )
