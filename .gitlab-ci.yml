@@ -128,7 +128,7 @@ test-py37:
 # === Docs ===
 
 docs:
-  stage: test
+  stage: documentation
   <<: [*configure]
   script:
     # Restore built packages
