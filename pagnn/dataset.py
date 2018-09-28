@@ -9,7 +9,7 @@ from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
 from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF
 
-MAX_TRIES = 8192
+MAX_TRIES = 256
 
 
 # === Positive training examples ===
