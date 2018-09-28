@@ -39,3 +39,9 @@ dependencies:
   # KimLab
   - kmbio
   - kmtools
+  # pagnn
+  - attrs
+  - click
+  - pyyaml
+  - tqdm
+
