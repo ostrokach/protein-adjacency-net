@@ -185,7 +185,7 @@ create-conda-environment:
 
 train_network:
   <<: *notebook
-  stage: notebooks-03
+  stage: notebooks-01
   variables:
     <<: *cluster-envs
     NOTEBOOK_NAME: "03-run_hhblits"
