@@ -10,4 +10,4 @@ python -m pytest \
     tests/
 
 sed -i "s|${SP_DIR}||g" .coverage
-mv .coverage "${PACKAGE_ROOT_DIR}/.coverage"
+mv .coverage "${RECIPE_DIR}/.coverage"

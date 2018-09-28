@@ -105,11 +105,10 @@ build-py37:
     - conda build .
       --test
       --python $PYTHON_VERSION
-  coverage: /^TOTAL.* (\d+\%)/
+    - mv .ci/conda/.coverage .coverage
   artifacts:
     paths:
-      - environment-py${PYTHON_VERSION/./}.yml
-      - .ci/conda/.coverage
+      - .coverage
 
 test-py36:
   <<: [*configure, *test]
@@ -148,6 +147,7 @@ docs:
   coverage: /^TOTAL.* (\d+\%)/
   dependencies:
     - build-py36
+    - test-py36
   variables:
     <<: [*py36]
   artifacts:
