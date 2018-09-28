@@ -119,7 +119,7 @@ def get_internal_validation_datasets(
             f"validation_gan_{method}_{args.validation_min_seq_identity}"
             f"_{args.validation_num_sequences}"
         )
-        cache_file = Path(__file__).resolve().parent.joinpath("data", datagen_name + ".pickle")
+        cache_file = args.validation_cache_path.joinpath(datagen_name + ".pickle")
         try:
             with cache_file.open("rb") as fin:
                 dataset = pickle.load(fin)
