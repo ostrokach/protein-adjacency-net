@@ -24,8 +24,10 @@ dependencies:
   - numpy
   - scipy
   - pandas
+  - numba
+  - pyarrow >=0.10
   - scikit-learn
-  - pyarrow
+  - sqlalchemy
   # Plotting
   - matplotlib
   - matplotlib-venn
