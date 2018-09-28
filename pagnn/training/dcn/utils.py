@@ -11,7 +11,6 @@ import torch.nn as nn
 import tqdm
 from torch.autograd import Variable
 
-import pagnn
 from pagnn import settings
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
@@ -27,7 +26,21 @@ from .args import Args
 
 logger = logging.getLogger(__name__)
 
+
 # === Training / Validation Batches ===
+
+
+def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
+    n_aa = len(ds.seqs[0])
+    if not (args.min_seq_length <= n_aa < args.max_seq_length):
+        logger.debug(f"Wrong sequence length: {n_aa}.")
+        return False
+    adj_nodiag = remove_eye_sparse(ds.adjs[0], 3)
+    n_interactions = adj_nodiag.nnz
+    if n_interactions == 0:
+        logger.debug(f"Too few interactions: {n_interactions}.")
+        return False
+    return True
 
 
 def generate_batch(
@@ -47,17 +60,8 @@ def generate_batch(
     while num_seqs < args.batch_size:
         pos_row = next(positive_rowgen)
         pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
-        # Filter out bad datasets
-        n_aa = len(pos_ds.seqs[0])
-        if not (args.min_seq_length <= n_aa < args.max_seq_length):
-            logger.debug(f"Skipping because wrong sequence length: {n_aa}.")
+        if not dataset_matches_spec(pos_ds, args):
             continue
-        adj_nodiag = pagnn.utils.remove_eye_sparse(pos_ds.adjs[0], 3)
-        n_interactions = adj_nodiag.nnz
-        if n_interactions <= 0:
-            logger.debug(f"Skipping because too few interactions: {n_interactions}.")
-            continue
-        # Continue
         pos_dv = net.dataset_to_datavar(pos_ds)
         pos_seq_list.append(pos_dv.seqs)
         adjs.append(pos_dv.adjs)
@@ -136,6 +140,7 @@ def get_internal_validation_datasets(
                 )
             random_state = np.random.RandomState(sum(ord(c) for c in method))
             dataset = _get_internal_validation_dataset(args, method, random_state)
+            cache_file.parent.mkdir(exist_ok=True)
             with cache_file.open("wb") as fout:
                 pickle.dump(dataset, fout, pickle.HIGHEST_PROTOCOL)
         internal_validation_datasets[datagen_name] = dataset
@@ -175,22 +180,13 @@ def _get_internal_validation_dataset(
         while len(dataset) < args.validation_num_sequences:
             pos_row = next(rowgen_pos)
             pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
-            # Filter out bad datasets
-            n_aa = len(pos_ds.seqs[0])
-            if not (args.min_seq_length <= n_aa < args.max_seq_length):
-                logger.debug(f"Skipping because wrong sequence length: {n_aa}.")
+            if not dataset_matches_spec(pos_ds, args):
                 continue
-            adj_nodiag = remove_eye_sparse(pos_ds.adjs[0], 3)
-            n_interactions = adj_nodiag.nnz
-            if n_interactions <= 0:
-                logger.debug(f"Skipping because too few interactions: {n_interactions}.")
-                continue
-            #
             ds = nsa.send(pos_ds)
-            assert ds is not None
+            if ds is None:
+                continue
             dataset.append(ds)
             progressbar.update(1)
-
     assert len(dataset) == args.validation_num_sequences
     return dataset
 
