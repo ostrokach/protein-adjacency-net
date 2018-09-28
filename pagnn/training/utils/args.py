@@ -3,9 +3,8 @@ from pathlib import Path
 
 import attr
 from attr.validators import instance_of
-from utils.converters import str_to_path, str_to_path_opt
 
-from pagnn.utils import ArgsBase
+from pagnn.utils import ArgsBase, str_to_path, str_to_path_opt
 
 
 class TrainingArgsBase(ArgsBase):
