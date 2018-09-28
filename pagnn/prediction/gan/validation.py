@@ -1,5 +1,3 @@
-import torch  # isort:skip
-
 import concurrent.futures
 import tempfile
 from collections import OrderedDict

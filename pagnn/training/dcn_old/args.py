@@ -7,7 +7,7 @@ from attr.validators import instance_of
 
 import pagnn
 from pagnn import settings
-from pagnn.utils import ArgsBase, str_to_path
+from pagnn.utils import ArgsBase
 
 
 @attr.s

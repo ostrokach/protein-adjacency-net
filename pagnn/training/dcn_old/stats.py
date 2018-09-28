@@ -4,7 +4,6 @@ from typing import List, Optional
 
 import numpy as np
 import scipy as sp
-from PIL import Image
 from sklearn import metrics
 from torch.autograd import Variable
 

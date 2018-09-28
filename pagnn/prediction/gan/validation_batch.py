@@ -1,4 +1,3 @@
-import torch  # isort:skip
 import concurrent.futures
 import math
 import os
