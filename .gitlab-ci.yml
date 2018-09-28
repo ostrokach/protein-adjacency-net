@@ -189,6 +189,7 @@ train_network:
   variables:
     <<: *cluster-envs
     NOTEBOOK_NAME: "03-train_network"
+    RUNTIME: 2.5h
     SBATCH_EXTRA_ARGS: "--time 3:00:00 --array=1-24%1 "
   only:
     variables:
