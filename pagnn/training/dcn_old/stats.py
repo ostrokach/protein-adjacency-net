@@ -7,9 +7,10 @@ import scipy as sp
 from sklearn import metrics
 from torch.autograd import Variable
 
+from pagnn.training.gan.utils import generate_noise
 from pagnn.utils import argmax_onehot, array_to_seq, score_blosum62, score_edit
 
-from .generators import evaluate_mutation_dataset, evaluate_validation_dataset
+from .evaluators import evaluate_mutation_dataset, evaluate_validation_dataset
 
 logger = logging.getLogger(__name__)
 
