@@ -128,9 +128,10 @@ def train(
         progressbar.update()
 
 
-def main():
+def main(args: Optional[Args] = None):
     # === Arguments ===
-    args = Args.from_cli()
+    if args is None:
+        args = Args.from_cli()
 
     logging_level = {0: logging.ERROR, 1: logging.INFO, 2: logging.DEBUG}[args.verbosity]
     logging.basicConfig(format="%(message)s", level=logging_level)
