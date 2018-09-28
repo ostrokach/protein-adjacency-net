@@ -55,7 +55,7 @@ class Stats(StatsBase):
 
         self.step = self._load_step()
 
-        self.info_id = self._write_info(args)
+        self.info_id = self._write_info(self.step, args)
 
         self.batch_size = args.batch_size
         self.root_path = args.root_path
@@ -98,13 +98,13 @@ class Stats(StatsBase):
             step = 0
         return step
 
-    def _write_info(self, args: Args) -> int:
+    def _write_info(self, step, args: Args) -> int:
         if self._engine.has_table("info"):
             sql_query = "select max(id) info_id from info"
             info_id = pd.read_sql_query(sql_query, self._engine).at[0, "info_id"]
         else:
             info_id = 0
-        info = {"id": info_id, **args.to_dict()}
+        info = {"id": info_id, "step": step, **args.to_dict()}
         df = pd.DataFrame(info, index=[0], columns=info.keys())
         df.to_sql("info", self._engine, if_exists="append", index=False)
         return info_id
