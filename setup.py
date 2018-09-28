@@ -14,7 +14,7 @@ setup(
     author="Alexey Strokach",
     author_email="alex.strokach@utoronto.ca",
     url="https://gitlab.com/kimlab/pagnn",
-    packages=find_packages,
+    packages=find_packages(),
     package_data={"pagnn.training": "data"},
     include_package_data=True,
     zip_safe=False,
