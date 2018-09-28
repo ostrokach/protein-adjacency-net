@@ -1,6 +1,5 @@
-import sqlalchemy as sa
-
 import pandas as pd
+import sqlalchemy as sa
 
 
 class Writer:
@@ -14,4 +13,3 @@ class Writer:
         else:
             step = 0
         return step
-

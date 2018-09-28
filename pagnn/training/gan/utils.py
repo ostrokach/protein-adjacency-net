@@ -15,7 +15,7 @@ import pagnn
 from pagnn import settings
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
-from pagnn.types import DataRow, DataSetGAN, RowGen, DataSetGenM
+from pagnn.types import DataRow, DataSetGAN, DataSetGenM, RowGen
 from pagnn.utils import (
     basic_permuted_sequence_adder,
     get_rowgen_mut,

@@ -210,4 +210,3 @@ class AESeqAdjAlternating(nn.Module):
             remove_diags=1 + self.kernel_size // 2,
             add_diags=1,
         )
-
