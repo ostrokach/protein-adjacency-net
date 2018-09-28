@@ -30,6 +30,10 @@ def arrays_mean(arrays: List[np.ndarray]) -> float:
     return np.hstack([ar.reshape(-1) for ar in arrays]).astype(np.float64).mean()
 
 
+def arrays_to_list(arrays: List[np.ndarray]) -> List[float]:
+    return np.hstack([ar.reshape(-1) for ar in arrays]).tolist()
+
+
 class Stats(StatsBase):
     step: int
     info_id: int
@@ -126,10 +130,10 @@ class Stats(StatsBase):
             # TODO: Histograms
             # TODO: PR curves
             # Raw data
-            "pos_preds": pickle_dump(self.pos_preds),
-            "neg_preds": pickle_dump(self.neg_preds),
-            "pos_losses": pickle_dump(self.pos_losses),
-            "neg_losses": pickle_dump(self.neg_losses),
+            "pos_preds": pickle_dump(arrays_to_list(self.pos_preds)),
+            "neg_preds": pickle_dump(arrays_to_list(self.neg_preds)),
+            "pos_losses": pickle_dump(arrays_to_list(self.pos_losses)),
+            "neg_losses": pickle_dump(arrays_to_list(self.neg_losses)),
         }
         return data
 
