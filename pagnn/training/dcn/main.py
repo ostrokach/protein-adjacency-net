@@ -141,17 +141,17 @@ def main():
     else:
         init_gpu(args.gpu)
 
-    # === Random Seed ===
-    random.seed(42 + args.array_id)
-    np.random.seed(42 + args.array_id)
-    torch.manual_seed(42 + args.array_id)
-    torch.cuda.manual_seed(42 + args.array_id)
-    random_state = np.random.RandomState(42)
-
     # === Stats ===
     db_path = args.root_path.joinpath("stats.db")
     engine = sa.create_engine(f"sqlite:///{db_path}")
     stats = Stats(engine, args)
+
+    # === Random Seed ===
+    random.seed(stats.step)
+    np.random.seed(stats.step)
+    torch.manual_seed(stats.step)
+    torch.cuda.manual_seed(stats.step)
+    random_state = np.random.RandomState(stats.step)
 
     # === Training Dataset ===
     logger.debug("Initializing training dataset...")
