@@ -3,7 +3,6 @@ from typing import List
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.autograd import Variable
 
 from pagnn import settings
@@ -26,7 +25,7 @@ class SingleDomainNet(nn.Module):
         x, idxs = (x / adjacency.sum(dim=0)).max(dim=2)
         x = self.combine_convs(x)
         x = x.squeeze()
-        return F.sigmoid(x)
+        return torch.sigmoid(x)
 
 
 class MultiDomainNet(nn.Module):
@@ -56,7 +55,7 @@ class MultiDomainNet(nn.Module):
         aa = self._contract(aai, adjs)
         # Aggregate by domain
         domain_scores = self._agg_by_domain(aa, adjs)
-        return F.sigmoid(domain_scores)
+        return torch.sigmoid(domain_scores)
 
     def _expand(self, aa: Variable, adjs: List[Variable]) -> Variable:
         aai_list = []
@@ -126,7 +125,7 @@ class MultiDomainNetNew(nn.Module):
 
         # Aggregate by domain
         domain_scores = self._agg_by_domain(aa, aa_in, adjs)
-        # domain_scores = F.sigmoid(domain_scores)
+        # domain_scores = torch.sigmoid(domain_scores)
         return domain_scores
 
     def _expand(self, aa: Variable, adjs: List[Variable]) -> Variable:
