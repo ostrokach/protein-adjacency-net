@@ -31,7 +31,8 @@ def make_predictions(args: Args, datagen: Callable[[], Iterator[DataSet]]) -> np
     return outputs
 
 
-def main(args: Optional[Args] = None):
+def main(args: Optional[Args] = None) -> pd.DataFrame:
+
     if args is None:
         args = Args.from_cli()
 
@@ -48,5 +49,8 @@ def main(args: Optional[Args] = None):
     outputs = make_predictions(args, datagen)
     outputs_df = pd.DataFrame({"predictions": outputs}, index=range(len(outputs)))
 
-    table = pa.Table.from_pandas(outputs_df, preserve_index=False)
-    pq.write_table(table, args.output_file, version="2.0", flavor="spark")
+    if args.output_file is not None:
+        table = pa.Table.from_pandas(outputs_df, preserve_index=False)
+        pq.write_table(table, args.output_file, version="2.0", flavor="spark")
+
+    return outputs_df
