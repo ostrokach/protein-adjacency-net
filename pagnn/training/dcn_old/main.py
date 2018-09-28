@@ -114,7 +114,7 @@ def train(
             # Training
             if outputs:
                 scores["training"] = metrics.roc_auc_score(
-                    pagnn.to_numpy(torch.cat(targets)), pagnn.to_numpy(torch.cat(outputs))
+                    torch.cat(targets).numpy(), torch.cat(outputs).numpy()
                 )
 
             # Validation
@@ -144,7 +144,7 @@ def train(
             else:
                 logger.debug("Saving checkpoint.")
                 for name, param in net.named_parameters():
-                    writer.add_histogram(name, pagnn.to_numpy(param), step)
+                    writer.add_histogram(name, param.numpy(), step)
 
                 for score_name, score_value in scores.items():
                     writer.add_scalar(score_name, score_value, step)
@@ -160,12 +160,9 @@ def train(
                     writer.add_scalar("sequences_per_second", sequences_per_second, step)
 
                 if outputs:
-                    writer.add_histogram("outputs", pagnn.to_numpy(torch.cat(outputs)), step)
+                    writer.add_histogram("outputs", torch.cat(outputs).numpy(), step)
                     writer.add_pr_curve(
-                        "Training",
-                        pagnn.to_numpy(torch.cat(targets)),
-                        pagnn.to_numpy(torch.cat(outputs)),
-                        step,
+                        "Training", torch.cat(targets).numpy(), torch.cat(outputs).numpy(), step
                     )
                 # writer.add_histogram('outputs_valid', outputs_valid, step)
                 # writer.add_pr_curve('Validation', targets_valid, outputs_valid, step)

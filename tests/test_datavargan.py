@@ -15,8 +15,7 @@ from pagnn.datavargan import (
     push_seqs,
 )
 from pagnn.types import DataSetGAN
-from pagnn.utils import AMINO_ACIDS, to_numpy, to_sparse_tensor
-
+from pagnn.utils import AMINO_ACIDS, set_device, to_sparse_tensor
 
 # === Fixtures ===
 
@@ -107,7 +106,7 @@ def test_pool_adjacency_mat(benchmark, dims, density, kernel_size, stride, paddi
     )
     assert adj_pooled.shape[0] == shape[0]
 
-    with no_cuda():
+    with set_device("cpu"):
         adj_pooled_ = benchmark.pedantic(
             pool_adjacency_mat,
             args=(adj, kernel_size, stride, padding),
@@ -117,7 +116,7 @@ def test_pool_adjacency_mat(benchmark, dims, density, kernel_size, stride, paddi
         )
     assert adj_pooled_.shape == shape
 
-    assert np.allclose(to_numpy(adj_pooled), adj_pooled_.todense())
+    assert np.allclose(adj_pooled.numpy(), adj_pooled_.todense())
 
 
 @pytest.mark.parametrize(
@@ -142,7 +141,7 @@ def test_pool_adjacency_mat_forplot(benchmark, dims, density, kernel_size, strid
     )
     assert adj_pooled.shape[0] == shape[0]
 
-    with no_cuda():
+    with set_device("cpu"):
         adj_pooled_ = benchmark.pedantic(
             pool_adjacency_mat,
             args=(adj, kernel_size, stride, padding),
@@ -152,4 +151,4 @@ def test_pool_adjacency_mat_forplot(benchmark, dims, density, kernel_size, strid
         )
     assert adj_pooled.shape[0] == shape[0]
 
-    assert np.allclose(to_numpy(adj_pooled), adj_pooled_.todense())
+    assert np.allclose(adj_pooled.numpy(), adj_pooled_.todense())

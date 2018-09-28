@@ -17,7 +17,6 @@ from pagnn.utils import (
     eval_net,
     freeze_net,
     load_checkpoint,
-    to_numpy,
     unfreeze_net,
     validate_checkpoint,
     write_checkpoint,
@@ -136,12 +135,12 @@ def train(
 
             # Update stats
             if calculate_basic_statistics:
-                stats.pos_preds.append(to_numpy(pos_pred))
-                stats.neg_preds.append(to_numpy(neg_pred))
-                stats.fake_preds.append(to_numpy(fake_pred))
-                stats.pos_losses.append(to_numpy(pos_loss))
-                stats.neg_losses.append(to_numpy(neg_loss))
-                stats.fake_losses.append(to_numpy(fake_loss))
+                stats.pos_preds.append(pos_pred.detach().numpy())
+                stats.neg_preds.append(neg_pred.detach().numpy())
+                stats.fake_preds.append(fake_pred.detach().numpy())
+                stats.pos_losses.append(pos_loss.detach().numpy())
+                stats.neg_losses.append(neg_loss.detach().numpy())
+                stats.fake_losses.append(fake_loss.detach().numpy())
 
                 if write_graph:
                     # TODO: Uncomment when this works in tensorboardX
@@ -168,8 +167,8 @@ def train(
 
             # Update stats
             if calculate_basic_statistics:
-                stats.gen_preds.append(to_numpy(gen_pred))
-                stats.gen_losses.append(to_numpy(gen_loss))
+                stats.gen_preds.append(gen_pred.detach().numpy())
+                stats.gen_losses.append(gen_loss.detach().numpy())
 
         # === Write Statistics ===
         if calculate_basic_statistics:
