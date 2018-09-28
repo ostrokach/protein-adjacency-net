@@ -188,12 +188,13 @@ train_network:
   stage: notebooks-01
   variables:
     <<: *cluster-envs
-    NOTEBOOK_NAME: "03-run_hhblits"
-    HHBLITS_DATABASE_NAME: "uniprot20_2016_02"
-    SBATCH_EXTRA_ARGS: "--time 3:00:00 --array=1-10 "
+    NOTEBOOK_NAME: "03-train_network"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 --array=1-24%1 "
   only:
     variables:
-      - $JOBS_TO_RUN =~ /\A(.*,\s?)*run_hhblits-uniprot20_2016_02(,\s?.*)*\z/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
+  dependencies:
+    - create-conda-environment
 
 # === Pages ===
 
