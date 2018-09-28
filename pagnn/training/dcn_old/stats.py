@@ -9,7 +9,7 @@ from torch.autograd import Variable
 
 from pagnn.utils import argmax_onehot, array_to_seq, score_blosum62, score_edit
 
-from .generators import evaluate_mutation_dataset, evaluate_validation_dataset, generate_noise
+from .generators import evaluate_mutation_dataset, evaluate_validation_dataset
 
 logger = logging.getLogger(__name__)
 

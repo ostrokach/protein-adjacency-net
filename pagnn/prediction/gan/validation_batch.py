@@ -19,8 +19,8 @@ import pagnn
 from pagnn import settings
 from pagnn.prediction.gan import Args
 from pagnn.training.gan import Args as ArgsTraining
+from pagnn.training.gan.utils import generate_noise
 from pagnn.types import DataSetGAN
-from pagnn.utils import generate_noise
 
 settings.device = torch.device("cpu")
 
