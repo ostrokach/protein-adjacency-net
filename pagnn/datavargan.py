@@ -131,13 +131,15 @@ def push_seqs(seqs: List[bytes]) -> Variable:
     seqs = [seq_to_array(seq) for seq in seqs]
     seqs = [to_sparse_tensor(seq) for seq in seqs]
     seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]  # type: ignore
-    seq_var = Variable(torch.cat(seqs))
-    return seq_var
+    seqs = torch.cat(seqs)
+    return seqs
 
 
 def push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
-    return [Variable(to_sparse_tensor(expand_adjacency(adj))) for adj in adjs]
+    adjs = [expand_adjacency(adj) for adj in adjs]
+    adjs = [to_sparse_tensor(adj) for adj in adjs]
+    return adjs
 
 
 def gen_adj_pool(

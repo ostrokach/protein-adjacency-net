@@ -71,10 +71,10 @@ def generate_batch(
             neg_seq_list.append(neg_dv.seqs)
         seq_len += pos_dv.seqs.shape[2]
         num_seqs += 1
-    pos_seq = Variable(torch.cat([s.data for s in pos_seq_list], 2))
+    pos_seq = torch.cat([s.data for s in pos_seq_list], 2)
     assert pos_seq.shape[2] == sum(adj[0].shape[1] for adj in adjs)
     if negative_ds_gen is not None:
-        neg_seq = Variable(torch.cat([s.data for s in neg_seq_list], 2))
+        neg_seq = torch.cat([s.data for s in neg_seq_list], 2)
         assert neg_seq.shape[2] == sum(adj[0].shape[1] for adj in adjs)
     else:
         neg_seq = None
