@@ -10,8 +10,26 @@ logger = logging.getLogger(__name__)
 # Warning: Do not change the order of amino acids without chaning the order of
 # `AMINO_ACIDS_BYTES` in `_seq_to_array`!
 AMINO_ACIDS: List[str] = [
-    'G', 'V', 'A', 'L', 'I', 'C', 'M', 'F', 'W', 'P', 'D', 'E', 'S', 'T', 'Y', 'Q', 'N', 'K', 'R',
-    'H'
+    "G",
+    "V",
+    "A",
+    "L",
+    "I",
+    "C",
+    "M",
+    "F",
+    "W",
+    "P",
+    "D",
+    "E",
+    "S",
+    "T",
+    "Y",
+    "Q",
+    "N",
+    "K",
+    "R",
+    "H",
 ]
 
 
@@ -26,15 +44,14 @@ def seq_to_array(seq: bytes):
     """
     x_idxs, y_idxs, data = _seq_to_array(seq)
     seq_matrix = sparse.coo_matrix(
-        (np.array(data), (np.array(x_idxs), np.array(y_idxs))),
-        dtype=np.int16,
-        shape=(20, len(seq)))
+        (np.array(data), (np.array(x_idxs), np.array(y_idxs))), dtype=np.int16, shape=(20, len(seq))
+    )
     return seq_matrix
 
 
 def array_to_seq(array: np.ndarray) -> str:
     max_idxs = np.argmax(array, 0)
-    seq = ''.join(AMINO_ACIDS[i] for i in max_idxs)
+    seq = "".join(AMINO_ACIDS[i] for i in max_idxs)
     return seq
 
 
@@ -70,8 +87,9 @@ def _seq_to_array(seq: bytes) -> sparse.spmatrix:
     return x_idxs, y_idxs, data
 
 
-def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
-                  adjacency_idx_2: np.array) -> sparse.spmatrix:
+def get_adjacency(
+    seq_len: int, adjacency_idx_1: np.array, adjacency_idx_2: np.array
+) -> sparse.spmatrix:
     """Construct an adjacency matrix from the data available for each row in the DataFrame.
 
     Args:
@@ -82,7 +100,7 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
     Returns:
         An adjacency matrix for the given sequence `qseq`.
     """
-    na_mask = (np.isnan(adjacency_idx_1) | np.isnan(adjacency_idx_2))
+    na_mask = np.isnan(adjacency_idx_1) | np.isnan(adjacency_idx_2)
     if na_mask.any():
         logger.debug("Removing %s null indices.", na_mask.sum())
         adjacency_idx_1 = np.array(adjacency_idx_1[~na_mask], dtype=np.int_)
@@ -108,7 +126,8 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
     adj = sparse.coo_matrix(
         (np.ones(len(adjacency_idx_1)), (adjacency_idx_1, adjacency_idx_2)),
         shape=(seq_len, seq_len),
-        dtype=np.int16)
+        dtype=np.int16,
+    )
 
     # Make sure that the matrix is symetrical
     idx1 = {(r, c) for r, c in zip(adj.row, adj.col)}
@@ -135,15 +154,14 @@ def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
         >>> expanded_adj.col
         array([0, 1, 2, 0, 1, 2], dtype=int32)
     """
-    row_idx = np.arange(0, len(adj.row) * 2, 2)
-    col_idx = np.arange(1, len(adj.col) * 2, 2)
     new_adj = sparse.coo_matrix(
         (
             np.ones(len(adj.row) + len(adj.col)),
-            (np.r_[row_idx, col_idx], np.r_[adj.row, adj.col]),
+            (np.r_[0 : len(adj.row) * 2 : 2, 1 : len(adj.col) * 2 : 2], np.r_[adj.row, adj.col]),
         ),
         dtype=np.int16,
-        shape=(len(adj.data) * 2, adj.shape[0]))
+        shape=(len(adj.data) * 2, adj.shape[0]),
+    )
     assert (new_adj.sum(axis=1) == 1).all(), new_adj
     return new_adj
     # idx = 0
@@ -183,9 +201,7 @@ def get_adj_identity(adj: sparse.spmatrix, other_adj: sparse.spmatrix, min_dista
     """
     adj_contacts = {tuple(x) for x in zip(adj.row, adj.col) if abs(x[0] - x[1]) >= min_distance}
     other_adj_contacts = {
-        tuple(x)
-        for x in zip(other_adj.row, other_adj.col)
-        if abs(x[0] - x[1]) >= min_distance
+        tuple(x) for x in zip(other_adj.row, other_adj.col) if abs(x[0] - x[1]) >= min_distance
     }
     if len(adj_contacts) == 0 or len(other_adj_contacts) == 0:
         return 0
