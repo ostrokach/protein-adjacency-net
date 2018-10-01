@@ -120,6 +120,13 @@ class Stats(StatsBase):
             "sequence_number": self.step * self.batch_size,
             # Scores
             **self.scores,
+            "training_pos-auc": metrics.roc_auc_score(
+                np.hstack(
+                    [np.ones(ar.size) for ar in self.pos_preds]
+                    + [np.zeros(ar.size) for ar in self.neg_preds]
+                ),
+                np.hstack([ar.reshape(-1) for ar in (self.pos_preds + self.neg_preds)]),
+            ),
             # Aggregate statistics
             "pos_preds-mean": arrays_mean(self.pos_preds),
             "neg_preds-mean": arrays_mean(self.neg_preds),
@@ -146,16 +153,6 @@ class Stats(StatsBase):
     def calculate_statistics_basic(self, _prev_stats={}):
         self.basic = True
         self.validation_time_basic = time.perf_counter()
-
-        # Pos AUC
-        if self.pos_preds and self.neg_preds:
-            training_pos_pred = np.hstack([ar.mean() for ar in (self.pos_preds + self.neg_preds)])
-            training_pos_target = np.hstack(
-                [np.ones(1) for _ in self.pos_preds] + [np.zeros(1) for _ in self.neg_preds]
-            )
-            self.scores["training_pos-auc"] = metrics.roc_auc_score(
-                training_pos_target, training_pos_pred
-            )
 
         # Runtime
         prev_validation_time = _prev_stats.get("validation_time")
