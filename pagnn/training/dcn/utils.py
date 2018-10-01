@@ -9,7 +9,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import tqdm
-from torch.autograd import Variable
 
 from pagnn import settings
 from pagnn.dataset import dataset_to_gan, row_to_dataset
