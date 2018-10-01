@@ -79,7 +79,8 @@ create-conda-environment:
   script:
     - conda env update -q -n ${CONDA_ENVIRONMENT_NAME} -f environment.yaml
     - source activate ${CONDA_ENVIRONMENT_NAME}
-    - conda update -yq -c conda-forge pip
+    - pip install jupyter_contrib_nbextensions
+    - jupyter contrib nbextension install --sys-prefix
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@${PYPROJECT_GIT_REV}
   only:
     variables:

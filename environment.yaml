@@ -17,7 +17,7 @@ dependencies:
   - ipython
   # Jupyter
   - jupyter
-  - jupyter_contrib_nbextensions
+  # - conda-forge::jupyter_contrib_nbextensions
   - isort
   - psutil
   # Scientific Python
