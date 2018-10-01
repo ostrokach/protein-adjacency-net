@@ -137,8 +137,8 @@ docs:
     - conda index /opt/conda/conda-bld/
     # Install required packages
     - conda install -yq --use-local "python=$PYTHON_VERSION" $CI_PROJECT_NAME
-    - conda install -yq ipython ipykernel pandoc
-    - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx coverage nbconvert
+    - conda install -yq ipython ipykernel pandoc nbconvert 'testpath<0.4'
+    - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx coverage
     # Build docs
     - sphinx-build ${CI_PROJECT_DIR}/docs public
     # Coverage
