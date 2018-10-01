@@ -17,7 +17,7 @@ dependencies:
   - ipython
   # Jupyter
   - jupyter
-  # - conda-forge::jupyter_contrib_nbextensions
+  - conda-forge::jupyter_contrib_nbextensions
   - isort
   - psutil
   # Scientific Python
@@ -44,4 +44,5 @@ dependencies:
   - click
   - pyyaml
   - tqdm
-
+  # See: https://github.com/conda-forge/testpath-feedstock/issues/7
+  - testpath <0.4
