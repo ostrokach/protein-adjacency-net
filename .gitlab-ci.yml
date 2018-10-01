@@ -138,6 +138,7 @@ docs:
     # Install required packages
     - conda install -yq --use-local "python=$PYTHON_VERSION" $CI_PROJECT_NAME
     - conda install -yq nbconvert ipython ipykernel pandoc
+    - conda update -yq pip
     - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx coverage
     # Build docs
     - sphinx-build ${CI_PROJECT_DIR}/docs public
