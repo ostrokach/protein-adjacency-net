@@ -8,7 +8,6 @@
    conv1d_shape
    conv1d_shape_ceil
    conv2d_shape
-   to_tensor
    to_sparse_tensor
    reshape_internal_dim
    unfold_to
@@ -57,7 +56,6 @@ from .array_ops import (
     remove_eye_sparse,
     reshape_internal_dim,
     to_sparse_tensor,
-    to_tensor,
     unfold_from,
     unfold_to,
 )
