@@ -200,7 +200,9 @@ def conv2d_mapping(length, kernel_size, stride, padding):
 def pool_adjacency_mat_reference(adj: Variable, kernel_size=4, stride=2, padding=1) -> Variable:
     """Pool and downsample the adjacency matrix `adj` (reference implementation).
     """
-    conv_filter = Variable(torch.ones(1, 1, kernel_size, kernel_size)).to(settings.device)
+    conv_filter = torch.ones(
+        1, 1, kernel_size, kernel_size, device=settings.device, requires_grad=True
+    )
     adj_conv = F.conv2d(adj.unsqueeze(0).unsqueeze(0), conv_filter, stride=stride, padding=padding)
     adj_conv_bool = (adj_conv != 0).float()
     return adj_conv_bool.squeeze()
