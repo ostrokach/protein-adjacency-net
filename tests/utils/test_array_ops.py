@@ -6,13 +6,12 @@ from scipy import sparse
 
 from pagnn.utils.array_ops import (
     add_eye_sparse,
-    argmax_onehot,
     remove_eye,
     remove_eye_sparse,
     unfold_from,
     unfold_to,
 )
-from pagnn.utils.testing import random_sequence, set_device
+from pagnn.utils.testing import random_sequence
 
 
 @pytest.fixture(
@@ -30,12 +29,6 @@ def seq(request):
             seq[i, idx, j] = 1
     assert seq.is_cuda == request.param
     return seq
-
-
-def test_argmax_onehot(benchmark, seq):
-    with set_device("cuda" if seq.is_cuda else "cpu"):
-        seq_onehot = benchmark(argmax_onehot, seq)
-    assert (seq == seq_onehot).all()
 
 
 def test_unfold():
