@@ -3,8 +3,8 @@ import pytest
 import torch
 
 from pagnn import settings
-from pagnn.utils.array_ops import argmax_onehot
 from pagnn.utils.scoring import score_blosum62, score_edit
+from pagnn.utils.tensor_ops import argmax_onehot
 from pagnn.utils.testing import set_device
 
 # from pagnn.utils.dataset_ops import AMINO_ACIDS

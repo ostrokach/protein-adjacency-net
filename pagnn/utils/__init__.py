@@ -47,7 +47,6 @@
 # No interdependencies
 from .array_ops import (
     add_eye_sparse,
-    argmax_onehot,
     conv1d_shape,
     conv1d_shape_ceil,
     conv2d_shape,
@@ -55,7 +54,6 @@ from .array_ops import (
     remove_eye,
     remove_eye_sparse,
     reshape_internal_dim,
-    to_sparse_tensor,
     unfold_from,
     unfold_to,
 )
@@ -70,6 +68,10 @@ from .dataset_ops import (
     seq_to_array,
 )
 from .stats import StatsBase
+from .tensor_ops import (
+    argmax_onehot,
+    to_sparse_tensor,
+)
 from .interpolation import interpolate_adjacencies, interpolate_sequences
 from .iter_ops import iter_forever, iter_submodules
 from .network_ops import eval_net, freeze_adj_conv, freeze_net, unfreeze_adj_conv, unfreeze_net
