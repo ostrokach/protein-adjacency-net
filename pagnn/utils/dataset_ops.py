@@ -44,12 +44,9 @@ def seq_to_array(seq: bytes) -> torch.sparse.FloatTensor:
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
     x_idxs, y_idxs, data = _seq_to_array(seq)
-    seq_matrix = torch.sparse_coo_tensor(
-        (np.array(x_idxs), np.array(y_idxs)),
-        np.array(data),
-        dtype=torch.float32,
-        size=(20, len(seq)),
-    )
+    indices = torch.tensor([x_idxs, y_idxs])
+    values = torch.tensor(data, dtype=torch.float32)
+    seq_matrix = torch.sparse_coo_tensor(indices, values, size=(20, len(seq)))
     return seq_matrix
 
 
@@ -168,12 +165,24 @@ def expand_adjacency(adj: sparse.spmatrix) -> torch.sparse.FloatTensor:
     #     shape=(len(adj.data) * 2, adj.shape[0]),
     # )
     # assert (new_adj.sum(axis=1) == 1).all(), new_adj
-    new_adj = torch.sparse_coo_tensor(
-        (np.r_[0 : len(adj.row) * 2 : 2, 1 : len(adj.col) * 2 : 2], np.r_[adj.row, adj.col]),
-        np.ones(len(adj.row) + len(adj.col)),
-        size=(len(adj.data) * 2, adj.shape[0]),
-        dtype=torch.float,
+
+    # (np.r_[0 : len(adj.row) * 2 : 2, 1 : len(adj.col) * 2 : 2], np.r_[adj.row, adj.col]),
+
+    indices_row = torch.cat(
+        [
+            torch.arange(0, len(adj.row) * 2, 2, dtype=torch.long),
+            torch.arange(1, max(1, len(adj.col) * 2), 2, dtype=torch.long),
+        ]
     )
+    # indices_col = adj._indices()
+    indices_col = torch.cat(
+        [torch.as_tensor(adj.row, dtype=torch.long), torch.as_tensor(adj.col, dtype=torch.long)]
+    )
+    indices = torch.stack([indices_row, indices_col])
+    values = torch.ones(len(adj.row) + len(adj.col), dtype=torch.float)
+    size = (len(adj.data) * 2, adj.shape[0])
+    new_adj = torch.sparse_coo_tensor(indices, values, size=size)
+
     # TODO: Remove computationally-intensive assert
     # assert (new_adj.to_dense().sum(1) == 1).all()
     return new_adj
