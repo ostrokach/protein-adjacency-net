@@ -44,17 +44,16 @@ def dataset_to_datavar(
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
     # ds = pad_edges(ds, offset=offset)
     seqs = push_seqs(ds.seqs)
-    adjs = push_adjs(
-        gen_adj_pool(
-            ds.adjs[0],
-            n_convs=n_convs,
-            kernel_size=kernel_size,
-            stride=stride,
-            padding=padding,
-            remove_diags=remove_diags,
-            add_diags=add_diags,
-        )
+    adj_pool = gen_adj_pool(
+        ds.adjs[0],
+        n_convs=n_convs,
+        kernel_size=kernel_size,
+        stride=stride,
+        padding=padding,
+        remove_diags=remove_diags,
+        add_diags=add_diags,
     )
+    adjs = push_adjs(adj_pool)
     return DataVarGAN(seqs, adjs)
 
 
@@ -128,17 +127,16 @@ def _pad_edges_longer(
 
 def push_seqs(seqs: List[bytes]) -> Variable:
     """Convert a list of `DataSetGAN` sequences into a `Variable`."""
-    seqs = [seq_to_array(seq) for seq in seqs]
-    seqs = [to_sparse_tensor(seq) for seq in seqs]
-    seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]  # type: ignore
+    seqs = [seq_to_array(seq).to(settings.device) for seq in seqs]
+    seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]
     seqs = torch.cat(seqs)
     return seqs
 
 
 def push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
-    adjs = [expand_adjacency(adj) for adj in adjs]
-    adjs = [to_sparse_tensor(adj) for adj in adjs]
+    adjs = [expand_adjacency(adj).to(settings.device) for adj in adjs]
+    adjs = [adj.to_dense() for adj in adjs]
     return adjs
 
 
