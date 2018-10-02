@@ -3,10 +3,11 @@ import logging
 from typing import Tuple
 
 import numpy as np
+import torch
 from torch.autograd import Variable
 
 from pagnn.types import DataSet, DataSetCollection, DataVar, DataVarCollection
-from pagnn.utils import expand_adjacency, seq_to_array, to_sparse_tensor, to_tensor
+from pagnn.utils import expand_adjacency, seq_to_array, to_sparse_tensor
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,9 @@ def dataset_to_datavar(ds: DataSet, push_seq=True, push_adj=True) -> DataVar:
     return DataVar(seq, adj)
 
 
-def push_dataset_collection(dsc: DataSetCollection, push_seq=True,
-                            push_adj=True) -> Tuple[DataVarCollection, Variable]:
+def push_dataset_collection(
+    dsc: DataSetCollection, push_seq=True, push_adj=True
+) -> Tuple[DataVarCollection, Variable]:
     """Convert a `DataSetCollection` into a `DataVarCollection`."""
     pos_ds, neg_ds = dsc
     pos = [dataset_to_datavar(ds) for ds in pos_ds]
@@ -41,4 +43,4 @@ def push_dataset_collection(dsc: DataSetCollection, push_seq=True,
     if push_adj:
         targets += [ds.target for ds in neg_ds if ds.adj is not None and ds.adj.nnz > 0]
     targets = np.array(targets).astype(np.float64)
-    return (pos, neg), Variable(to_tensor(targets).unsqueeze(1))
+    return (pos, neg), torch.from_numpy(targets).unsqueeze(1)

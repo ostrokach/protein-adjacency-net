@@ -8,12 +8,6 @@ from scipy import sparse
 from pagnn import settings
 
 
-def to_tensor(array: np.ndarray) -> torch.FloatTensor:
-    """Convert a numpy `ndarray` into a torch tensor (possibly on CUDA)."""
-    tensor = torch.from_numpy(array).to(settings.device)
-    return tensor
-
-
 def to_sparse_tensor(sparray: sparse.spmatrix) -> torch.sparse.FloatTensor:
     """Convert a scipy `spmatrix` into a torch sparse tensor (possibly on CUDA)."""
     if sparray.nnz == 0:
