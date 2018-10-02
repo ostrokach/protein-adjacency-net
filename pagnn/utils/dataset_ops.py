@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 import numpy as np
+import torch
 from numba import jit
 from scipy import sparse
 
@@ -33,7 +34,7 @@ AMINO_ACIDS: List[str] = [
 ]
 
 
-def seq_to_array(seq: bytes):
+def seq_to_array(seq: bytes) -> torch.sparse.FloatTensor:
     """Convert amino acid sequence into a one-hot encoded array.
 
     Args:
@@ -43,8 +44,11 @@ def seq_to_array(seq: bytes):
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
     x_idxs, y_idxs, data = _seq_to_array(seq)
-    seq_matrix = sparse.coo_matrix(
-        (np.array(data), (np.array(x_idxs), np.array(y_idxs))), dtype=np.int16, shape=(20, len(seq))
+    seq_matrix = torch.sparse_coo_tensor(
+        (np.array(x_idxs), np.array(y_idxs)),
+        np.array(data),
+        dtype=torch.float32,
+        size=(20, len(seq)),
     )
     return seq_matrix
 
@@ -136,7 +140,7 @@ def get_adjacency(
     return adj
 
 
-def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
+def expand_adjacency(adj: sparse.spmatrix) -> torch.sparse.FloatTensor:
     """Convert adjacency matrix into a strided mask.
 
     Args:
@@ -154,15 +158,24 @@ def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
         >>> expanded_adj.col
         array([0, 1, 2, 0, 1, 2], dtype=int32)
     """
-    new_adj = sparse.coo_matrix(
-        (
-            np.ones(len(adj.row) + len(adj.col)),
-            (np.r_[0 : len(adj.row) * 2 : 2, 1 : len(adj.col) * 2 : 2], np.r_[adj.row, adj.col]),
-        ),
-        dtype=np.int16,
-        shape=(len(adj.data) * 2, adj.shape[0]),
+    # # Return scipy sparse array
+    # row_idx = np.arange(0, len(adj.row) * 2, 2)
+    # col_idx = np.arange(1, len(adj.col) * 2, 2)
+    # new_adj = sparse.coo_matrix(
+    #     (np.ones(len(adj.row) + len(adj.col)),
+    #     (np.r_[row_idx, col_idx], np.r_[adj.row, adj.col])),
+    #     dtype=np.float32,
+    #     shape=(len(adj.data) * 2, adj.shape[0]),
+    # )
+    # assert (new_adj.sum(axis=1) == 1).all(), new_adj
+    new_adj = torch.sparse_coo_tensor(
+        (np.r_[0 : len(adj.row) * 2 : 2, 1 : len(adj.col) * 2 : 2], np.r_[adj.row, adj.col]),
+        np.ones(len(adj.row) + len(adj.col)),
+        size=(len(adj.data) * 2, adj.shape[0]),
+        dtype=torch.float,
     )
-    assert (new_adj.sum(axis=1) == 1).all(), new_adj
+    # TODO: Remove computationally-intensive assert
+    # assert (new_adj.to_dense().sum(1) == 1).all()
     return new_adj
     # idx = 0
     # for x, y in zip(*adj.nonzero()):
