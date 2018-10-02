@@ -3,7 +3,6 @@
 Training and validation data are stored in *Parquet* files.
 """
 import logging
-import multiprocessing
 from pathlib import Path
 from typing import Callable, List, Optional, Union
 
@@ -15,7 +14,6 @@ from pagnn.types import DataRow, RowGen, RowGenF
 
 logger = logging.getLogger(__name__)
 
-CPU_COUNT = multiprocessing.cpu_count()
 
 # === Functions for reading single Parquet files ===
 
@@ -88,7 +86,7 @@ def _read_random_row_group(
     row_group_idx = random_state.randint(parquet_file_obj.num_row_groups)
     logger.debug("Reading row group %s from parquet file '%s'.", row_group_idx, parquet_file)
     table = parquet_file_obj.read_row_group(
-        row_group_idx, columns=list(columns), nthreads=CPU_COUNT
+        row_group_idx, columns=list(columns), nthreads=len(columns)
     )
     df = table.to_pandas(use_threads=True)
     df = df.rename(columns=column_renames)
