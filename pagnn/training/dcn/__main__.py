@@ -8,7 +8,7 @@
 # === Profiled ===
 from line_profiler import LineProfiler
 
-from pagnn.datavargan import dataset_to_datavar, push_adjs, push_seqs
+from pagnn.datavargan import dataset_to_datavar, gen_adj_pool, push_adjs, push_seqs
 from pagnn.io import _read_random_row_group, iter_datarows
 
 from .main import main, train
@@ -16,6 +16,7 @@ from .utils import basic_permuted_sequence_adder, generate_batch
 
 lp = LineProfiler()
 lp.add_function(dataset_to_datavar)
+lp.add_function(gen_adj_pool)
 lp.add_function(push_seqs)
 lp.add_function(push_adjs)
 lp.add_function(iter_datarows)
