@@ -127,17 +127,17 @@ def _pad_edges_longer(
 
 def push_seqs(seqs: List[bytes]) -> Variable:
     """Convert a list of `DataSetGAN` sequences into a `Variable`."""
-    seqs = [seq_to_array(seq).to(settings.device) for seq in seqs]
-    seqs = [seq.to_dense().unsqueeze(0) for seq in seqs]
-    seqs = torch.cat(seqs)
-    return seqs
+    seqs_spts = [seq_to_array(seq).to(settings.device) for seq in seqs]
+    seqs_ts = [seq.coalesce().to_dense().unsqueeze(0) for seq in seqs_spts]
+    seq_t = torch.cat(seqs_ts)
+    return seq_t
 
 
 def push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
-    adjs = [expand_adjacency(adj).to(settings.device) for adj in adjs]
-    adjs = [adj.to_dense() for adj in adjs]
-    return adjs
+    adjs_spt = [expand_adjacency(adj).to(settings.device) for adj in adjs]
+    adjs_t = [adj.coalesce().to_dense() for adj in adjs_spt]
+    return adjs_t
 
 
 def gen_adj_pool(
