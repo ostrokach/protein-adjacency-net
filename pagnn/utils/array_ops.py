@@ -17,7 +17,7 @@ def to_sparse_tensor(sparray: sparse.spmatrix) -> torch.sparse.FloatTensor:
         i = torch.LongTensor(np.vstack([sparray.row, sparray.col]))
         v = torch.FloatTensor(sparray.data)
     s = torch.Size(sparray.shape)
-    tensor = torch.sparse.FloatTensor(i, v, s).to(settings.device)
+    tensor = torch.sparse.FloatTensor(i, v, s)
     return tensor
 
 
