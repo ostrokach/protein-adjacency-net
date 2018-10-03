@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
-    n_aa = len(ds.seqs[0])
+    n_aa = ds.seqs[0].shape[1]
     if not (args.min_seq_length <= n_aa < args.max_seq_length):
         logger.debug(f"Wrong sequence length: {n_aa}.")
         return False
@@ -84,7 +84,7 @@ def generate_batch_2(
     args: Args,
     net: nn.Module,
     positive_rowgen: RowGen,
-    negative_ds_gen: Optional[DataSetGenM] = None,
+    negative_ds_gen: DataSetGenM = None,
     buffer=None,
 ):
     """Generate a positive and a negative dataset batch."""
