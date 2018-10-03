@@ -18,7 +18,7 @@ from pagnn.utils import eval_net
 
 from .args import Args
 from .stats import Stats
-from .utils import generate_batch, get_internal_validation_datasets, get_training_datasets
+from .utils import generate_batch_2, get_internal_validation_datasets, get_training_datasets
 
 logger = logging.getLogger(__name__)
 
@@ -74,21 +74,25 @@ def train(
         # === Train discriminator ===
         net.zero_grad()
 
-        pos_seq, neg_seq, adjs = generate_batch(
-            args, net, positive_rowgen, negative_ds_gen=negative_ds_gen
-        )
+        ds_list = generate_batch_2(args, net, positive_rowgen, negative_ds_gen=negative_ds_gen)
 
-        # Pos
-        pos_pred = net(pos_seq, adjs).sigmoid()
-        pos_target = torch.ones(pos_pred.shape, device=settings.device)
-        pos_loss = loss(pos_pred, pos_target)
-        pos_loss.backward()
-
-        # Neg
-        neg_pred = net(neg_seq, adjs).sigmoid()
-        neg_target = torch.zeros(neg_pred.shape, device=settings.device)
-        neg_loss = loss(neg_pred, neg_target)
-        neg_loss.backward()
+        if True:
+            for ds in ds_list:
+                dv = net.dataset_to_datavar(ds)
+                preds = net(dv.seqs, [dv.adjs])
+                preds = preds.mean(2).squeeze().sigmoid()
+                targets = torch.tensor(ds.targets, dtype=torch.float)
+                error = loss(preds, targets)
+                error.backward()
+        else:
+            dv_list = [net.dataset_to_datavar(ds) for ds in ds_list]
+            seqs = torch.cat([dv.seqs for dv in dv_list], 2)
+            adjs = [dv.adjs for dv in dv_list]
+            preds = net(seqs, adjs)
+            preds = preds.mean(2).squeeze().sigmoid()
+            targets = torch.tensor(ds_list[0].targets, dtype=torch.float)
+            error = loss(preds, targets)
+            error.backward()
 
         optimizer.step()
 
@@ -103,10 +107,9 @@ def train(
         if calculate_basic_statistics:
             logger.debug("Calculating basic statistics...")
 
-            stats.pos_preds.append(pos_pred.detach().numpy())
-            stats.neg_preds.append(neg_pred.detach().numpy())
-            stats.pos_losses.append(pos_loss.detach().numpy())
-            stats.neg_losses.append(neg_loss.detach().numpy())
+            stats.preds.append(preds.detach().numpy())
+            stats.targets.append(targets.detach().numpy())
+            stats.losses.append(error.detach().numpy())
 
             with torch.no_grad(), eval_net(net):
                 stats.calculate_statistics_basic()

@@ -80,6 +80,28 @@ def generate_batch(
     return pos_seq, neg_seq, adjs
 
 
+def generate_batch_2(
+    args: Args,
+    net: nn.Module,
+    positive_rowgen: RowGen,
+    negative_ds_gen: Optional[DataSetGenM] = None,
+    buffer=None,
+):
+    """Generate a positive and a negative dataset batch."""
+    ds_list = []
+    while len(ds_list) < args.batch_size:
+        if buffer is None:
+            pos_row = next(positive_rowgen)
+            pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
+            if not dataset_matches_spec(pos_ds, args):
+                continue
+            ds = negative_ds_gen.send(pos_ds)
+        else:
+            ds = next(buffer)
+        ds_list.append(ds)
+    return ds_list
+
+
 def generate_noise(net_g, adjs):
     num_aa_out = sum(adj[net_g.n_layers].shape[1] for adj in adjs)
     noise_length = math.ceil(num_aa_out * net_g.bottleneck_features / 2048)
@@ -107,7 +129,7 @@ def get_training_datasets(
 
     if "." not in args.training_methods:
         negative_ds_gen = basic_permuted_sequence_adder(
-            num_sequences=1, keep_pos=False, random_state=random_state
+            num_sequences=args.num_negative_examples, keep_pos=True, random_state=random_state
         )
     else:
         raise NotImplementedError()

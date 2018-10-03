@@ -46,10 +46,9 @@ class Stats(StatsBase):
     scores: Dict[str, Any]
     metadata: Dict[str, Any]
 
-    pos_preds: List[np.ndarray]
-    neg_preds: List[np.ndarray]
-    pos_losses: List[np.ndarray]
-    neg_losses: List[np.ndarray]
+    preds: List[np.ndarray]
+    targets: List[np.ndarray]
+    losses: List[np.ndarray]
 
     basic: bool
     extended: bool
@@ -77,10 +76,9 @@ class Stats(StatsBase):
         self.metadata = {}
 
         # === Training Data ===
-        self.pos_preds = []
-        self.neg_preds = []
-        self.pos_losses = []
-        self.neg_losses = []
+        self.preds = []
+        self.targets = []
+        self.losses = []
 
         # === Basic Statistics ===
         self.basic = False
@@ -121,26 +119,21 @@ class Stats(StatsBase):
             # Scores
             **self.scores,
             "training_pos-auc": metrics.roc_auc_score(
-                np.hstack(
-                    [np.ones(ar.size) for ar in self.pos_preds]
-                    + [np.zeros(ar.size) for ar in self.neg_preds]
-                ),
-                np.hstack([ar.reshape(-1) for ar in (self.pos_preds + self.neg_preds)]),
+                np.hstack([ar.reshape(-1) for ar in self.targets]),
+                np.hstack([ar.reshape(-1) for ar in self.preds]),
             ),
             # Aggregate statistics
-            "pos_preds-mean": arrays_mean(self.pos_preds),
-            "neg_preds-mean": arrays_mean(self.neg_preds),
-            "pos_losses-mean": arrays_mean(self.pos_losses),
-            "neg_losses-mean": arrays_mean(self.neg_losses),
+            "preds-mean": arrays_mean(self.preds),
+            "targets-mean": arrays_mean(self.targets),
+            "losses-mean": arrays_mean(self.losses),
             # Metadata (filenames, etc)
             **self.metadata,
             # TODO: Histograms
             # TODO: PR curves
             # Raw data
-            "pos_preds": pickle_dump(arrays_to_list(self.pos_preds)),
-            "neg_preds": pickle_dump(arrays_to_list(self.neg_preds)),
-            "pos_losses": pickle_dump(arrays_to_list(self.pos_losses)),
-            "neg_losses": pickle_dump(arrays_to_list(self.neg_losses)),
+            "preds": pickle_dump(arrays_to_list(self.preds)),
+            "targets": pickle_dump(arrays_to_list(self.targets)),
+            "losses": pickle_dump(arrays_to_list(self.losses)),
         }
         return data
 

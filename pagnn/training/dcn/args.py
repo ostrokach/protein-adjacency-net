@@ -10,6 +10,8 @@ from pagnn.utils import str_to_seconds
 @attr.s
 class Args(TrainingArgsBase):
 
+    num_negative_examples: int = attr.ib(63, validator=instance_of(int))
+
     # === Properties ===
 
     #: Learning rate for Classifier.
