@@ -27,6 +27,12 @@ class NetworkMode(enum.Enum):
 
 
 class DCN2(nn.Module):
+    """DCN2
+
+    - Remove decoder code.
+    - Add maxpool at the end.
+    """
+
     def __init__(
         self,
         mode: Union[NetworkMode, str],
@@ -39,7 +45,7 @@ class DCN2(nn.Module):
         stride: int = 2,
         padding: int = 1,
         bias: bool = False,
-        encoder_network: Optional["AESeqAdjApplyExtra"] = None,
+        encoder_network: Optional["DCN"] = None,
     ) -> None:
         super().__init__()
 
@@ -56,10 +62,7 @@ class DCN2(nn.Module):
 
         self.bottleneck_features = self.hidden_size * 2 ** (self.n_layers - 1)
 
-        if self.mode in [NetworkMode.AE, NetworkMode.DISCRIMINATOR]:
-            self._configure_encoder()
-        if self.mode in [NetworkMode.AE, NetworkMode.GENERATOR]:
-            self._configure_decoder(encoder_network)
+        self._configure_encoder()
 
     def _to_network_mode(self, mode):
         if isinstance(mode, str):
@@ -138,95 +141,10 @@ class DCN2(nn.Module):
 
         return input_channels
 
-    def _configure_decoder(self, encoder_net=None):
-        if encoder_net is None:
-            encoder_net = self
-
-        input_channels = self.bottleneck_features
-
-        if self.bottleneck_size > 0:
-            self.linear_out = nn.Linear(self.bottleneck_size, 2048, bias=True)
-            self.conv_out = nn.Conv1d(
-                self.bottleneck_size, 512 * 4, kernel_size=1, stride=1, padding=0, bias=True
-            )
-
-        convt_kwargs = dict(
-            kernel_size=self.kernel_size,
-            stride=self.stride,
-            padding=self.padding - 1,
-            bias=self.bias,
-        )
-        for i in range(self.n_layers - 1, -1, -1):
-            output_channels = input_channels // 2 if i > 0 else self.input_size
-            if i < (self.n_layers - 1):
-                setattr(
-                    self,
-                    f"decoder_pre_{i}",
-                    nn.Sequential(
-                        nn.ReLU(inplace=True),
-                        nn.InstanceNorm1d(
-                            input_channels, momentum=0.01, affine=True, track_running_stats=True
-                        ),
-                    ),
-                )
-            else:
-                setattr(self, f"decoder_pre_{i}", nn.Sequential())
-            # Sequence Conv
-            setattr(
-                self,
-                f"decoder_0_{i}",
-                SequentialMod(
-                    SequenceConvTranspose(input_channels, input_channels // 2, **convt_kwargs)
-                ),
-            )
-            # Adjacency Conv
-            if i < self.n_convs:
-                setattr(
-                    self,
-                    f"decoder_1_{i}",
-                    SequentialMod(
-                        nn.ReLU(inplace=True),
-                        nn.InstanceNorm1d(
-                            input_channels // 4,
-                            momentum=0.01,
-                            affine=True,
-                            track_running_stats=True,
-                        ),
-                        AdjacencyConvTranspose(
-                            getattr(encoder_net, f"encoder_0_{i}")[0].spatial_conv
-                        ),
-                    ),
-                )
-            else:
-                setattr(self, f"decoder_1_{i}", SequentialMod())
-            # Output
-            if i == 0:
-                setattr(
-                    self,
-                    f"decoder_post_{i}",
-                    nn.Sequential(
-                        nn.Conv1d(
-                            input_channels // 2, output_channels, kernel_size=1, stride=1, padding=0
-                        )
-                    ),
-                )
-            else:
-                setattr(self, f"decoder_post_{i}", nn.Sequential())
-            input_channels = output_channels
-
     def forward(self, seq, adjs):
         x = seq
         if self.mode in [NetworkMode.AE, NetworkMode.DISCRIMINATOR]:
             x = self._forward_encoder(x, adjs)
-        if self.mode in [NetworkMode.AE, NetworkMode.GENERATOR]:
-            num_aa = sum(adj[0].shape[1] for adj in adjs)
-            shape_in_range = (
-                (x.shape[1] * (x.shape[2] - 1) * 0.9)
-                <= (num_aa * self.bottleneck_size / 64)
-                <= (x.shape[1] * x.shape[2] * 1.1)
-            )
-            assert shape_in_range, (x.shape, num_aa / 64 * self.bottleneck_size)
-            x = self._forward_decoder(x, adjs)
         return x
 
     def _forward_encoder(self, seq, adjs):
@@ -234,12 +152,16 @@ class DCN2(nn.Module):
 
         for i in range(self.n_layers):
             x = getattr(self, f"encoder_pre_{i}")(x)
-            x_adj = x[:, x.shape[1] // 2 :, :]
-            x_adj = getattr(self, f"encoder_0_{i}")(x_adj, i, adjs)
-            x = torch.cat([x[:, : x.shape[1] // 2, :], x_adj], 1)
+            x_seq_half = x[:, : x.shape[1] // 2, :]
+            x_adj_half = x[:, x.shape[1] // 2 :, :]
+            x_adj_half = getattr(self, f"encoder_0_{i}")(x_adj_half, i, adjs)
+            x = torch.cat([x_seq_half, x_adj_half], 1)
             x = getattr(self, f"encoder_1_{i}")(x, i, adjs)
             x = getattr(self, f"encoder_post_{i}")(x)
-            logger.debug(f"{i}, {x.shape}")
+            # logger.debug(f"Encoder layer: {i}, input shape: {x.shape}")
+
+        # ...
+        x = x.maxpool()
 
         if self.bottleneck_size > 0:
             pad_amount = padding_amount(x, 2048)  # 4 x 512
@@ -248,28 +170,6 @@ class DCN2(nn.Module):
             x = reshape_internal_dim(x, 1, 512)
             x = self.conv_in(x)
             # x = self.linear_in(x.transpose(1, 2).contiguous())
-
-        return x
-
-    def _forward_decoder(self, seq, adjs):
-        x = seq
-
-        if self.bottleneck_size > 0:
-            # x = self.linear_out(x).transpose(2, 1).contiguous()
-            x = self.conv_out(x)
-            x = reshape_internal_dim(x, 1, self.bottleneck_features)
-            expected_length = sum(adj[self.n_layers].shape[1] for adj in adjs)
-            if x.shape[2] > expected_length:
-                x = x[:, :, :expected_length]
-
-        for i in range(self.n_layers - 1, -1, -1):
-            x = getattr(self, f"decoder_pre_{i}")(x)
-            x = getattr(self, f"decoder_0_{i}")(x, i, adjs)
-            x_adj = x[:, x.shape[1] // 2 :, :]
-            x_adj = getattr(self, f"decoder_1_{i}")(x_adj, i, adjs)
-            x = torch.cat([x[:, : x.shape[1] // 2, :], x_adj], 1)
-            x = getattr(self, f"decoder_post_{i}")(x)
-            logger.debug(f"{i}, {x.shape}")
 
         return x
 
