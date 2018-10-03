@@ -18,7 +18,6 @@ from pagnn.utils import (
     conv2d_shape,
     expand_adjacency,
     remove_eye_sparse,
-    seq_to_array,
     to_sparse_tensor,
 )
 
@@ -125,15 +124,14 @@ def _pad_edges_longer(
     return new_seqs, new_adjs
 
 
-def push_seqs(seqs: List[bytes]) -> Variable:
+def push_seqs(seqs: List[torch.sparse.FloatTensor]) -> torch.FloatTensor:
     """Convert a list of `DataSetGAN` sequences into a `Variable`."""
-    seqs_spts = [seq_to_array(seq).to(settings.device) for seq in seqs]
-    seqs_ts = [seq.coalesce().to_dense().unsqueeze(0) for seq in seqs_spts]
+    seqs_ts = [seq.to(settings.device).coalesce().to_dense().unsqueeze(0) for seq in seqs]
     seq_t = torch.cat(seqs_ts)
     return seq_t
 
 
-def push_adjs(adjs: List[sparse.spmatrix]) -> Variable:
+def push_adjs(adjs: List[sparse.spmatrix]) -> torch.FloatTensor:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
     adjs_spt = [expand_adjacency(adj).to(settings.device) for adj in adjs]
     adjs_t = [adj.coalesce().to_dense() for adj in adjs_spt]

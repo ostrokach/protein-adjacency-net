@@ -3,11 +3,13 @@ import enum
 from typing import List, Optional, Union
 
 import numpy as np
+import torch
 from scipy import sparse
 
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
 from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF
+from pagnn.utils import seq_to_array
 
 MAX_TRIES = 256
 
@@ -29,7 +31,9 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
 
 def dataset_to_gan(ds: DataSet) -> DataSetGAN:
     """Convert a :any:`DataSet` into a :any:`DataSetGAN`."""
-    return DataSetGAN([ds.seq], [ds.adj], [ds.target], ds.meta)
+    return DataSetGAN(
+        [seq_to_array(ds.seq)], [ds.adj], torch.tensor([ds.target], dtype=torch.float), ds.meta
+    )
 
 
 # === Negative training examples ===
