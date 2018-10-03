@@ -76,7 +76,7 @@ def train(
 
         ds_list = generate_batch_2(args, net, positive_rowgen, negative_ds_gen=negative_ds_gen)
 
-        if True:
+        if args.concat_datasets:
             for ds in ds_list:
                 dv = net.dataset_to_datavar(ds)
                 preds = net(dv.seqs, [dv.adjs])
