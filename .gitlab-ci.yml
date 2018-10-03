@@ -186,7 +186,7 @@ train_network:
     <<: *cluster-envs
     NOTEBOOK_NAME: "03-train_network"
     SBATCH_TIMELIMIT: "3:00:00"
-    SBATCH_EXTRA_ARGS: "--mem 192000M --array=1-4%1 "
+    SBATCH_EXTRA_ARGS: "--mem 192000M --array=1-16%1 "
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
