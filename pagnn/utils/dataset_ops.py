@@ -178,10 +178,11 @@ def expand_adjacency(adj: sparse.spmatrix) -> torch.sparse.FloatTensor:
     indices_col = torch.cat(
         [torch.as_tensor(adj.row, dtype=torch.long), torch.as_tensor(adj.col, dtype=torch.long)]
     )
-    indices = torch.stack([indices_row, indices_col])
-    values = torch.ones(len(adj.row) + len(adj.col), dtype=torch.float)
-    size = (len(adj.data) * 2, adj.shape[0])
-    new_adj = torch.sparse_coo_tensor(indices, values, size=size)
+    new_adj = torch.sparse_coo_tensor(
+        torch.stack([indices_row, indices_col]),
+        torch.ones(len(adj.row) + len(adj.col), dtype=torch.float),
+        size=(len(adj.data) * 2, adj.shape[0]),
+    )
 
     # TODO: Remove computationally-intensive assert
     # assert (new_adj.to_dense().sum(1) == 1).all()
