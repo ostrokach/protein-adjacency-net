@@ -44,5 +44,3 @@ dependencies:
   - click
   - pyyaml
   - tqdm
-  # See: https://github.com/conda-forge/testpath-feedstock/issues/7
-  - testpath <0.4
