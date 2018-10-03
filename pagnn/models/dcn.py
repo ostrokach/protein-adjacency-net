@@ -39,7 +39,7 @@ class DCN(nn.Module):
         stride: int = 2,
         padding: int = 1,
         bias: bool = False,
-        encoder_network: Optional["AESeqAdjApplyExtra"] = None,
+        encoder_network: Optional["DCN"] = None,
     ) -> None:
         super().__init__()
 
