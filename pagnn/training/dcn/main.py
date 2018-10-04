@@ -1,3 +1,4 @@
+import itertools
 import json
 import logging
 import random
@@ -14,11 +15,10 @@ import tqdm
 
 from pagnn import init_gpu, settings
 from pagnn.models import DCN
-from pagnn.utils import eval_net
 
 from .args import Args
 from .stats import Stats
-from .utils import generate_batch_2, get_internal_validation_datasets, get_training_datasets
+from .utils import get_data_pipe, get_internal_validation_datasets
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +30,7 @@ class RuntimeExceededError(Exception):
 def train(
     args: Args,
     stats: Stats,
-    positive_rowgen,
-    negative_ds_gen,
+    datapipe,
     internal_validation_datasets,
     engine: Optional[sa.engine.Engine] = None,
     checkpoint: Optional[Dict[str, Any]] = None,
@@ -42,7 +41,9 @@ def train(
         checkpoint = {}
 
     # Set up network
-    net = DCN("discriminator", hidden_size=args.hidden_size, bottleneck_size=1).to(settings.device)
+    net = DCN(
+        "discriminator", hidden_size=args.hidden_size, bottleneck_size=1, n_layers=args.n_layers
+    ).to(settings.device)
     loss = nn.BCELoss().to(settings.device)
     optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
@@ -74,60 +75,59 @@ def train(
         # === Train discriminator ===
         net.zero_grad()
 
-        ds_list = generate_batch_2(args, net, positive_rowgen, negative_ds_gen=negative_ds_gen)
-
         if args.concat_datasets:
-            for ds in ds_list:
+            print("concatenating datasets")
+            ds_list = list(itertools.islice(datapipe, args.batch_size))
+            dv_list = [net.dataset_to_datavar(ds) for ds in ds_list]
+            seqs = torch.cat([dv.seqs for dv in dv_list], 2)
+            adjs = [dv.adjs for dv in dv_list]
+            preds = net(seqs, adjs)
+            preds = preds.mean(2).squeeze().sigmoid()
+            targets = ds_list[0].targets
+            error = loss(preds, targets)
+            error.backward()
+        else:
+            for ds in itertools.islice(datapipe, args.batch_size):
                 dv = net.dataset_to_datavar(ds)
                 preds = net(dv.seqs, [dv.adjs])
                 preds = preds.mean(2).squeeze().sigmoid()
                 targets = torch.tensor(ds.targets, dtype=torch.float)
                 error = loss(preds, targets)
                 error.backward()
-        else:
-            dv_list = [net.dataset_to_datavar(ds) for ds in ds_list]
-            seqs = torch.cat([dv.seqs for dv in dv_list], 2)
-            adjs = [dv.adjs for dv in dv_list]
-            preds = net(seqs, adjs)
-            preds = preds.mean(2).squeeze().sigmoid()
-            targets = torch.tensor(ds_list[0].targets, dtype=torch.float)
-            error = loss(preds, targets)
-            error.backward()
-
         optimizer.step()
 
         # === Calculate Statistics ===
-        if write_graph:
-            # adjs_dense = [[a.to_dense() for a in adj] for adj in adjs]
-            # torch.onnx.export(
-            #     net, (neg_seq, adjs_dense), args.root_path.joinpath("model.onnx").as_posix()
-            # )
-            write_graph = False
+        # if write_graph:
+        #     dv = net.dataset_to_datavar(ds_list[0])
+        #     torch.onnx.export(
+        #         net, (dv.seqs, [dv.adjs]), args.root_path.joinpath("model.onnx").as_posix()
+        #     )
+        #     write_graph = False
 
-        if calculate_basic_statistics:
-            logger.debug("Calculating basic statistics...")
+        # if calculate_basic_statistics:
+        #     logger.debug("Calculating basic statistics...")
 
-            stats.preds.append(preds.detach().numpy())
-            stats.targets.append(targets.detach().numpy())
-            stats.losses.append(error.detach().numpy())
+        #     stats.preds.append(preds.detach().numpy())
+        #     stats.targets.append(targets.detach().numpy())
+        #     stats.losses.append(error.detach().numpy())
 
-            with torch.no_grad(), eval_net(net):
-                stats.calculate_statistics_basic()
+        #     with torch.no_grad(), eval_net(net):
+        #         stats.calculate_statistics_basic()
 
-        if calculate_extended_statistics:
-            logger.debug("Calculating extended statistics...")
+        # if calculate_extended_statistics:
+        #     logger.debug("Calculating extended statistics...")
 
-            with torch.no_grad(), eval_net(net):
-                stats.calculate_statistics_extended(net, internal_validation_datasets)
+        #     with torch.no_grad(), eval_net(net):
+        #         stats.calculate_statistics_extended(net, internal_validation_datasets)
 
-            stats.dump_model_state(net)
+        #     stats.dump_model_state(net)
 
-        if calculate_basic_statistics or calculate_extended_statistics:
-            stats.write_row()
-            if current_performance is not None:
-                current_performance.update(stats.scores)
+        # if calculate_basic_statistics or calculate_extended_statistics:
+        #     stats.write_row()
+        #     if current_performance is not None:
+        #         current_performance.update(stats.scores)
 
-        stats.update()
+        # stats.update()
         progressbar.update()
 
 
@@ -159,9 +159,10 @@ def main(args: Optional[Args] = None):
 
     # === Training Dataset ===
     logger.debug("Initializing training dataset...")
-    positive_rowgen, negative_ds_gen = get_training_datasets(
-        args, args.training_data_path, random_state
-    )
+    # positive_rowgen, negative_ds_gen = get_training_datasets(
+    #     args, args.training_data_path, random_state
+    # )
+    datapipe = get_data_pipe(args)
 
     # === Internal Validation Dataset ===
     logger.debug("Initializing validation dataset...")
@@ -175,8 +176,7 @@ def main(args: Optional[Args] = None):
         train(
             args,
             stats,
-            positive_rowgen,
-            negative_ds_gen,
+            datapipe,
             internal_validation_datasets,
             current_performance=result,
         )

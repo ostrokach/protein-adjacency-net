@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 
 import attr
 from attr.validators import instance_of
@@ -12,14 +13,20 @@ class TrainingArgsBase(ArgsBase):
     # === Paths ===
 
     #: Location where to create subfolders for storing network data and cache files.
-    root_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
+    root_path: Path = attr.ib(Path.cwd(), converter=str_to_path, validator=instance_of(Path))
 
     #: Location of the `adjacency_matrix.parquet` folder with training data.
-    training_data_path: Path = attr.ib(converter=str_to_path, validator=instance_of(Path))
+    training_data_path: Optional[Path] = attr.ib(
+        None, converter=str_to_path_opt, validator=instance_of((Path, type(None)))
+    )
+
+    training_data_cache: Optional[Path] = attr.ib(
+        None, converter=str_to_path_opt, validator=instance_of((Path, type(None)))
+    )
 
     #: Location of the `adjacency_matrix.parquet` folder with validation data.
-    validation_data_path: Path = attr.ib(  # type: ignore
-        None, converter=str_to_path_opt, validator=instance_of((Path, type(None)))  # type: ignore
+    validation_data_path: Optional[Path] = attr.ib(
+        None, converter=str_to_path_opt, validator=instance_of((Path, type(None)))
     )
 
     validation_cache_path: Path = attr.ib(

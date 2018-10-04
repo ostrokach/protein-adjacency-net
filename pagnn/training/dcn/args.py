@@ -1,4 +1,6 @@
 
+import os
+
 import attr
 from attr.validators import instance_of
 
@@ -11,8 +13,10 @@ from pagnn.utils import str_to_seconds
 class Args(TrainingArgsBase):
 
     # === Parameters to Tune ===
+    network_name: str = attr.ib("DCN2", validator=instance_of(str))
     concat_datasets: bool = attr.ib(False, validator=instance_of(bool))
     num_negative_examples: int = attr.ib(63, validator=instance_of(int))
+    n_layers: int = attr.ib(4, validator=instance_of(int))
 
     # === Properties ===
 
@@ -88,7 +92,7 @@ class Args(TrainingArgsBase):
     tag: str = attr.ib("", validator=instance_of(str))
 
     #: Array id of array jobs. 0 means that this is NOT an array job.
-    array_id: int = attr.ib(0, validator=instance_of(int))
+    array_id: int = attr.ib(int(os.getenv("SLURM_ARRAY_TASK_ID", "0")), validator=instance_of(int))
 
     num_aa_to_process: int = attr.ib(0, validator=instance_of(int))
 

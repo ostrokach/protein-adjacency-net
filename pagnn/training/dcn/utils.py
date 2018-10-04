@@ -1,11 +1,15 @@
 import argparse
 import logging
 import math
+import os
 import pickle
+import sys
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Dict, Generator, Iterator, List, Mapping, Optional, Tuple
 
 import numpy as np
+import pyarrow as pa
 import torch
 import torch.nn as nn
 import tqdm
@@ -24,6 +28,104 @@ from pagnn.utils import (
 from .args import Args
 
 logger = logging.getLogger(__name__)
+
+# Data Pipe
+
+
+def get_data_pipe(args):
+    if (
+        args.training_data_cache is not None
+        and args.training_data_cache.with_suffix(".index").is_file()
+        and args.training_data_cache.with_suffix(".data").isfile()
+    ):
+        logger.info("Reading training data from cache.")
+        yield from _read_ds_from_cache(args)
+    else:
+        logger.info("Generating trainign data as we go.")
+        yield from _gen_ds(args)
+
+
+def _read_ds_from_cache(args):
+    with ExitStack() as stack:
+        index_fh = stack.enter_context(args.training_data_cache.with_suffix(".index").open("rb"))
+        data_fh = stack.enter_context(args.training_data_cache.with_suffix(".data").open("rb"))
+        while True:
+            size = np.frombuffer(index_fh, dtype=np.int64, count=1)
+            data_buf = data_fh.read(size)
+            ds = DataSetGAN.from_buffer(data_buf)
+            yield ds
+
+
+def _gen_ds(args):
+    index_read, index_write = os.pipe()
+    data_read, data_write = os.pipe()
+    pid = os.fork()
+    if pid:
+        # This is the parent process
+        os.close(index_write)
+        os.close(data_write)
+        try:
+            yield from _gen_ds_reader(args, index_read, data_read)
+        except Exception as e:
+            os.close(index_read)
+            os.close(data_read)
+    else:
+        # This is the child process
+        os.close(index_read)
+        os.close(data_read)
+        try:
+            _gen_ds_writer(args, index_write, data_write)
+        except Exception as e:
+            print(e)
+        finally:
+            os.close(index_write)
+            os.close(data_write)
+            sys.exit(0)
+
+
+def _gen_ds_reader(args, index_read, data_read):
+    print("hello from _gen_ds_reader")
+    with ExitStack() as stack:
+        if args.training_data_cache is not None:
+            logger.info("Writing generated training data to cache.")
+            index_cache_fh = stack.enter_context(
+                args.training_data_cache.with_suffix(".index").open("wb")
+            )
+            data_cache_fh = stack.enter_context(
+                args.training_data_cache.with_suffix(".data").open("wb")
+            )
+        while True:
+            print("reader")
+            size_buf = os.read(index_read, 8)
+            size = np.frombuffer(size_buf, dtype=np.int64)[0]
+            data_buf = os.read(data_read, size)
+            ds = DataSetGAN.from_buffer(data_buf)
+            yield ds
+            if args.training_data_cache is not None:
+                index_cache_fh.write(size_buf)
+                data_cache_fh.write(data_buf)
+
+
+def _gen_ds_writer(args, index_write, data_write):
+    print("hello from _gen_ds_writer")
+    random_state = np.random.RandomState(args.array_id)
+    positive_rowgen, negative_ds_gen = get_training_datasets(args, random_state)
+    while True:
+        print("writer")
+        pos_row = next(positive_rowgen)
+        pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
+        if not dataset_matches_spec(pos_ds, args):
+            continue
+        ds = negative_ds_gen.send(pos_ds)
+        print("writer has ds")
+        data_buf = ds.to_buffer()
+        size_buf = np.int64(data_buf.size).tobytes()
+        print(f"len size buffer: {len(size_buf)}")
+        os.write(index_write, size_buf)
+        os.write(data_write, data_buf)
+        # index_fh.write(size_buf)
+        # data_fh.write(data_buf)
+        print("Done writing buffers")
 
 
 # === Training / Validation Batches ===
@@ -114,7 +216,7 @@ def generate_noise(net_g, adjs):
 
 
 def get_training_datasets(
-    args: argparse.Namespace, data_path: Path, random_state=None
+    args: argparse.Namespace, random_state=None
 ) -> Tuple[Iterator[DataRow], Generator[DataSetGAN, DataSetGAN, None]]:
     logger.info("Setting up training datagen...")
     rowgen_pos = iter_datarows_shuffled(
