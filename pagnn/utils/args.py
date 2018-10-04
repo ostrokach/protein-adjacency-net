@@ -1,6 +1,6 @@
 import argparse
 from pathlib import Path
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar
 
 import attr
 
@@ -50,7 +50,7 @@ class ArgsBase:
     def to_dict(self) -> dict:
         data = dict()
         for attribute in self.__attrs_attrs__:  # type: ignore
-            if attribute.type is Path:
+            if attribute.type in [Path, Optional[Path]]:
                 value = getattr(self, attribute.name)
                 if value is not None:
                     value = value.as_posix()
