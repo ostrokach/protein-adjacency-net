@@ -8,19 +8,16 @@ from scipy import sparse
 
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF
+from pagnn.types import DataSet, DataSetGAN, RowGenF
 from pagnn.utils import seq_to_array
 
 MAX_TRIES = 256
 
 
-# === Positive training examples ===
-
-
-def row_to_dataset(row: DataRow, target: float) -> DataSet:
+def row_to_dataset(row, target):
     """Convert a :any:`DataRow` into a :any:`DataSet`."""
-    seq = row.sequence.replace("-", "").encode("ascii")
-    adj = utils.get_adjacency(len(seq), row.adjacency_idx_1, row.adjacency_idx_2)
+    seq = seq_to_array(row.sequence.replace("-", "").encode("ascii"))
+    adj = utils.get_adjacency(seq.shape[1], row.adjacency_idx_1, row.adjacency_idx_2)
     known_fields = {"Index", "sequence", "adjacency_idx_1", "adjacency_idx_2", "target"}
     if set(row._fields) - set(known_fields):
         meta = {k: v for k, v in row._asdict().items() if k not in known_fields}
@@ -29,14 +26,9 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
     return DataSet(seq, adj, target, meta)
 
 
-def dataset_to_gan(ds: DataSet) -> DataSetGAN:
+def dataset_to_gan(ds):
     """Convert a :any:`DataSet` into a :any:`DataSetGAN`."""
-    return DataSetGAN(
-        [seq_to_array(ds.seq)], [ds.adj], torch.tensor([ds.target], dtype=torch.float), ds.meta
-    )
-
-
-# === Negative training examples ===
+    return DataSetGAN([ds.seq], [ds.adj], torch.tensor([ds.target], dtype=torch.float), ds.meta)
 
 
 @enum.unique
@@ -69,13 +61,20 @@ def get_negative_example(
     n_tries = 0
     seq_identity = 1.0
     adj_identity = 1.0
+    seq_length = ds.seq.shape[1]
+    if not ds.seq.shape[1] == ds.seq._indices().shape[1] == ds.seq._values().shape[0]:
+        raise AssertionError
     while seq_identity > 0.2 or adj_identity > 0.3:
         n_tries += 1
         if n_tries > MAX_TRIES:
             raise MaxNumberOfTriesExceededError(n_tries)
         if method == Method.PERMUTE:
-            offset = get_offset(len(ds.seq))
-            negative_seq = ds.seq[offset:] + ds.seq[:offset]
+            offset = get_offset(seq_length)
+            negative_seq = torch.sparse_coo_tensor(
+                torch.cat([ds.seq._indices()[:, offset:], ds.seq._indices()[:, :offset]], 1),
+                ds.seq._values(),
+                size=ds.seq.size(),
+            )
             negative_adj = None
             seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
             adj_identity = 0
@@ -85,31 +84,41 @@ def get_negative_example(
             while row is None and n_tries < MAX_TRIES:
                 n_tries += 1
                 row = rowgen.send(
-                    lambda df: df[df["sequence"].str.replace("-", "").str.len() == len(ds.seq)]
+                    lambda df: df[df["sequence"].str.replace("-", "").str.len() == seq_length]
                 )
             if row is None:
                 raise SequenceTooLongError(
-                    f"Could not find a generator for target_seq_length: {len(ds.seq)}."
+                    f"""Could not find a generator for target_seq_length: {seq_length}."""
                 )
-            negative_ds = row_to_dataset(row, target=0)
         else:
             row = None
             while row is None and n_tries < MAX_TRIES:
                 n_tries += 1
                 row = rowgen.send(
-                    lambda df: df[df["sequence"].str.replace("-", "").str.len() >= len(ds.seq)]
+                    lambda df: df[df["sequence"].str.replace("-", "").str.len() >= seq_length]
                 )
+
             if row is None:
                 raise SequenceTooLongError(
-                    f"Could not find a generator for target_seq_length: {len(ds.seq)}."
+                    f"""Could not find a generator for target_seq_length: {seq_length}."""
                 )
-            negative_ds = row_to_dataset(row, target=0)
-        start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
+        negative_ds = row_to_dataset(row, target=0)
+        start, stop = get_indices(seq_length, negative_ds.seq.shape[1], method, random_state)
         if method not in [Method.EDGES]:
-            negative_seq = negative_ds.seq[start:stop]
+            negative_seq = torch.sparse_coo_tensor(
+                negative_ds.seq._indices()[:, start:stop],
+                negative_ds.seq._values()[start:stop],
+                size=(20, seq_length),
+            )
             negative_adj = extract_adjacency_from_middle(start, stop, negative_ds.adj)
         else:
-            negative_seq = negative_ds.seq[:start] + negative_ds.seq[stop:]
+            negative_seq = torch.sparse_coo_tensor(
+                torch.cat(
+                    [negative_ds.seq._indices()[:, :start], negative_ds.seq._indices()[:, stop:]], 1
+                ),
+                torch.cat([negative_ds.seq._values()[:start], negative_ds.seq._values()[stop:]]),
+                size=(20, seq_length),
+            )
             negative_adj = extract_adjacency_from_edges(start, stop, negative_ds.adj)
         seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
         adj_identity = utils.get_adj_identity(ds.adj, negative_adj)

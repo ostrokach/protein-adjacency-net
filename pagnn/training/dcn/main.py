@@ -75,9 +75,11 @@ def train(
         # === Train discriminator ===
         net.zero_grad()
 
+        ds_list = list(itertools.islice(datapipe, args.batch_size))
+        if not ds_list:
+            break
+
         if args.concat_datasets:
-            print("concatenating datasets")
-            ds_list = list(itertools.islice(datapipe, args.batch_size))
             dv_list = [net.dataset_to_datavar(ds) for ds in ds_list]
             seqs = torch.cat([dv.seqs for dv in dv_list], 2)
             adjs = [dv.adjs for dv in dv_list]
@@ -87,12 +89,11 @@ def train(
             error = loss(preds, targets)
             error.backward()
         else:
-            for ds in itertools.islice(datapipe, args.batch_size):
+            for ds in ds_list:
                 dv = net.dataset_to_datavar(ds)
                 preds = net(dv.seqs, [dv.adjs])
                 preds = preds.mean(2).squeeze().sigmoid()
-                targets = torch.tensor(ds.targets, dtype=torch.float)
-                error = loss(preds, targets)
+                error = loss(preds, ds.targets)
                 error.backward()
         optimizer.step()
 
@@ -155,18 +156,15 @@ def main(args: Optional[Args] = None):
     np.random.seed(stats.step)
     torch.manual_seed(stats.step)
     torch.cuda.manual_seed(stats.step)
-    random_state = np.random.RandomState(stats.step)
 
     # === Training Dataset ===
     logger.debug("Initializing training dataset...")
-    # positive_rowgen, negative_ds_gen = get_training_datasets(
-    #     args, args.training_data_path, random_state
-    # )
+    # ds_source = get_training_datasets(args)
     datapipe = get_data_pipe(args)
 
     # === Internal Validation Dataset ===
     logger.debug("Initializing validation dataset...")
-    internal_validation_datasets = get_internal_validation_datasets(args, args.validation_data_path)
+    internal_validation_datasets = get_internal_validation_datasets(args)
 
     # === Train ===
     logger.debug("Training the network...")

@@ -41,21 +41,14 @@ def generate_batch(
     neg_seq_list = []
     adjs = []
     seq_len = 0
+    num_seqs = 0
     # TODO: 128 comes from the fact that we tested with sequences 64-256 AA in length
-    while seq_len < (args.batch_size * 128):
+    # while seq_len < (args.batch_size * 128):
+    while num_seqs < args.batch_size:
         pos_row = next(positive_rowgen)
         pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
-        # Filter out bad datasets
-        n_aa = len(pos_ds.seqs[0])
-        if not (args.min_seq_length <= n_aa < args.max_seq_length):
-            logger.debug(f"Skipping because wrong sequence length: {n_aa}.")
+        if not dataset_matches_spec(pos_ds, args):
             continue
-        adj_nodiag = pagnn.utils.remove_eye_sparse(pos_ds.adjs[0], 3)
-        n_interactions = adj_nodiag.nnz
-        if n_interactions <= 0:
-            logger.debug(f"Skipping because too few interactions: {n_interactions}.")
-            continue
-        # Continue
         pos_dv = net.dataset_to_datavar(pos_ds)
         pos_seq_list.append(pos_dv.seqs)
         adjs.append(pos_dv.adjs)
@@ -64,10 +57,11 @@ def generate_batch(
             neg_dv = net.dataset_to_datavar(neg_ds)
             neg_seq_list.append(neg_dv.seqs)
         seq_len += pos_dv.seqs.shape[2]
-    pos_seq = Variable(torch.cat([s.data for s in pos_seq_list], 2))
+        num_seqs += 1
+    pos_seq = torch.cat([s.data for s in pos_seq_list], 2)
     assert pos_seq.shape[2] == sum(adj[0].shape[1] for adj in adjs)
     if negative_ds_gen is not None:
-        neg_seq = Variable(torch.cat([s.data for s in neg_seq_list], 2))
+        neg_seq = torch.cat([s.data for s in neg_seq_list], 2)
         assert neg_seq.shape[2] == sum(adj[0].shape[1] for adj in adjs)
     else:
         neg_seq = None
