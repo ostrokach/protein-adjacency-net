@@ -9,9 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import tqdm
-from torch.autograd import Variable
 
-import pagnn
 from pagnn import settings
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
@@ -28,6 +26,19 @@ from .args import Args
 logger = logging.getLogger(__name__)
 
 # === Training / Validation Batches ===
+
+
+def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
+    n_aa = ds.seqs[0].shape[1]
+    if not (args.min_seq_length <= n_aa < args.max_seq_length):
+        logger.debug(f"Wrong sequence length: {n_aa}.")
+        return False
+    adj_nodiag = remove_eye_sparse(ds.adjs[0], 3)
+    n_interactions = adj_nodiag.nnz
+    if n_interactions == 0:
+        logger.debug(f"Too few interactions: {n_interactions}.")
+        return False
+    return True
 
 
 def generate_batch(
