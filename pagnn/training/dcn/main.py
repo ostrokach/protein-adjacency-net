@@ -15,6 +15,7 @@ import tqdm
 
 from pagnn import init_gpu, settings
 from pagnn.models import DCN
+from pagnn.utils import eval_net
 
 from .args import Args
 from .stats import Stats
@@ -89,46 +90,52 @@ def train(
             error = loss(preds, targets)
             error.backward()
         else:
+            pred_list = []
+            target_list = []
             for ds in ds_list:
                 dv = net.dataset_to_datavar(ds)
-                preds = net(dv.seqs, [dv.adjs])
-                preds = preds.mean(2).squeeze().sigmoid()
-                error = loss(preds, ds.targets)
-                error.backward()
+                pred = net(dv.seqs, [dv.adjs])
+                pred = pred.mean(2).squeeze().sigmoid()
+                pred_list.append(pred)
+                target_list.append(ds.targets)
+            preds = torch.cat(pred_list)
+            targets = torch.cat(target_list)
+            error = loss(preds, targets)
+            error.backward()
         optimizer.step()
 
         # === Calculate Statistics ===
-        # if write_graph:
-        #     dv = net.dataset_to_datavar(ds_list[0])
-        #     torch.onnx.export(
-        #         net, (dv.seqs, [dv.adjs]), args.root_path.joinpath("model.onnx").as_posix()
-        #     )
-        #     write_graph = False
+        if write_graph:
+            # dv = net.dataset_to_datavar(ds_list[0])
+            # torch.onnx.export(
+            #     net, (dv.seqs, [dv.adjs]), args.root_path.joinpath("model.onnx").as_posix()
+            # )
+            write_graph = False
 
-        # if calculate_basic_statistics:
-        #     logger.debug("Calculating basic statistics...")
+        if calculate_basic_statistics:
+            logger.debug("Calculating basic statistics...")
 
-        #     stats.preds.append(preds.detach().numpy())
-        #     stats.targets.append(targets.detach().numpy())
-        #     stats.losses.append(error.detach().numpy())
+            stats.preds.append(preds.detach().numpy())
+            stats.targets.append(targets.detach().numpy())
+            stats.losses.append(error.detach().numpy())
 
-        #     with torch.no_grad(), eval_net(net):
-        #         stats.calculate_statistics_basic()
+            with torch.no_grad(), eval_net(net):
+                stats.calculate_statistics_basic()
 
-        # if calculate_extended_statistics:
-        #     logger.debug("Calculating extended statistics...")
+        if calculate_extended_statistics:
+            logger.debug("Calculating extended statistics...")
 
-        #     with torch.no_grad(), eval_net(net):
-        #         stats.calculate_statistics_extended(net, internal_validation_datasets)
+            with torch.no_grad(), eval_net(net):
+                stats.calculate_statistics_extended(net, internal_validation_datasets)
 
-        #     stats.dump_model_state(net)
+            stats.dump_model_state(net)
 
-        # if calculate_basic_statistics or calculate_extended_statistics:
-        #     stats.write_row()
-        #     if current_performance is not None:
-        #         current_performance.update(stats.scores)
+        if calculate_basic_statistics or calculate_extended_statistics:
+            stats.write_row()
+            if current_performance is not None:
+                current_performance.update(stats.scores)
 
-        # stats.update()
+        stats.update()
         progressbar.update()
 
 
@@ -171,13 +178,7 @@ def main(args: Optional[Args] = None):
     start_time = time.perf_counter()
     result: Dict[str, Union[str, float]] = {}
     try:
-        train(
-            args,
-            stats,
-            datapipe,
-            internal_validation_datasets,
-            current_performance=result,
-        )
+        train(args, stats, datapipe, internal_validation_datasets, current_performance=result)
     except (KeyboardInterrupt, RuntimeExceededError) as e:
         logger.error("Training terminated with error: '%s'", e)
 
