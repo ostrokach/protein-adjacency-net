@@ -12,15 +12,17 @@ from pagnn.utils import iter_submodules
 
 logger = logging.getLogger(__name__)
 
-DOCTEST_OPTIONFLAGS = (doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS |
-                       doctest.IGNORE_EXCEPTION_DETAIL)
+DOCTEST_OPTIONFLAGS = (
+    doctest.NORMALIZE_WHITESPACE | doctest.ELLIPSIS | doctest.IGNORE_EXCEPTION_DETAIL
+)
 
-DOCTEST_EXTRAGLOBS = {'os': os, 'op': op, 'tempfile': tempfile, 'np': np}
+DOCTEST_EXTRAGLOBS = {"os": os, "op": op, "tempfile": tempfile, "np": np}
 
 
 @pytest.mark.parametrize("module_name, module", iter_submodules(pagnn))
 def test_doctest(module_name, module):
     print(module_name, module)
     failure_count, test_count = doctest.testmod(
-        module, optionflags=DOCTEST_OPTIONFLAGS, extraglobs=DOCTEST_EXTRAGLOBS)
+        module, optionflags=DOCTEST_OPTIONFLAGS, extraglobs=DOCTEST_EXTRAGLOBS
+    )
     assert failure_count == 0
