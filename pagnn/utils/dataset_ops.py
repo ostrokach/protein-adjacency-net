@@ -46,8 +46,12 @@ def seq_to_array(seq: bytes) -> torch.sparse.FloatTensor:
     x_idxs, y_idxs, data = _seq_to_array(seq)
     indices = torch.tensor([x_idxs, y_idxs])
     values = torch.tensor(data, dtype=torch.float32)
-    seq_matrix = torch.sparse_coo_tensor(indices, values, size=(20, len(seq)))
-    return seq_matrix
+    seq_tensor = torch.sparse_coo_tensor(indices, values, size=(20, len(seq)))
+    # import pdb
+
+    # pdb.set_trace()
+    assert seq_tensor.shape[1] == seq_tensor._indices().shape[1] == seq_tensor._values().shape[0]
+    return seq_tensor
 
 
 def array_to_seq(array: np.ndarray) -> str:
@@ -79,12 +83,10 @@ def _seq_to_array(seq: bytes) -> sparse.spmatrix:
                 match = True
                 break
         if not match:
-            # logger.debug(
-            #     "Could not convert the following residue to one-hot encoding: %s", chr(aa))
-            for x in range(20):
-                x_idxs.append(x)
-                y_idxs.append(y)
-                data.append(1 / 20)
+            # Add an empty value to keep _indexes() and _values() the right length
+            x_idxs.append(0)
+            y_idxs.append(y)
+            data.append(0)
     return x_idxs, y_idxs, data
 
 
@@ -195,7 +197,7 @@ def expand_adjacency(adj: sparse.spmatrix) -> torch.sparse.FloatTensor:
     # return new_adj
 
 
-def get_seq_identity(seq: bytes, other_seq: bytes) -> float:
+def get_seq_identity_bytes(seq: bytes, other_seq: bytes) -> float:
     """Return the fraction of amino acids that are the same in `seq` and `other_seq`.
 
     Examples:
@@ -204,6 +206,18 @@ def get_seq_identity(seq: bytes, other_seq: bytes) -> float:
     """
     assert len(seq) == len(other_seq)
     return sum(a == b for a, b in zip(seq, other_seq)) / len(seq)
+
+
+def get_seq_identity(seq: torch.Tensor, other_seq: torch.Tensor) -> torch.Tensor:
+    """Return the fraction of amino acids that are the same in `seq` and `other_seq`.
+
+    Examples:
+        >>> get_seq_identity(b'AAGC', b'AACC')
+        0.75
+    """
+    num_equal = (seq._indices()[0, :] == other_seq._indices()[0, :]).sum().to(torch.float)
+    num_total = seq.size()[1]
+    return (num_equal / num_total).item()
 
 
 def get_adj_identity(adj: sparse.spmatrix, other_adj: sparse.spmatrix, min_distance=3) -> float:

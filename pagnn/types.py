@@ -65,8 +65,8 @@ class DataSetGAN(NamedTuple):
 
     def to_buffer(self):
         data = {
-            "seqs": [seq._indices()[0, :].numpy() for seq in self.seqs],
-            "adjs": [(adj.row, adj.col) for adj in self.adjs],
+            "seqs": [seq._indices()[0, :].numpy().astype(np.uint8) for seq in self.seqs],
+            "adjs": [(adj.row.astype(np.uint16), adj.col.astype(np.uint16)) for adj in self.adjs],
             "targets": self.targets.numpy(),
             "meta": self.meta,
         }
@@ -79,7 +79,10 @@ class DataSetGAN(NamedTuple):
         seqs = []
         for seq_row in data["seqs"]:
             index = torch.stack(
-                [torch.from_numpy(seq_row), torch.arange(0, len(seq_row), dtype=torch.long)]
+                [
+                    torch.as_tensor(seq_row, dtype=torch.long),
+                    torch.arange(0, len(seq_row), dtype=torch.long),
+                ]
             )
             values = torch.ones(len(seq_row), dtype=torch.float)
             size = (20, len(seq_row))
@@ -89,7 +92,9 @@ class DataSetGAN(NamedTuple):
         for row, col in data["adjs"]:
             values = np.ones(len(col))
             seq_size = len(data["seqs"][0])
-            adj = sparse.coo_matrix((values, (row, col)), shape=(seq_size, seq_size))
+            adj = sparse.coo_matrix(
+                (values, (row.astype(np.long), col.astype(np.long))), shape=(seq_size, seq_size)
+            )
             adjs.append(adj)
         targets = torch.from_numpy(data["targets"])
         meta = data["meta"]

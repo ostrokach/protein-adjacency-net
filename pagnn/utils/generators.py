@@ -56,17 +56,20 @@ def basic_permuted_sequence_adder(
         for _ in range(num_sequences):
             offset = get_offset(seq.shape[1], random_state)
             negative_seq = torch.sparse_coo_tensor(
-                torch.cat([seq._indices()[offset:], seq._indices()[:offset]]),
+                torch.cat([seq._indices()[:, offset:], seq._indices()[:, :offset]], 1),
                 seq._values(),
                 size=seq.size(),
             )
-            assert seq.size() == negative_seq.size()
+            assert (
+                seq.size() == negative_seq.size()
+                and seq._values().size() == negative_seq._values().size()
+                and seq._indices().size() == negative_seq._indices().size()
+            )
             negative_seqs.append(negative_seq)
         negative_targets = torch.zeros(num_sequences, dtype=torch.float)
         negative_dsg = dsg._replace(
             seqs=(dsg.seqs if keep_pos else []) + negative_seqs,
             # adjs=(dsg.adjs if keep_pos else []) + dsg.adjs * len(negative_seqs),
-            adjs=(dsg.adjs if keep_pos else []) + dsg.adjs * len(negative_seqs),
             targets=torch.cat([dsg.targets, negative_targets]) if keep_pos else negative_targets,
         )
 
@@ -83,6 +86,8 @@ def buffered_permuted_sequence_adder(
         rowgen: Used for **pre-populating** the generator only!
         num_sequences: Number of sequences to generate in each iteration.
     """
+    raise NotImplementedError
+
     if random_state is None:
         random_state = np.random.RandomState()
 
@@ -127,6 +132,7 @@ def negative_sequence_adder(
     while True:
         dsg = yield negative_dsg
         ds = DataSet(dsg.seqs[0], dsg.adjs[0], dsg.targets[0])
+        assert ds.seq.shape[1] == ds.seq._indices().shape[1] == ds.seq._values().shape[0]
         negative_seqs: List[bytes] = []
         succeeded = True
         while len(negative_seqs) < num_sequences:
@@ -140,7 +146,11 @@ def negative_sequence_adder(
         if succeeded:
             negative_dsg = dsg._replace(
                 seqs=(dsg.seqs if keep_pos else []) + negative_seqs,
-                targets=(dsg.targets if keep_pos else []) + [0] * num_sequences,
+                targets=(
+                    torch.cat([dsg.targets, torch.zeros(num_sequences, dtype=torch.float)])
+                    if keep_pos
+                    else torch.zeros(num_sequences, dtype=torch.float)
+                ),
             )
         else:
             negative_dsg = None
