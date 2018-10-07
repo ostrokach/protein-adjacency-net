@@ -31,7 +31,7 @@ def _configure_buffer_sizes():
         with open('/proc/sys/fs/pipe-max-size', 'r') as f:
             # Figure out OS pipe size, but in case it is unusually large
             # or small restrain it to sensible values.
-            OS_PIPE_SZ = min(int(f.read()), 1024 * 1024)
+            OS_PIPE_SZ = min(int(f.read()), 50 * 1024 * 1024)
             PIPE_BUF_BYTES = max(OS_PIPE_SZ, PIPE_BUF_BYTES)
     except Exception:
         pass
