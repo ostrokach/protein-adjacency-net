@@ -19,7 +19,7 @@ from pagnn.utils import eval_net
 
 from .args import Args
 from .stats import Stats
-from .utils import get_data_pipe, get_internal_validation_datasets
+from .utils import get_data_pipe, get_internal_validation_datasets, get_training_datasets
 
 logger = logging.getLogger(__name__)
 
@@ -166,8 +166,10 @@ def main(args: Optional[Args] = None):
 
     # === Training Dataset ===
     logger.debug("Initializing training dataset...")
-    # ds_source = get_training_datasets(args)
-    datapipe = get_data_pipe(args)
+    if True:
+        datapipe = get_training_datasets(args)
+    else:
+        datapipe = get_data_pipe(args)
 
     # === Internal Validation Dataset ===
     logger.debug("Initializing validation dataset...")
