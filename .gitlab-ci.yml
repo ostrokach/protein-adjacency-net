@@ -1,4 +1,4 @@
-image: registry.gitlab.com/ostrokach-docker/conda:latest
+image: registry.gitlab.com/ostrokach-docker/conda:centos7
 
 stages:
   - lint
@@ -95,7 +95,6 @@ build-py37:
 # === Test ===
 
 .test: &test
-  image: registry.gitlab.com/ostrokach-docker/conda:centos7
   stage: test
   script:
     # Restore built packages
