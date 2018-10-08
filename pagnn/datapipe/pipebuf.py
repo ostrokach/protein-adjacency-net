@@ -3,6 +3,9 @@
 Source: https://github.com/wal-e/wal-e/blob/master/wal_e/pipebuf.py
 """
 import fcntl
+import logging
+
+logger = logging.getLogger(__name__)
 
 PIPE_BUF_BYTES = None
 OS_PIPE_SZ = None
@@ -43,4 +46,5 @@ _configure_buffer_sizes()
 def set_buf_size(fd):
     """Set up os pipe buffer size, if applicable"""
     if OS_PIPE_SZ and hasattr(fcntl, "F_SETPIPE_SZ"):
+        logger.info("Increasing buffer size of fd %s to %s bytes.", fd, OS_PIPE_SZ)
         fcntl.fcntl(fd, fcntl.F_SETPIPE_SZ, OS_PIPE_SZ)
