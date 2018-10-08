@@ -12,7 +12,7 @@ from pagnn.datavargan import (
     push_seqs,
 )
 from pagnn.types import DataSetGAN
-from pagnn.utils import AMINO_ACIDS, set_device, to_sparse_tensor
+from pagnn.utils import AMINO_ACIDS, seq_to_array, set_device, to_sparse_tensor
 
 # === Fixtures ===
 
@@ -48,6 +48,7 @@ def ds(request):
         "".join(AMINO_ACIDS[random_state.randint(0, 20)] for _ in range(seq_length)).encode("ascii")
         for _ in range(num_seqs)
     ]
+    seqs = [seq_to_array(seq) for seq in seqs]
     adj = (sparse.rand(seq_length, seq_length, 0.2) + sparse.eye(seq_length)).tocoo()
     adj.data = np.ones(adj.nnz, dtype=np.int16)
     return DataSetGAN(seqs=seqs, adjs=[adj], targets=[1], meta={})
@@ -76,6 +77,7 @@ def test_push_seq(benchmark):
     random_state = np.random.RandomState(0)
     indexes = random_state.randint(0, 20, batch_size)
     seqs = [AMINO_ACIDS[idx].encode("ascii") * seq_len for idx in indexes]
+    seqs = [seq_to_array(seq) for seq in seqs]
     # Actual
     with set_device("cpu"):
         seqs_var = benchmark(push_seqs, seqs)
