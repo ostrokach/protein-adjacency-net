@@ -167,9 +167,9 @@ def main(args: Optional[Args] = None):
     # === Training Dataset ===
     logger.debug("Initializing training dataset...")
     if True:
-        datapipe = get_training_datasets(args)
-    else:
         datapipe = get_data_pipe(args)
+    else:
+        datapipe = get_training_datasets(args)
 
     # === Internal Validation Dataset ===
     logger.debug("Initializing validation dataset...")
