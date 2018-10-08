@@ -41,7 +41,7 @@ class TestNet1(nn.Module):
 
         # x = self.combine_filters(x).squeeze()
 
-        x = F.sigmoid(x)
+        x = torch.sigmoid(x)
         return x
 
 
@@ -60,4 +60,4 @@ class Net(nn.Module):
         x = x.sum(dim=2) / adjacency.sum(dim=0)
         x = self.combine_convs(x)
         x = x.squeeze()
-        return F.sigmoid(x)
+        return torch.sigmoid(x)

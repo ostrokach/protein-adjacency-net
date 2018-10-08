@@ -230,7 +230,6 @@ class AESeqConvDeconv(nn.Module):
                 end = start + conv_seq_len
                 assert end <= x.shape[2]
                 xd = x[:, :, start:end]
-                # import pdb; pdb.set_trace()
                 xd = getattr(self, f'decoder_{i}')(xd, seq_len)
                 x_list.append(xd)
                 start = end

@@ -16,4 +16,4 @@ EXPAND_ADJACENCY_TEST_DATA = [
 
 @pytest.mark.parametrize("adj, expanded_adj_", EXPAND_ADJACENCY_TEST_DATA)
 def test_expand_adjacency(adj, expanded_adj_):
-    np.array_equal(utils.expand_adjacency(sparse.coo_matrix(adj)).todense(), expanded_adj_)
+    np.array_equal(utils.expand_adjacency(sparse.coo_matrix(adj)).to_dense(), expanded_adj_)

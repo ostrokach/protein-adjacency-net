@@ -1,60 +1,8 @@
 import math
 
 import numpy as np
-import torch
 from numba import jit
 from scipy import sparse
-from torch.autograd import Variable
-
-from pagnn import settings
-
-
-def to_numpy(array: Variable) -> np.ndarray:
-    """Convert torch `Variable` into a numpy `ndarray`."""
-    if settings.CUDA:
-        return array.data.cpu().numpy()
-    else:
-        return array.data.numpy()
-
-
-def to_tensor(array: np.ndarray) -> torch.FloatTensor:
-    """Convert a numpy `ndarray` into a torch tensor (possibly on CUDA)."""
-    tensor = torch.FloatTensor(array)
-    if settings.CUDA:
-        tensor = tensor.cuda()
-    return tensor
-
-
-def to_sparse_tensor(sparray: sparse.spmatrix) -> torch.sparse.FloatTensor:
-    """Convert a scipy `spmatrix` into a torch sparse tensor (possibly on CUDA)."""
-    if sparray.nnz == 0:
-        i = torch.LongTensor()
-        v = torch.FloatTensor()
-    else:
-        i = torch.LongTensor(np.vstack([sparray.row, sparray.col]))
-        v = torch.FloatTensor(sparray.data)
-    s = torch.Size(sparray.shape)
-    tensor = torch.sparse.FloatTensor(i, v, s)
-    if settings.CUDA:
-        tensor = tensor.cuda()
-    return tensor
-
-
-def argmax_onehot(seq: torch.FloatTensor) -> torch.IntTensor:
-    idx1 = torch.arange(
-        0,
-        seq.shape[0] * seq.shape[2],
-        out=torch.cuda.LongTensor() if settings.CUDA else torch.LongTensor(),
-    )
-    # Note: Takes the first value in case of duplicates.
-    idx2 = seq.max(1)[1].view(-1)
-    mat = torch.zeros(
-        seq.shape[0] * seq.shape[2],
-        seq.shape[1],
-        out=torch.cuda.FloatTensor() if settings.CUDA else torch.FloatTensor(),
-    )
-    mat[idx1, idx2] = 1
-    return mat.view(seq.shape[0], seq.shape[2], seq.shape[1]).transpose(1, 2).contiguous()
 
 
 @jit(nopython=True)
@@ -75,9 +23,11 @@ def conv2d_shape(shape, kernel_size, stride=1, padding=0, dilation=1):
     """
     out_shape = (
         conv1d_shape(
-            shape[0], kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation),
+            shape[0], kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation
+        ),
         conv1d_shape(
-            shape[1], kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation),
+            shape[1], kernel_size=kernel_size, stride=stride, padding=padding, dilation=dilation
+        ),
     )
     return out_shape
 
@@ -113,10 +63,11 @@ def remove_eye_sparse(x: sparse.spmatrix, bandwidth: int, copy: bool = True) -> 
         return x
     if copy:
         x = x.copy()
-    keep_mask = np.ones(len(x.data), dtype=bool)
-    for i, (r, c) in enumerate(zip(x.row, x.col)):
-        if abs(r - c) <= (bandwidth - 1):
-            keep_mask[i] = 0
+    # keep_mask = np.ones(len(x.data), dtype=bool)
+    # for i, (r, c) in enumerate(zip(x.row, x.col)):
+    #     if abs(r - c) <= (bandwidth - 1):
+    #         keep_mask[i] = 0
+    keep_mask = np.abs(x.row - x.col) >= bandwidth
     x.data = x.data[keep_mask]
     x.row = x.row[keep_mask]
     x.col = x.col[keep_mask]
@@ -128,15 +79,21 @@ def add_eye_sparse(x: sparse.spmatrix, bandwidth: int, copy: bool = True) -> spa
         return x
     if copy:
         x = x.copy()
+    data_list = [x.data]
+    row_list = [x.row]
+    col_list = [x.col]
     # Add diagonal
-    x.data = np.hstack([x.data, np.ones(x.shape[1])])
-    x.row = np.hstack([x.row, np.arange(x.shape[1])])
-    x.col = np.hstack([x.col, np.arange(x.shape[1])])
+    data_list.append(np.ones(x.shape[1]))
+    row_list.append(np.arange(x.shape[1]))
+    col_list.append(np.arange(x.shape[1]))
     # Add off-diagonals
     for k in range(1, bandwidth, 1):
-        x.data = np.hstack([x.data, np.ones(x.shape[1] - k), np.ones(x.shape[1] - k)])
-        x.row = np.hstack([x.row, np.arange(x.shape[1] - k), k + np.arange(x.shape[1] - k)])
-        x.col = np.hstack([x.col, k + np.arange(x.shape[1] - k), np.arange(x.shape[1] - k)])
+        data_list.extend([np.ones(x.shape[1] - k), np.ones(x.shape[1] - k)])
+        row_list.extend([np.arange(x.shape[1] - k), k + np.arange(x.shape[1] - k)])
+        col_list.extend([k + np.arange(x.shape[1] - k), np.arange(x.shape[1] - k)])
+    x.data = np.hstack(data_list)
+    x.row = np.hstack(row_list)
+    x.col = np.hstack(col_list)
     return x
 
 

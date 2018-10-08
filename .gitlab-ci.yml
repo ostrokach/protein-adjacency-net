@@ -1,4 +1,4 @@
-image: registry.gitlab.com/ostrokach-docker/conda:latest
+image: registry.gitlab.com/ostrokach-docker/conda:centos7
 
 stages:
   - lint
@@ -10,7 +10,7 @@ stages:
 # === Variables ===
 
 variables:
-  PACKAGE_VERSION: "0.1.9"
+  PACKAGE_VERSION: "0.1.10"
 
 .py36: &py36
   PYTHON_VERSION: "3.6"
@@ -101,15 +101,15 @@ build-py37:
     - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
     - conda index /opt/conda/conda-bld/
     # Run tests
-    - cd ${CI_PROJECT_DIR}/.ci/conda
+    - pushd ${CI_PROJECT_DIR}/.ci/conda
     - conda build .
       --test
       --python $PYTHON_VERSION
-  coverage: /^TOTAL.* (\d+\%)/
+    - popd
+    - mv .ci/conda/.coverage .coverage
   artifacts:
     paths:
-      - environment-py${PYTHON_VERSION/./}.yml
-      - .ci/conda/.coverage
+      - .coverage
 
 test-py36:
   <<: [*configure, *test]
@@ -124,11 +124,12 @@ test-py37:
     - build-py37
   variables:
     <<: [*py37]
+  allow_failure: true
 
 # === Docs ===
 
 docs:
-  stage: test
+  stage: documentation
   <<: [*configure]
   script:
     # Restore built packages
@@ -136,7 +137,7 @@ docs:
     - conda index /opt/conda/conda-bld/
     # Install required packages
     - conda install -yq --use-local "python=$PYTHON_VERSION" $CI_PROJECT_NAME
-    - conda install -yq nbconvert ipython ipykernel pandoc
+    - conda install -yq ipython ipykernel pandoc nbconvert 'testpath<0.4'
     - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx coverage
     # Build docs
     - sphinx-build ${CI_PROJECT_DIR}/docs public
@@ -146,9 +147,10 @@ docs:
     - mv htmlcov public/
   coverage: /^TOTAL.* (\d+\%)/
   dependencies:
-    - build-py37
+    - build-py36
+    - test-py36
   variables:
-    <<: [*py37]
+    <<: [*py36]
   artifacts:
     paths:
       - public

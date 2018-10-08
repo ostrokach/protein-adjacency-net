@@ -10,6 +10,7 @@
    pagnn.utils
    pagnn.io
    pagnn.dataset
+   pagnn.datapipe
    pagnn.datavardcn
    pagnn.datavargan
    pagnn.models
@@ -17,13 +18,16 @@
 """
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
-__version__ = '0.1.9'
+__version__ = '__version__ = "0.1.10"'
+
+# See: https://github.com/apache/arrow/issues/2637
+import pyarrow  # noqa
 
 from . import settings, exc
 from .types import *
 from .gpu import init_gpu
 from .utils import *
-from .io import iter_datarows_shuffled, iter_datarows, get_folder_weights
+from .io import iter_datarows_shuffled, iter_datarows
 from .dataset import (row_to_dataset, get_negative_example, get_permuted_examples, get_offset,
                       get_indices)
-from . import datavardcn, datavargan, models, training
+from . import datapipe, datavardcn, datavargan, models, training

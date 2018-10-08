@@ -1,26 +1,24 @@
 """Functions for generating and manipulating DataSets."""
 import enum
-import operator
-from typing import Callable, Generator, List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import numpy as np
+import torch
 from scipy import sparse
 
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.types import DataRow, DataSet, DataSetGAN
+from pagnn.types import DataSet, DataSetGAN, RowGenF
+from pagnn.utils import seq_to_array
 
-MAX_TRIES = 1024
-MAX_TRIES_SEQLEN = 8192
-
-# === Positive training examples ===
+MAX_TRIES = 256
 
 
-def row_to_dataset(row: DataRow, target: float) -> DataSet:
-    """Convert a `DataRow` into a `DataSet`."""
-    seq = row.sequence.replace('-', '').encode('ascii')
-    adj = utils.get_adjacency(len(seq), row.adjacency_idx_1, row.adjacency_idx_2)
-    known_fields = {'Index', 'sequence', 'adjacency_idx_1', 'adjacency_idx_2', 'target'}
+def row_to_dataset(row, target):
+    """Convert a :any:`DataRow` into a :any:`DataSet`."""
+    seq = seq_to_array(row.sequence.replace("-", "").encode("ascii"))
+    adj = utils.get_adjacency(seq.shape[1], row.adjacency_idx_1, row.adjacency_idx_2)
+    known_fields = {"Index", "sequence", "adjacency_idx_1", "adjacency_idx_2", "target"}
     if set(row._fields) - set(known_fields):
         meta = {k: v for k, v in row._asdict().items() if k not in known_fields}
     else:
@@ -28,32 +26,34 @@ def row_to_dataset(row: DataRow, target: float) -> DataSet:
     return DataSet(seq, adj, target, meta)
 
 
-def to_gan(ds: DataSet) -> DataSetGAN:
-    """Convert a `DataSet` into a `DataSetGAN`."""
-    return DataSetGAN([ds.seq], [ds.adj], [ds.target], ds.meta)
-
-
-# === Negative training examples ===
+def dataset_to_gan(ds):
+    """Convert a :any:`DataSet` into a :any:`DataSetGAN`."""
+    return DataSetGAN([ds.seq], [ds.adj], torch.tensor([ds.target], dtype=torch.float), ds.meta)
 
 
 @enum.unique
 class Method(enum.Enum):
-    PERMUTE = 'permute'
-    EXACT = 'exact'
-    START = 'start'
-    STOP = 'stop'
-    MIDDLE = 'middle'
-    EDGES = 'edges'
+    """Possible ways of adding negative training examples."""
+
+    PERMUTE = "permute"
+    EXACT = "exact"
+    START = "start"
+    STOP = "stop"
+    MIDDLE = "middle"
+    EDGES = "edges"
 
 
-def get_negative_example(ds: DataSet,
-                         method: Union[str, Method],
-                         rowgen: Generator[DataRow, Tuple[Callable, int], None],
-                         random_state: Optional[np.random.RandomState] = None) -> DataSet:
+def get_negative_example(
+    ds: DataSet,
+    method: Union[str, Method],
+    rowgen: RowGenF,
+    random_state: Optional[np.random.RandomState] = None,
+) -> DataSet:
     """Find a valid negative control for a given `ds`.
 
     Raises:
-        MaxNumberOfTriesExceededError
+        - MaxNumberOfTriesExceededError
+        - SequenceTooLongError
     """
     if isinstance(method, str):
         method = Method(method)
@@ -61,42 +61,64 @@ def get_negative_example(ds: DataSet,
     n_tries = 0
     seq_identity = 1.0
     adj_identity = 1.0
+    seq_length = ds.seq.shape[1]
+    if not ds.seq.shape[1] == ds.seq._indices().shape[1] == ds.seq._values().shape[0]:
+        raise AssertionError
     while seq_identity > 0.2 or adj_identity > 0.3:
         n_tries += 1
         if n_tries > MAX_TRIES:
             raise MaxNumberOfTriesExceededError(n_tries)
         if method == Method.PERMUTE:
-            offset = get_offset(len(ds.seq))
-            negative_seq = ds.seq[offset:] + ds.seq[:offset]
+            offset = get_offset(seq_length)
+            negative_seq = torch.sparse_coo_tensor(
+                torch.cat([ds.seq._indices()[:, offset:], ds.seq._indices()[:, :offset]], 1),
+                ds.seq._values(),
+                size=ds.seq.size(),
+            )
             negative_adj = None
             seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
             adj_identity = 0
             break
         elif method == Method.EXACT:
-            n_tries_seqlen = 0
-            while True:
-                n_tries_seqlen += 1
-                if n_tries_seqlen > MAX_TRIES_SEQLEN:
-                    raise MaxNumberOfTriesExceededError(n_tries_seqlen)
-                row = rowgen.send((operator.eq, int(len(ds.seq) // 20 * 20)))
-                if row is None:
-                    raise SequenceTooLongError(
-                        f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
-                negative_ds = row_to_dataset(row, target=0)
-                if len(negative_ds.seq) == len(ds.seq):
-                    break
-        else:
-            row = rowgen.send((operator.ge, len(ds.seq) + 20))
+            row = None
+            while row is None and n_tries < MAX_TRIES:
+                n_tries += 1
+                row = rowgen.send(
+                    lambda df: df[df["sequence"].str.replace("-", "").str.len() == seq_length]
+                )
             if row is None:
                 raise SequenceTooLongError(
-                    f"Could not find a generator for target_seq_length: {len(ds.seq)}.")
-            negative_ds = row_to_dataset(row, target=0)
-        start, stop = get_indices(len(ds.seq), len(negative_ds.seq), method, random_state)
+                    f"""Could not find a generator for target_seq_length: {seq_length}."""
+                )
+        else:
+            row = None
+            while row is None and n_tries < MAX_TRIES:
+                n_tries += 1
+                row = rowgen.send(
+                    lambda df: df[df["sequence"].str.replace("-", "").str.len() >= seq_length]
+                )
+
+            if row is None:
+                raise SequenceTooLongError(
+                    f"""Could not find a generator for target_seq_length: {seq_length}."""
+                )
+        negative_ds = row_to_dataset(row, target=0)
+        start, stop = get_indices(seq_length, negative_ds.seq.shape[1], method, random_state)
         if method not in [Method.EDGES]:
-            negative_seq = negative_ds.seq[start:stop]
+            negative_seq = torch.sparse_coo_tensor(
+                negative_ds.seq._indices()[:, start:stop],
+                negative_ds.seq._values()[start:stop],
+                size=(20, seq_length),
+            )
             negative_adj = extract_adjacency_from_middle(start, stop, negative_ds.adj)
         else:
-            negative_seq = negative_ds.seq[:start] + negative_ds.seq[stop:]
+            negative_seq = torch.sparse_coo_tensor(
+                torch.cat(
+                    [negative_ds.seq._indices()[:, :start], negative_ds.seq._indices()[:, stop:]], 1
+                ),
+                torch.cat([negative_ds.seq._values()[:start], negative_ds.seq._values()[stop:]]),
+                size=(20, seq_length),
+            )
             negative_adj = extract_adjacency_from_edges(start, stop, negative_ds.adj)
         seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
         adj_identity = utils.get_adj_identity(ds.adj, negative_adj)
@@ -105,8 +127,9 @@ def get_negative_example(ds: DataSet,
     return negative_dataset
 
 
-def get_permuted_examples(datasets: List[DataSet],
-                          random_state: Optional[np.random.RandomState] = None) -> List[DataSet]:
+def get_permuted_examples(
+    datasets: List[DataSet], random_state: Optional[np.random.RandomState] = None
+) -> List[DataSet]:
     """
     Generate negative examples by permuting a list of sequences together.
 
@@ -116,7 +139,7 @@ def get_permuted_examples(datasets: List[DataSet],
     """
     negative_datasets: List[DataSet] = []
 
-    combined_seq = b''.join(ds.seq for ds in datasets)
+    combined_seq = b"".join(ds.seq for ds in datasets)
     # combined_adj = sparse.block_diag([ds.adj for ds in datasets])
     # Permute a sequence until we find something with low sequence identity
     n_tries = 0
@@ -152,10 +175,9 @@ def get_offset(length: int, random_state: Optional[np.random.RandomState] = None
     return offset
 
 
-def get_indices(length: int,
-                full_length: int,
-                method: Union[str, Method],
-                random_state: Optional[np.random.RandomState] = None):
+def get_indices(
+    length: int, full_length: int, method: Union[str, Method], random_state: np.random.RandomState
+):
     """
     Get `start` and `stop` indices for a given slice method.
 
@@ -175,7 +197,7 @@ def get_indices(length: int,
         method = Method(method)
     assert method in Method
 
-    if method in ['middle', 'edges'] and random_state is None:
+    if method in ["middle", "edges"] and random_state is None:
         random_state = np.random.RandomState()
 
     gap = full_length - length
@@ -237,15 +259,11 @@ def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
     start = 0
     for length in lengths:
         stop = start + length
-        valid_idx = ((adj.row >= start) & (adj.row < stop) & (adj.col >= start) & (adj.col < stop))
+        valid_idx = (adj.row >= start) & (adj.row < stop) & (adj.col >= start) & (adj.col < stop)
         row = adj.row[valid_idx] - start
         col = adj.col[valid_idx] - start
         assert len(row) == len(col)
-        sub_adj = sparse.coo_matrix(
-            (
-                np.ones(len(row)),
-                (row, col),
-            ), shape=(length, length))
+        sub_adj = sparse.coo_matrix((np.ones(len(row)), (row, col)), shape=(length, length))
         adjs.append(sub_adj)
         start = stop
     assert start == adj.shape[-1], (start, adj.shape[-1])
@@ -262,7 +280,8 @@ def _permute_adjacency(adj: sparse.spmatrix, offset: int):
 
 
 def extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
-    """
+    """Extract adjacency matrix from ``[start..stop)`` of `adj`.
+
     Examples:
         >>> from scipy import sparse
         >>> adj = sparse.coo_matrix((
@@ -278,22 +297,27 @@ def extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
         >>> negative_adj.col
         array([0, 1, 1, 2], dtype=int32)
     """
-    keep_idx = \
-        np.isfinite(adj.row) & \
-        np.isfinite(adj.col) & \
-        (start <= adj.row) & (adj.row < stop) & \
-        (start <= adj.col) & (adj.col < stop)
+    keep_idx = (
+        np.isfinite(adj.row)
+        & np.isfinite(adj.col)
+        & (start <= adj.row)
+        & (adj.row < stop)
+        & (start <= adj.col)
+        & (adj.col < stop)
+    )
     new_row = adj.row[keep_idx] - start
     new_col = adj.col[keep_idx] - start
     new_adj = sparse.coo_matrix(
         (adj.data[keep_idx], (new_row, new_col)),
         dtype=adj.dtype,
-        shape=((stop - start, stop - start)))
+        shape=((stop - start, stop - start)),
+    )
     return new_adj
 
 
 def extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
-    """
+    """Extract adjacency matrix from ``[0, start)`` and from ``[stop, end)`` of ``adj``.
+
     Examples:
         >>> from scipy import sparse
         >>> adj = sparse.coo_matrix((
@@ -304,11 +328,12 @@ def extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
         >>> negative_adj.col
         array([0, 1, 2], dtype=int32)
     """
-    keep_idx = \
-        np.isfinite(adj.row) & \
-        np.isfinite(adj.col) & \
-        ((adj.row < start) | (adj.row >= stop)) & \
-        ((adj.col < start) | (adj.col >= stop))
+    keep_idx = (
+        np.isfinite(adj.row)
+        & np.isfinite(adj.col)
+        & ((adj.row < start) | (adj.row >= stop))
+        & ((adj.col < start) | (adj.col >= stop))
+    )
     new_row = adj.row[keep_idx]
     new_row = np.where(new_row < start, new_row, new_row - (stop - start))
 
@@ -317,5 +342,6 @@ def extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
     new_adj = sparse.coo_matrix(
         (adj.data[keep_idx], (new_row, new_col)),
         dtype=adj.dtype,
-        shape=((adj.shape[0] - (stop - start), adj.shape[1] - (stop - start))))
+        shape=((adj.shape[0] - (stop - start), adj.shape[1] - (stop - start))),
+    )
     return new_adj

@@ -7,11 +7,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from pagnn.datavargan import dataset_to_datavar
+from pagnn.models.common import (
+    AdjacencyConv,
+    AdjacencyConvTranspose,
+    SequenceConv,
+    SequenceConvTranspose,
+    SequentialMod,
+)
 from pagnn.utils import padding_amount, reshape_internal_dim
-
-from .adjacency_conv import AdjacencyConv, AdjacencyConvTranspose
-from .sequence_conv import SequenceConv, SequenceConvTranspose
-from .sequential import SequentialMod
 
 logger = logging.getLogger(__name__)
 
@@ -23,19 +26,20 @@ class NetworkMode(enum.Enum):
 
 
 class AESeqAdjApplyExtra(nn.Module):
-
-    def __init__(self,
-                 mode: Union[NetworkMode, str],
-                 n_layers: int = 4,
-                 n_convs: int = 3,
-                 input_size: int = 20,
-                 hidden_size: int = 64,
-                 bottleneck_size: int = 16,
-                 kernel_size: int = 3,
-                 stride: int = 2,
-                 padding: int = 1,
-                 bias: bool = False,
-                 encoder_network: Optional['AESeqAdjApplyExtra'] = None) -> None:
+    def __init__(
+        self,
+        mode: Union[NetworkMode, str],
+        n_layers: int = 4,
+        n_convs: int = 3,
+        input_size: int = 20,
+        hidden_size: int = 64,
+        bottleneck_size: int = 16,
+        kernel_size: int = 3,
+        stride: int = 2,
+        padding: int = 1,
+        bias: bool = False,
+        encoder_network: Optional["AESeqAdjApplyExtra"] = None,
+    ) -> None:
         super().__init__()
 
         self.mode = self._to_network_mode(mode)
@@ -49,7 +53,7 @@ class AESeqAdjApplyExtra(nn.Module):
         self.padding = padding
         self.bias = bias
 
-        self.bottleneck_features = self.hidden_size * 2**(self.n_layers - 1)
+        self.bottleneck_features = self.hidden_size * 2 ** (self.n_layers - 1)
 
         if self.mode in [NetworkMode.AE, NetworkMode.DISCRIMINATOR]:
             self._configure_encoder()
@@ -67,10 +71,7 @@ class AESeqAdjApplyExtra(nn.Module):
 
     def _configure_encoder(self):
         conv_kwargs = dict(
-            kernel_size=self.kernel_size,
-            stride=self.stride,
-            padding=self.padding,
-            bias=self.bias,
+            kernel_size=self.kernel_size, stride=self.stride, padding=self.padding, bias=self.bias
         )
         input_channels = self.input_size
         for i in range(0, self.n_layers):
@@ -78,52 +79,61 @@ class AESeqAdjApplyExtra(nn.Module):
             negative_slope = 0.2 if i == 0 else 0.01
             # Input
             if i == 0:
-                setattr(self, f'encoder_pre_{i}',
-                        nn.Sequential(
-                            nn.Conv1d(
-                                input_channels,
-                                output_channels // 2,
-                                kernel_size=1,
-                                stride=1,
-                                padding=0)))
+                setattr(
+                    self,
+                    f"encoder_pre_{i}",
+                    nn.Sequential(
+                        nn.Conv1d(
+                            input_channels, output_channels // 2, kernel_size=1, stride=1, padding=0
+                        )
+                    ),
+                )
             else:
-                setattr(self, f'encoder_pre_{i}', nn.Sequential())
+                setattr(self, f"encoder_pre_{i}", nn.Sequential())
             # Adjacency Conv
             if i < self.n_convs:
-                setattr(self, f'encoder_0_{i}',
-                        SequentialMod(
-                            AdjacencyConv(output_channels // 4, output_channels // 4),
-                            nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.InstanceNorm1d(
-                                output_channels // 4,
-                                momentum=0.01,
-                                affine=True,
-                                track_running_stats=True),
-                        ))
-            else:
-                setattr(self, f'encoder_0_{i}', SequentialMod())
-            # Sequence Conv
-            setattr(self, f'encoder_1_{i}',
+                setattr(
+                    self,
+                    f"encoder_0_{i}",
                     SequentialMod(
-                        SequenceConv(output_channels // 2, output_channels, **conv_kwargs),))
-            if i < (self.n_layers - 1):
-                setattr(self, f'encoder_post_{i}',
-                        nn.Sequential(
-                            nn.LeakyReLU(negative_slope, inplace=True),
-                            nn.InstanceNorm1d(
-                                output_channels,
-                                momentum=0.01,
-                                affine=True,
-                                track_running_stats=True),
-                        ))
+                        AdjacencyConv(output_channels // 4, output_channels // 4),
+                        nn.LeakyReLU(negative_slope, inplace=True),
+                        nn.InstanceNorm1d(
+                            output_channels // 4,
+                            momentum=0.01,
+                            affine=True,
+                            track_running_stats=True,
+                        ),
+                    ),
+                )
             else:
-                setattr(self, f'encoder_post_{i}', nn.Sequential())
+                setattr(self, f"encoder_0_{i}", SequentialMod())
+            # Sequence Conv
+            setattr(
+                self,
+                f"encoder_1_{i}",
+                SequentialMod(SequenceConv(output_channels // 2, output_channels, **conv_kwargs)),
+            )
+            if i < (self.n_layers - 1):
+                setattr(
+                    self,
+                    f"encoder_post_{i}",
+                    nn.Sequential(
+                        nn.LeakyReLU(negative_slope, inplace=True),
+                        nn.InstanceNorm1d(
+                            output_channels, momentum=0.01, affine=True, track_running_stats=True
+                        ),
+                    ),
+                )
+            else:
+                setattr(self, f"encoder_post_{i}", nn.Sequential())
             input_channels = output_channels
 
         if self.bottleneck_size > 0:
             self.linear_in = nn.Linear(2048, self.bottleneck_size, bias=True)
             self.conv_in = nn.Conv1d(
-                512, self.bottleneck_size, kernel_size=4, stride=4, padding=0, bias=True)
+                512, self.bottleneck_size, kernel_size=4, stride=4, padding=0, bias=True
+            )
 
         return input_channels
 
@@ -136,7 +146,8 @@ class AESeqAdjApplyExtra(nn.Module):
         if self.bottleneck_size > 0:
             self.linear_out = nn.Linear(self.bottleneck_size, 2048, bias=True)
             self.conv_out = nn.Conv1d(
-                self.bottleneck_size, 512 * 4, kernel_size=1, stride=1, padding=0, bias=True)
+                self.bottleneck_size, 512 * 4, kernel_size=1, stride=1, padding=0, bias=True
+            )
 
         convt_kwargs = dict(
             kernel_size=self.kernel_size,
@@ -147,49 +158,59 @@ class AESeqAdjApplyExtra(nn.Module):
         for i in range(self.n_layers - 1, -1, -1):
             output_channels = input_channels // 2 if i > 0 else self.input_size
             if i < (self.n_layers - 1):
-                setattr(self, f'decoder_pre_{i}',
-                        nn.Sequential(
-                            nn.ReLU(inplace=True),
-                            nn.InstanceNorm1d(
-                                input_channels,
-                                momentum=0.01,
-                                affine=True,
-                                track_running_stats=True),
-                        ))
+                setattr(
+                    self,
+                    f"decoder_pre_{i}",
+                    nn.Sequential(
+                        nn.ReLU(inplace=True),
+                        nn.InstanceNorm1d(
+                            input_channels, momentum=0.01, affine=True, track_running_stats=True
+                        ),
+                    ),
+                )
             else:
-                setattr(self, f'decoder_pre_{i}', nn.Sequential())
+                setattr(self, f"decoder_pre_{i}", nn.Sequential())
             # Sequence Conv
-            setattr(self, f'decoder_0_{i}',
-                    SequentialMod(
-                        SequenceConvTranspose(input_channels, input_channels // 2, **convt_kwargs),
-                    ))
+            setattr(
+                self,
+                f"decoder_0_{i}",
+                SequentialMod(
+                    SequenceConvTranspose(input_channels, input_channels // 2, **convt_kwargs)
+                ),
+            )
             # Adjacency Conv
             if i < self.n_convs:
-                setattr(self, f'decoder_1_{i}',
-                        SequentialMod(
-                            nn.ReLU(inplace=True),
-                            nn.InstanceNorm1d(
-                                input_channels // 4,
-                                momentum=0.01,
-                                affine=True,
-                                track_running_stats=True),
-                            AdjacencyConvTranspose(
-                                getattr(encoder_net, f'encoder_0_{i}')[0].spatial_conv),
-                        ))
+                setattr(
+                    self,
+                    f"decoder_1_{i}",
+                    SequentialMod(
+                        nn.ReLU(inplace=True),
+                        nn.InstanceNorm1d(
+                            input_channels // 4,
+                            momentum=0.01,
+                            affine=True,
+                            track_running_stats=True,
+                        ),
+                        AdjacencyConvTranspose(
+                            getattr(encoder_net, f"encoder_0_{i}")[0].spatial_conv
+                        ),
+                    ),
+                )
             else:
-                setattr(self, f'decoder_1_{i}', SequentialMod())
+                setattr(self, f"decoder_1_{i}", SequentialMod())
             # Output
             if i == 0:
-                setattr(self, f'decoder_post_{i}',
-                        nn.Sequential(
-                            nn.Conv1d(
-                                input_channels // 2,
-                                output_channels,
-                                kernel_size=1,
-                                stride=1,
-                                padding=0),))
+                setattr(
+                    self,
+                    f"decoder_post_{i}",
+                    nn.Sequential(
+                        nn.Conv1d(
+                            input_channels // 2, output_channels, kernel_size=1, stride=1, padding=0
+                        )
+                    ),
+                )
             else:
-                setattr(self, f'decoder_post_{i}', nn.Sequential())
+                setattr(self, f"decoder_post_{i}", nn.Sequential())
             input_channels = output_channels
 
     def forward(self, seq, adjs):
@@ -198,9 +219,11 @@ class AESeqAdjApplyExtra(nn.Module):
             x = self._forward_encoder(x, adjs)
         if self.mode in [NetworkMode.AE, NetworkMode.GENERATOR]:
             num_aa = sum(adj[0].shape[1] for adj in adjs)
-            shape_in_range = ((x.shape[1] *
-                               (x.shape[2] - 1) * 0.9) <= (num_aa * self.bottleneck_size / 64) <=
-                              (x.shape[1] * x.shape[2] * 1.1))
+            shape_in_range = (
+                (x.shape[1] * (x.shape[2] - 1) * 0.9)
+                <= (num_aa * self.bottleneck_size / 64)
+                <= (x.shape[1] * x.shape[2] * 1.1)
+            )
             assert shape_in_range, (x.shape, num_aa / 64 * self.bottleneck_size)
             x = self._forward_decoder(x, adjs)
         return x
@@ -209,13 +232,13 @@ class AESeqAdjApplyExtra(nn.Module):
         x = seq
 
         for i in range(self.n_layers):
-            x = getattr(self, f'encoder_pre_{i}')(x)
-            x_adj = x[:, x.shape[1] // 2:, :]
-            x_adj = getattr(self, f'encoder_0_{i}')(x_adj, i, adjs)
-            x = torch.cat([x[:, :x.shape[1] // 2, :], x_adj], 1)
-            x = getattr(self, f'encoder_1_{i}')(x, i, adjs)
-            x = getattr(self, f'encoder_post_{i}')(x)
-            logger.debug(f'{i}, {x.shape}')
+            x = getattr(self, f"encoder_pre_{i}")(x)
+            x_adj = x[:, x.shape[1] // 2 :, :]
+            x_adj = getattr(self, f"encoder_0_{i}")(x_adj, i, adjs)
+            x = torch.cat([x[:, : x.shape[1] // 2, :], x_adj], 1)
+            x = getattr(self, f"encoder_1_{i}")(x, i, adjs)
+            x = getattr(self, f"encoder_post_{i}")(x)
+            logger.debug(f"{i}, {x.shape}")
 
         if self.bottleneck_size > 0:
             pad_amount = padding_amount(x, 2048)  # 4 x 512
@@ -239,13 +262,13 @@ class AESeqAdjApplyExtra(nn.Module):
                 x = x[:, :, :expected_length]
 
         for i in range(self.n_layers - 1, -1, -1):
-            x = getattr(self, f'decoder_pre_{i}')(x)
-            x = getattr(self, f'decoder_0_{i}')(x, i, adjs)
-            x_adj = x[:, x.shape[1] // 2:, :]
-            x_adj = getattr(self, f'decoder_1_{i}')(x_adj, i, adjs)
-            x = torch.cat([x[:, :x.shape[1] // 2, :], x_adj], 1)
-            x = getattr(self, f'decoder_post_{i}')(x)
-            logger.debug(f'{i}, {x.shape}')
+            x = getattr(self, f"decoder_pre_{i}")(x)
+            x = getattr(self, f"decoder_0_{i}")(x, i, adjs)
+            x_adj = x[:, x.shape[1] // 2 :, :]
+            x_adj = getattr(self, f"decoder_1_{i}")(x_adj, i, adjs)
+            x = torch.cat([x[:, : x.shape[1] // 2, :], x_adj], 1)
+            x = getattr(self, f"decoder_post_{i}")(x)
+            logger.debug(f"{i}, {x.shape}")
 
         return x
 

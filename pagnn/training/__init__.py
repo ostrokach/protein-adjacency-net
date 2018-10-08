@@ -3,8 +3,9 @@
 .. autosummary::
    :toctree: _modules
 
-   common
+   dcn_old
    dcn
    gan
 """
-from . import common, dcn, gan
+__all__ = ["gan"]
+from . import *

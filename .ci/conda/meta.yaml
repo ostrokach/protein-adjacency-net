@@ -1,6 +1,6 @@
 package:
   name: pagnn
-  version: 0.1.9
+  version: 0.1.10
 
 source:
   path: ../../
@@ -14,24 +14,19 @@ requirements:
     - python
   run:
     - python
-    - click
-    - tqdm
     - attrs
-    - protobuf
+    - click
+    - pyyaml
+    - tqdm
     # Numerical Python
     - numpy
     - scipy
     - pandas
+    - scikit-learn
+    - sqlalchemy
     - pyarrow >=0.10.*
     - numba
-    - pytorch
-    - tensorboardx
-    - torchvision
-    - scikit-learn
-    # Biological Python
-    - kmbio
-    - kmtools
-    - weblogo
+    - pytorch-nightly-cpu =1.0.0.dev20181001
 
 test:
   source_files:
