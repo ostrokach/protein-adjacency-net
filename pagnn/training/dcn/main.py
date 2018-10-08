@@ -24,6 +24,10 @@ from .utils import get_data_pipe, get_internal_validation_datasets, get_training
 logger = logging.getLogger(__name__)
 
 
+class DatasetFinishedError(Exception):
+    pass
+
+
 class RuntimeExceededError(Exception):
     pass
 
@@ -78,7 +82,7 @@ def train(
 
         ds_list = list(itertools.islice(datapipe, args.batch_size))
         if not ds_list:
-            break
+            raise DatasetFinishedError()
 
         if args.concat_datasets:
             dv_list = [net.dataset_to_datavar(ds) for ds in ds_list]
@@ -181,7 +185,7 @@ def main(args: Optional[Args] = None):
     result: Dict[str, Union[str, float]] = {}
     try:
         train(args, stats, datapipe, internal_validation_datasets, current_performance=result)
-    except (KeyboardInterrupt, RuntimeExceededError) as e:
+    except (KeyboardInterrupt, RuntimeExceededError, DatasetFinishedError) as e:
         logger.error("Training terminated with error: '%s'", e)
 
     result["time_elapsed"] = time.perf_counter() - start_time
