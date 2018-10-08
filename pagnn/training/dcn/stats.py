@@ -172,6 +172,6 @@ class Stats(StatsBase):
 
     def load_model_state(self) -> Any:
         sql_query = f"select model_location from stats where step = {self.step}"
-        model_location = pd.read_sql_query(sql_query).at[0, "model_location"]
+        model_location = pd.read_sql_query(sql_query, self._engine).at[0, "model_location"]
         model_path = self.root_path.joinpath(model_location).resolve()
         return torch.load(model_path.as_posix())
