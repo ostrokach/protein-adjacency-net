@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 
-from pagnn.utils.dataset_ops import AMINO_ACIDS
+from .dataset_ops import AMINO_ACIDS
 
 
 def _get_blosum62():

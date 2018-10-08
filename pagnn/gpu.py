@@ -25,7 +25,7 @@ def test_cuda():
 
 def init_gpu(gpu_idx: int = None) -> None:
     """Specify which GPU should be used (or select the least active one)."""
-    assert settings.CUDA
+    assert settings.device == torch.device("cuda")
     if gpu_idx is None:
         gpu_idx = get_available_gpus(max_load=0.5, max_memory=0.5)[0]
     torch.cuda.set_device(gpu_idx)

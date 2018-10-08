@@ -9,5 +9,6 @@ python -m pytest \
     --color=yes \
     tests/
 
-sed -i "s|${SP_DIR}||g" .coverage
-mv .coverage "${PACKAGE_ROOT_DIR}/.coverage"
+sed -i "s|${SP_DIR}/||g" .coverage
+
+mv .coverage "${RECIPE_DIR}/.coverage"

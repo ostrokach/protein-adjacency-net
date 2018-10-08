@@ -2,6 +2,7 @@ import logging
 from typing import List
 
 import numpy as np
+import torch
 from numba import jit
 from scipy import sparse
 
@@ -10,12 +11,30 @@ logger = logging.getLogger(__name__)
 # Warning: Do not change the order of amino acids without chaning the order of
 # `AMINO_ACIDS_BYTES` in `_seq_to_array`!
 AMINO_ACIDS: List[str] = [
-    'G', 'V', 'A', 'L', 'I', 'C', 'M', 'F', 'W', 'P', 'D', 'E', 'S', 'T', 'Y', 'Q', 'N', 'K', 'R',
-    'H'
+    "G",
+    "V",
+    "A",
+    "L",
+    "I",
+    "C",
+    "M",
+    "F",
+    "W",
+    "P",
+    "D",
+    "E",
+    "S",
+    "T",
+    "Y",
+    "Q",
+    "N",
+    "K",
+    "R",
+    "H",
 ]
 
 
-def seq_to_array(seq: bytes):
+def seq_to_array(seq: bytes) -> torch.sparse.FloatTensor:
     """Convert amino acid sequence into a one-hot encoded array.
 
     Args:
@@ -25,16 +44,19 @@ def seq_to_array(seq: bytes):
         Numpy array containing the one-hot encoding of the amino acid sequence.
     """
     x_idxs, y_idxs, data = _seq_to_array(seq)
-    seq_matrix = sparse.coo_matrix(
-        (np.array(data), (np.array(x_idxs), np.array(y_idxs))),
-        dtype=np.int16,
-        shape=(20, len(seq)))
-    return seq_matrix
+    indices = torch.tensor([x_idxs, y_idxs])
+    values = torch.tensor(data, dtype=torch.float32)
+    seq_tensor = torch.sparse_coo_tensor(indices, values, size=(20, len(seq)))
+    # import pdb
+
+    # pdb.set_trace()
+    assert seq_tensor.shape[1] == seq_tensor._indices().shape[1] == seq_tensor._values().shape[0]
+    return seq_tensor
 
 
 def array_to_seq(array: np.ndarray) -> str:
     max_idxs = np.argmax(array, 0)
-    seq = ''.join(AMINO_ACIDS[i] for i in max_idxs)
+    seq = "".join(AMINO_ACIDS[i] for i in max_idxs)
     return seq
 
 
@@ -61,17 +83,16 @@ def _seq_to_array(seq: bytes) -> sparse.spmatrix:
                 match = True
                 break
         if not match:
-            # logger.debug(
-            #     "Could not convert the following residue to one-hot encoding: %s", chr(aa))
-            for x in range(20):
-                x_idxs.append(x)
-                y_idxs.append(y)
-                data.append(1 / 20)
+            # Add an empty value to keep _indexes() and _values() the right length
+            x_idxs.append(0)
+            y_idxs.append(y)
+            data.append(0)
     return x_idxs, y_idxs, data
 
 
-def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
-                  adjacency_idx_2: np.array) -> sparse.spmatrix:
+def get_adjacency(
+    seq_len: int, adjacency_idx_1: np.array, adjacency_idx_2: np.array
+) -> sparse.spmatrix:
     """Construct an adjacency matrix from the data available for each row in the DataFrame.
 
     Args:
@@ -82,7 +103,7 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
     Returns:
         An adjacency matrix for the given sequence `qseq`.
     """
-    na_mask = (np.isnan(adjacency_idx_1) | np.isnan(adjacency_idx_2))
+    na_mask = np.isnan(adjacency_idx_1) | np.isnan(adjacency_idx_2)
     if na_mask.any():
         logger.debug("Removing %s null indices.", na_mask.sum())
         adjacency_idx_1 = np.array(adjacency_idx_1[~na_mask], dtype=np.int_)
@@ -108,7 +129,8 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
     adj = sparse.coo_matrix(
         (np.ones(len(adjacency_idx_1)), (adjacency_idx_1, adjacency_idx_2)),
         shape=(seq_len, seq_len),
-        dtype=np.int16)
+        dtype=np.int16,
+    )
 
     # Make sure that the matrix is symetrical
     idx1 = {(r, c) for r, c in zip(adj.row, adj.col)}
@@ -117,7 +139,7 @@ def get_adjacency(seq_len: int, adjacency_idx_1: np.array,
     return adj
 
 
-def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
+def expand_adjacency(adj: sparse.spmatrix) -> torch.sparse.FloatTensor:
     """Convert adjacency matrix into a strided mask.
 
     Args:
@@ -135,16 +157,37 @@ def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
         >>> expanded_adj.col
         array([0, 1, 2, 0, 1, 2], dtype=int32)
     """
-    row_idx = np.arange(0, len(adj.row) * 2, 2)
-    col_idx = np.arange(1, len(adj.col) * 2, 2)
-    new_adj = sparse.coo_matrix(
-        (
-            np.ones(len(adj.row) + len(adj.col)),
-            (np.r_[row_idx, col_idx], np.r_[adj.row, adj.col]),
-        ),
-        dtype=np.int16,
-        shape=(len(adj.data) * 2, adj.shape[0]))
-    assert (new_adj.sum(axis=1) == 1).all(), new_adj
+    # # Return scipy sparse array
+    # row_idx = np.arange(0, len(adj.row) * 2, 2)
+    # col_idx = np.arange(1, len(adj.col) * 2, 2)
+    # new_adj = sparse.coo_matrix(
+    #     (np.ones(len(adj.row) + len(adj.col)),
+    #     (np.r_[row_idx, col_idx], np.r_[adj.row, adj.col])),
+    #     dtype=np.float32,
+    #     shape=(len(adj.data) * 2, adj.shape[0]),
+    # )
+    # assert (new_adj.sum(axis=1) == 1).all(), new_adj
+
+    # (np.r_[0 : len(adj.row) * 2 : 2, 1 : len(adj.col) * 2 : 2], np.r_[adj.row, adj.col]),
+
+    indices_row = torch.cat(
+        [
+            torch.arange(0, len(adj.row) * 2, 2, dtype=torch.long),
+            torch.arange(1, max(1, len(adj.col) * 2), 2, dtype=torch.long),
+        ]
+    )
+    # indices_col = adj._indices()
+    indices_col = torch.cat(
+        [torch.as_tensor(adj.row, dtype=torch.long), torch.as_tensor(adj.col, dtype=torch.long)]
+    )
+    new_adj = torch.sparse_coo_tensor(
+        torch.stack([indices_row, indices_col]),
+        torch.ones(len(adj.row) + len(adj.col), dtype=torch.float),
+        size=(len(adj.data) * 2, adj.shape[0]),
+    )
+
+    # TODO: Remove computationally-intensive assert
+    # assert (new_adj.to_dense().sum(1) == 1).all()
     return new_adj
     # idx = 0
     # for x, y in zip(*adj.nonzero()):
@@ -154,7 +197,7 @@ def expand_adjacency(adj: sparse.spmatrix) -> sparse.spmatrix:
     # return new_adj
 
 
-def get_seq_identity(seq: bytes, other_seq: bytes) -> float:
+def get_seq_identity_bytes(seq: bytes, other_seq: bytes) -> float:
     """Return the fraction of amino acids that are the same in `seq` and `other_seq`.
 
     Examples:
@@ -163,6 +206,18 @@ def get_seq_identity(seq: bytes, other_seq: bytes) -> float:
     """
     assert len(seq) == len(other_seq)
     return sum(a == b for a, b in zip(seq, other_seq)) / len(seq)
+
+
+def get_seq_identity(seq: torch.Tensor, other_seq: torch.Tensor) -> torch.Tensor:
+    """Return the fraction of amino acids that are the same in `seq` and `other_seq`.
+
+    Examples:
+        >>> get_seq_identity(b'AAGC', b'AACC')
+        0.75
+    """
+    num_equal = (seq._indices()[0, :] == other_seq._indices()[0, :]).sum().to(torch.float)
+    num_total = seq.size()[1]
+    return (num_equal / num_total).item()
 
 
 def get_adj_identity(adj: sparse.spmatrix, other_adj: sparse.spmatrix, min_distance=3) -> float:
@@ -183,9 +238,7 @@ def get_adj_identity(adj: sparse.spmatrix, other_adj: sparse.spmatrix, min_dista
     """
     adj_contacts = {tuple(x) for x in zip(adj.row, adj.col) if abs(x[0] - x[1]) >= min_distance}
     other_adj_contacts = {
-        tuple(x)
-        for x in zip(other_adj.row, other_adj.col)
-        if abs(x[0] - x[1]) >= min_distance
+        tuple(x) for x in zip(other_adj.row, other_adj.col) if abs(x[0] - x[1]) >= min_distance
     }
     if len(adj_contacts) == 0 or len(other_adj_contacts) == 0:
         return 0

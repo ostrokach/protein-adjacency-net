@@ -69,8 +69,12 @@ target/
 .python-version
 
 # AS
-.vscode/
 *-bak.py
 
 # Jupyter
 .ipynb_checkpoints
+
+# pagnn
+pagnn/training/data/*_10.data
+pagnn/training/data/*_10.index
+

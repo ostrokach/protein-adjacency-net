@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def read_md(file):
@@ -8,14 +8,14 @@ def read_md(file):
 
 setup(
     name="pagnn",
-    version="0.1.9",
+    version="0.1.10",
     description="Protein Adjacency Graph Neural Network.",
     long_description=read_md("README.md"),
     author="Alexey Strokach",
     author_email="alex.strokach@utoronto.ca",
     url="https://gitlab.com/kimlab/pagnn",
-    packages=["pagnn"],
-    package_data={},
+    packages=find_packages(),
+    package_data={"pagnn.prediction": "data/*", "pagnn.training": "data/*"},
     include_package_data=True,
     zip_safe=False,
     keywords="pagnn",

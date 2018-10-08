@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import attr
@@ -34,14 +33,6 @@ class Args(ArgsBase):
 
     #: Number of sequences to generate.
     nseqs: int = attr.ib(validator=instance_of(int))
-
-    hhblits_database: Path = attr.ib(
-        Path(os.getenv("DATABIN_DIR"))
-        .joinpath("hh-suite")
-        .joinpath("uniprot20_2016_02"),
-        converter=lambda p: Path(p).resolve(),
-        validator=instance_of(Path),
-    )
 
     #: Max number of cores to use.
     nprocs: int = attr.ib(None, validator=instance_of((type(None), int)))
