@@ -10,6 +10,7 @@
    pagnn.utils
    pagnn.io
    pagnn.dataset
+   pagnn.datapipe
    pagnn.datavardcn
    pagnn.datavargan
    pagnn.models
@@ -29,4 +30,4 @@ from .utils import *
 from .io import iter_datarows_shuffled, iter_datarows
 from .dataset import (row_to_dataset, get_negative_example, get_permuted_examples, get_offset,
                       get_indices)
-from . import datavardcn, datavargan, models, training
+from . import datapipe, datavardcn, datavargan, models, training

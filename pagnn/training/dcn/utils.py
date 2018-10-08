@@ -10,6 +10,7 @@ import numpy as np
 import tqdm
 
 from pagnn import settings
+from pagnn.datapipe import set_buf_size
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
 from pagnn.types import DataSetGAN
@@ -67,6 +68,7 @@ def get_data_pipe(args):
 def _generate_ds(args):
     index_read, index_write = os.pipe()
     data_read, data_write = os.pipe()
+    set_buf_size(data_write)
     pid = os.fork()
     if pid:
         # This is the parent process
