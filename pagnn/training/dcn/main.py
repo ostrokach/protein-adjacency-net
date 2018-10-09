@@ -187,7 +187,7 @@ def main(args: Optional[Args] = None):
     try:
         train(args, stats, datapipe, internal_validation_datasets, current_performance=result)
     except (KeyboardInterrupt, RuntimeExceededError, DatasetFinishedError) as e:
-        logger.error("Training terminated with error: '%s'", e)
+        logger.error("Training terminated with error '%s': '%s'", type(e), e)
 
     result["time_elapsed"] = time.perf_counter() - start_time
 
