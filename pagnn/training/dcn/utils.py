@@ -56,7 +56,7 @@ def get_data_pipe(args):
     if (
         args.training_data_cache is not None
         and args.training_data_cache.with_suffix(".index").is_file()
-        and args.training_data_cache.with_suffix(".data").isfile()
+        and args.training_data_cache.with_suffix(".data").is_file()
     ):
         logger.info("Reading training data from cache.")
         yield from _read_ds_from_cache(args.training_data_cache)
