@@ -187,7 +187,6 @@ train_network:
     NOTEBOOK_NAME: "03-train_network"
     SBATCH_TIMELIMIT: "3:00:00"
     SBATCH_EXTRA_ARGS: "--mem 192000M --array=0-15%1 "
-    INTERACTIVE: "true"
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
