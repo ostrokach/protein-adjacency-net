@@ -11,7 +11,7 @@ stages:
 variables:
   PROJECT_VERSION: "0.1"
   DOCS_SECRET_KEY: "SWKhaBJiG8O53MTcw97h1vRjVgimQCb4mzTIH4H8dD10vrb6NWOUantGWhqHMoY7"
-  PYPROJECT_GIT_REV: "275eb6be0a0fdbcb1436ae6f98bc976ad6006fa4"
+  PYPROJECT_GIT_REV: "5b60654ed60c7d1fd00bb566d99423adf0fd3132"
   CONDA_ENVIRONMENT_NAME: ci-${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}
 
 .niagara-envs: &niagara-envs
@@ -187,6 +187,7 @@ train_network:
     NOTEBOOK_NAME: "03-train_network"
     SBATCH_TIMELIMIT: "3:00:00"
     SBATCH_EXTRA_ARGS: "--mem 192000M --array=0-15%1 "
+    INTERACTIVE: "true"
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
