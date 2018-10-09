@@ -13,8 +13,8 @@ import torch.onnx
 import torch.optim as optim
 import tqdm
 
+import pagnn.models
 from pagnn import init_gpu, settings
-from pagnn.models import DCN
 from pagnn.utils import eval_net
 
 from .args import Args
@@ -46,7 +46,8 @@ def train(
         checkpoint = {}
 
     # Set up network
-    net = DCN(
+    Net = getattr(pagnn.models.dcn, args.network_name)
+    net = Net(
         "discriminator", hidden_size=args.hidden_size, bottleneck_size=1, n_layers=args.n_layers
     ).to(settings.device)
     loss = nn.BCELoss().to(settings.device)
