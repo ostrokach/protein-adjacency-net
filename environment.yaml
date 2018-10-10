@@ -13,7 +13,7 @@ dependencies:
   - fd-find
   - ostrokach-forge::parallel
   # Python
-  - python
+  - python=3.6.6=h5001a0f_0
   - ipython
   # Jupyter
   - jupyter
@@ -35,7 +35,7 @@ dependencies:
   # Spark
   - findspark
   # PyTorch
-  - pytorch::pytorch-nightly-cpu =1.0.0.dev20181001
+  - pytorch::pytorch-nightly-cpu=1.0.0.dev20181001
   # KimLab
   - kmbio
   - kmtools
