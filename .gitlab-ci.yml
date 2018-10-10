@@ -113,7 +113,7 @@ create-conda-environment:
     - source activate ${CONDA_ENVIRONMENT_NAME}
     # Set output directory
     - export OUTPUT_DIR=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}/${CI_JOB_NAME}
-    - if [[ -d ${OUTPUT_DIR} ]] ; then echo "OUTPUT_DIR '${OUTPUT_DIR}' already exists!" ; exit -1 ; fi
+    - # TODO: if [[ -d ${OUTPUT_DIR} ]] ; then echo "OUTPUT_DIR '${OUTPUT_DIR}' already exists!" ; exit -1 ; fi
     - mkdir -p "${OUTPUT_DIR}"
     - echo "export OUTPUT_DIR=${OUTPUT_DIR}" | tee -a env.sh
 
