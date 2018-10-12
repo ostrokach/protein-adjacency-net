@@ -11,7 +11,6 @@ import torch
 import torch.nn as nn
 import torch.onnx
 import torch.optim as optim
-import tqdm
 
 import pagnn.models
 from pagnn import init_gpu, settings
@@ -58,8 +57,6 @@ def train(
         write_graph = False
     else:
         write_graph = True
-
-    progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
 
     while True:
         current_time = time.perf_counter()
@@ -141,7 +138,6 @@ def train(
                 current_performance.update(stats.scores)
 
         stats.update()
-        progressbar.update()
 
 
 def main(args: Optional[Args] = None):
