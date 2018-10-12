@@ -51,7 +51,7 @@ variables:
     # Clear cache
     - rm -rf /opt/conda/pkgs/*
     # Update conda
-    - conda update -n root -yq conda conda-build --no-channel-priority
+    - conda update -n root -yq conda conda-build conda-verify --no-channel-priority
 
 # === Lint ===
 
