@@ -97,16 +97,7 @@ build-py37:
 .test: &test
   stage: test
   script:
-    # Restore built packages
-    - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
-    - conda index /opt/conda/conda-bld/
-    # Run tests
-    - pushd ${CI_PROJECT_DIR}/.ci/conda
-    - conda build .
-      --test
-      --python $PYTHON_VERSION
-    - popd
-    - mv .ci/conda/.coverage .coverage
+    - conda build --test $CI_PROJECT_DIR/conda-bld/*.tar.bz2
   artifacts:
     paths:
       - .coverage
