@@ -6,7 +6,6 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-import tqdm
 
 import pagnn
 from pagnn.dataset import row_to_dataset
@@ -24,7 +23,7 @@ def make_predictions(args: Args, datagen: Callable[[], Iterator[DataSet]]) -> np
     net.load_state_dict(torch.load(args.network_state.as_posix()))
 
     outputs_list: List[np.ndarray] = []
-    for dataset in tqdm.tqdm(datagen()):
+    for dataset in datagen():
         datavar = dataset_to_datavar(dataset)
         datavarcol: DataVarCollection = ([datavar], [])
         outputs = net(datavarcol)

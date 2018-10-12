@@ -17,7 +17,6 @@ requirements:
     - attrs
     - click
     - pyyaml
-    - tqdm
     # Numerical Python
     - numpy
     - scipy
