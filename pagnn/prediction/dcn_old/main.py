@@ -32,7 +32,7 @@ def make_predictions(args: Args, datagen: Callable[[], Iterator[DataSet]]) -> np
     return outputs
 
 
-def main(args: Optional[Args] = None) -> pd.DataFrame:
+def main(args: Optional[Args] = None, input_df: Optional[pd.DataFrame] = None) -> pd.DataFrame:
 
     if args is None:
         args = Args.from_cli()
@@ -41,9 +41,11 @@ def main(args: Optional[Args] = None) -> pd.DataFrame:
 
     pagnn.settings.device = torch.device("cpu")
 
+    if input_df is None:
+        input_df = pq.read_table(args.input_file, columns=DataRow._fields).to_pandas()
+
     def datagen():
-        df = pq.read_table(args.input_file, columns=DataRow._fields).to_pandas()
-        for row in df.itertuples():
+        for row in input_df.itertuples():
             dataset = row_to_dataset(row, 0)
             yield dataset
 
