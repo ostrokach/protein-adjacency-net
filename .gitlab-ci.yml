@@ -185,11 +185,11 @@ train_network:
   variables:
     <<: *cluster-envs
     NOTEBOOK_NAME: "03-train_network"
-    SBATCH_TIMELIMIT: "12:00:00"
+    SBATCH_TIMELIMIT: "3:00:00"
     # Cedar:
     # SBATCH_EXTRA_ARGS: "--mem 192000M --array=1-15%1 "
     # Niagara:
-    SBATCH_EXTRA_ARGS: "--array=0-15%1 "
+    SBATCH_EXTRA_ARGS: "--array=0-0%1 "
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
