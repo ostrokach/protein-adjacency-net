@@ -91,6 +91,7 @@ class Stats(StatsBase):
     def update(self) -> None:
         self.step += 1
         self._init_containers()
+        logger.info("step: %s", self.step)
 
     def _load_step(self) -> int:
         if self._engine.has_table("stats"):

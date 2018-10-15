@@ -1,12 +1,14 @@
 
 import os
+from pathlib import Path
+from typing import Optional
 
 import attr
 from attr.validators import instance_of
 
 from pagnn import settings
 from pagnn.training.utils import TrainingArgsBase
-from pagnn.utils import str_to_seconds
+from pagnn.utils import str_to_path_opt, str_to_seconds
 
 
 @attr.s
@@ -16,7 +18,11 @@ class Args(TrainingArgsBase):
     network_name: str = attr.ib("DCN", validator=instance_of(str))
     concat_datasets: bool = attr.ib(False, validator=instance_of(bool))
     num_negative_examples: int = attr.ib(63, validator=instance_of(int))
-    n_layers: int = attr.ib(4, validator=instance_of(int))
+    n_layers: int = attr.ib(3, validator=instance_of(int))
+
+    custom_module: Optional[Path] = attr.ib(
+        None, converter=str_to_path_opt, validator=instance_of((type(None), Path))
+    )
 
     # === Properties ===
 
