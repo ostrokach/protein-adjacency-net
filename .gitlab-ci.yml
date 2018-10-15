@@ -193,6 +193,7 @@ train_network:
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*train_network(,\s?.*)*\]/i
 
 # === Pages ===
 
