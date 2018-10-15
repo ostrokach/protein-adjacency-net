@@ -2,6 +2,7 @@ import itertools
 import json
 import logging
 import random
+import runpy
 import time
 from typing import Any, Dict, Optional, Union
 
@@ -46,7 +47,7 @@ def train(
 
     # Set up network
     Net = getattr(pagnn.models.dcn, args.network_name)
-    net = Net(hidden_size=args.hidden_size, bottleneck_size=1, n_layers=args.n_layers).to(
+    net = Net(hidden_size=args.hidden_size, bottleneck_size=0, n_layers=args.n_layers).to(
         settings.device
     )
     loss = nn.BCELoss().to(settings.device)
@@ -97,7 +98,7 @@ def train(
             for ds in ds_list:
                 dv = net.dataset_to_datavar(ds)
                 pred = net(dv.seqs, [dv.adjs])
-                pred = pred.mean(2).squeeze().sigmoid()
+                pred = pred.sigmoid().mean(2).squeeze()
                 pred_list.append(pred)
                 target_list.append(ds.targets)
             preds = torch.cat(pred_list)
@@ -147,6 +148,9 @@ def main(args: Optional[Args] = None):
 
     logging_level = {0: logging.ERROR, 1: logging.INFO, 2: logging.DEBUG}[args.verbosity]
     logging.basicConfig(format="%(message)s", level=logging_level)
+
+    if args.custom_module:
+        runpy.run_path(args.custom_module.as_posix(), globals())
 
     if args.gpu == -1:
         settings.device = torch.device("cpu")
