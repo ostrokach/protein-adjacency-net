@@ -13,7 +13,7 @@ from pagnn.utils import str_to_seconds
 class Args(TrainingArgsBase):
 
     # === Parameters to Tune ===
-    network_name: str = attr.ib("DCN2", validator=instance_of(str))
+    network_name: str = attr.ib("DCN", validator=instance_of(str))
     concat_datasets: bool = attr.ib(False, validator=instance_of(bool))
     num_negative_examples: int = attr.ib(63, validator=instance_of(int))
     n_layers: int = attr.ib(4, validator=instance_of(int))
