@@ -108,6 +108,8 @@ class DCN(nn.Module):
         return input_channels
 
     def forward(self, seq, adjs):
+        x = seq
+
         for i in range(self.n_layers):
             x = getattr(self, f"encoder_pre_{i}")(x)
             x_adj = x[:, x.shape[1] // 2 :, :]
