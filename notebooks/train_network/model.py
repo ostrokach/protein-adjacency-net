@@ -135,7 +135,7 @@ class Custom(nn.Module):
 
         if self.bottleneck_size == 0:
             x = x.max(2, keepdim=True)[0]
-            self.linear_in(x.squeeze()).unsqueeze(-1)
+            x = self.linear_in(x.squeeze()).unsqueeze(-1)
         else:
             raise NotImplementedError
             pad_amount = padding_amount(x, 2048)  # 4 x 512
