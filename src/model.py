@@ -27,7 +27,7 @@ class Custom(nn.Module):
     ) -> None:
         super().__init__()
 
-        print("Initializing custom network")
+        logger.info("Network name: '%s'", self.__class__.__name__)
 
         self.n_layers = n_layers
         self.n_convs = n_convs
