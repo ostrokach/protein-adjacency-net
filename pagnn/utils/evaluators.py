@@ -1,9 +1,11 @@
+import logging
 from typing import List
 
 import numpy as np
-import torch
 
 from pagnn.types import DataSetGAN
+
+logger = logging.getLogger(__name__)
 
 
 def evaluate_validation_dataset(net_d, datasets: List[DataSetGAN]):
@@ -18,10 +20,17 @@ def evaluate_validation_dataset(net_d, datasets: List[DataSetGAN]):
     """
     outputs = []
     targets = []
-    for dataset in datasets:
+    for i, dataset in enumerate(datasets):
+        # This line needs to be here as it removes the eye from dataset.adjs
         datavar = net_d.dataset_to_datavar(dataset)
-        with torch.no_grad():
-            output = net_d(datavar[0], [datavar[1]])
+        # TODO: Remove this code once we have regenerated validation datasets
+        adj = dataset.adjs[0]
+        frac_interactions = adj.nnz / adj.shape[0]
+        if frac_interactions < 0.1:
+            logger.info(f"Too few interactions: {frac_interactions}.")
+            continue
+        # TODO: End
+        output = net_d(datavar[0], [datavar[1]])
         output = output.sigmoid().mean(2).squeeze().numpy()
         target = np.array(dataset.targets)
         outputs.append(output)
@@ -45,8 +54,7 @@ def evaluate_mutation_dataset(net_d, datasets: List[DataSetGAN]):
     targets = []
     for dataset in datasets:
         datavar = net_d.dataset_to_datavar(dataset)
-        with torch.no_grad():
-            output = net_d(datavar[0], [datavar[1]])
+        output = net_d(datavar[0], [datavar[1]])
         output = output.sigmoid().mean(2).squeeze().numpy()  # (high, low)
         target = np.array(dataset.targets)  # (1, 0)
         output = output[1::2] - output[0::2]
