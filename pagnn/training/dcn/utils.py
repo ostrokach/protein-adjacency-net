@@ -40,9 +40,9 @@ def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
         logger.debug(f"Wrong sequence length: {n_aa}.")
         return False
     adj_nodiag = remove_eye_sparse(ds.adjs[0], 3)
-    n_interactions = adj_nodiag.nnz
-    if n_interactions == 0:
-        logger.debug(f"Too few interactions: {n_interactions}.")
+    frac_interactions = adj_nodiag.nnz / adj_nodiag.shape[0]
+    if frac_interactions < 0.05:
+        logger.debug(f"Too few interactions: {frac_interactions}.")
         return False
     return True
 
