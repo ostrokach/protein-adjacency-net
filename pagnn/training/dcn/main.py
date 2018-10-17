@@ -83,32 +83,25 @@ def train(
         if not ds_list:
             raise DatasetFinishedError()
 
-        if args.concat_datasets:
-            dv_list = [net.dataset_to_datavar(ds) for ds in ds_list]
-            seqs = torch.cat([dv.seqs for dv in dv_list], 2)
-            adjs = [dv.adjs for dv in dv_list]
-            preds = net(seqs, adjs)
-            preds = preds.mean(2).squeeze().sigmoid()
-            targets = ds_list[0].targets
-            error = loss(preds, targets)
-            error.backward()
-        else:
-            pred_list = []
-            target_list = []
-            for ds in ds_list:
-                dv = net.dataset_to_datavar(ds)
-                pred = net(dv.seqs, [dv.adjs])
-                pred = pred.sigmoid().mean(2).squeeze()
-                pred_list.append(pred)
-                target_list.append(ds.targets)
-            preds = torch.cat(pred_list)
-            targets = torch.cat(target_list)
-            error = loss(preds, targets)
-            error.backward()
+        pred_list = []
+        target_list = []
+        for ds in ds_list:
+            dv = net.dataset_to_datavar(ds)
+            pred = net(dv.seqs, [dv.adjs])
+            pred = pred.sigmoid().mean(2).squeeze()
+            pred_list.append(pred)
+            target_list.append(ds.targets)
+        preds = torch.cat(pred_list)
+        targets = torch.cat(target_list)
+        error = loss(preds, targets)
+        error.backward()
         optimizer.step()
 
         # === Calculate Statistics ===
         if write_graph:
+            # Commented out because causes error:
+            # > ** ValueError: Auto nesting doesn't know how to process an input object of type int.
+            # > Accepted types: Tensors, or lists/tuples of them.
             # dv = net.dataset_to_datavar(ds_list[0])
             # torch.onnx.export(
             #     net, (dv.seqs, [dv.adjs]), args.root_path.joinpath("model.onnx").as_posix()
