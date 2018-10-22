@@ -47,9 +47,7 @@ def train(
 
     # Set up network
     Net = getattr(pagnn.models.dcn, args.network_name)
-    net = Net(hidden_size=args.hidden_size, bottleneck_size=0, n_layers=args.n_layers).to(
-        settings.device
-    )
+    net = Net().to(settings.device)
     loss = nn.BCELoss().to(settings.device)
     optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
