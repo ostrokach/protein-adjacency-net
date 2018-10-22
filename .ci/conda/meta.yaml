@@ -1,6 +1,6 @@
 package:
   name: pagnn
-  version: 0.1.10
+  version: 0.1.11
 
 source:
   path: ../../
@@ -17,14 +17,13 @@ requirements:
     - attrs
     - click
     - pyyaml
-    - tqdm
     # Numerical Python
     - numpy
     - scipy
     - pandas
     - scikit-learn
     - sqlalchemy
-    - pyarrow >=0.10.*
+    - pyarrow >=0.11.*
     - numba
     - pytorch-nightly-cpu =1.0.0.dev20181001
 

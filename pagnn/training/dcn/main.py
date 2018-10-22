@@ -2,6 +2,7 @@ import itertools
 import json
 import logging
 import random
+import runpy
 import time
 from typing import Any, Dict, Optional, Union
 
@@ -11,10 +12,9 @@ import torch
 import torch.nn as nn
 import torch.onnx
 import torch.optim as optim
-import tqdm
 
+import pagnn.models
 from pagnn import init_gpu, settings
-from pagnn.models import DCN
 from pagnn.utils import eval_net
 
 from .args import Args
@@ -22,6 +22,10 @@ from .stats import Stats
 from .utils import get_data_pipe, get_internal_validation_datasets, get_training_datasets
 
 logger = logging.getLogger(__name__)
+
+
+class DatasetFinishedError(Exception):
+    pass
 
 
 class RuntimeExceededError(Exception):
@@ -42,9 +46,10 @@ def train(
         checkpoint = {}
 
     # Set up network
-    net = DCN(
-        "discriminator", hidden_size=args.hidden_size, bottleneck_size=1, n_layers=args.n_layers
-    ).to(settings.device)
+    Net = getattr(pagnn.models.dcn, args.network_name)
+    net = Net(hidden_size=args.hidden_size, bottleneck_size=0, n_layers=args.n_layers).to(
+        settings.device
+    )
     loss = nn.BCELoss().to(settings.device)
     optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
@@ -53,8 +58,6 @@ def train(
         write_graph = False
     else:
         write_graph = True
-
-    progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
 
     while True:
         current_time = time.perf_counter()
@@ -78,34 +81,27 @@ def train(
 
         ds_list = list(itertools.islice(datapipe, args.batch_size))
         if not ds_list:
-            break
+            raise DatasetFinishedError()
 
-        if args.concat_datasets:
-            dv_list = [net.dataset_to_datavar(ds) for ds in ds_list]
-            seqs = torch.cat([dv.seqs for dv in dv_list], 2)
-            adjs = [dv.adjs for dv in dv_list]
-            preds = net(seqs, adjs)
-            preds = preds.mean(2).squeeze().sigmoid()
-            targets = ds_list[0].targets
-            error = loss(preds, targets)
-            error.backward()
-        else:
-            pred_list = []
-            target_list = []
-            for ds in ds_list:
-                dv = net.dataset_to_datavar(ds)
-                pred = net(dv.seqs, [dv.adjs])
-                pred = pred.mean(2).squeeze().sigmoid()
-                pred_list.append(pred)
-                target_list.append(ds.targets)
-            preds = torch.cat(pred_list)
-            targets = torch.cat(target_list)
-            error = loss(preds, targets)
-            error.backward()
+        pred_list = []
+        target_list = []
+        for ds in ds_list:
+            dv = net.dataset_to_datavar(ds)
+            pred = net(dv.seqs, [dv.adjs])
+            pred = pred.sigmoid().mean(2).squeeze()
+            pred_list.append(pred)
+            target_list.append(ds.targets)
+        preds = torch.cat(pred_list)
+        targets = torch.cat(target_list)
+        error = loss(preds, targets)
+        error.backward()
         optimizer.step()
 
         # === Calculate Statistics ===
         if write_graph:
+            # Commented out because causes error:
+            # > ** ValueError: Auto nesting doesn't know how to process an input object of type int.
+            # > Accepted types: Tensors, or lists/tuples of them.
             # dv = net.dataset_to_datavar(ds_list[0])
             # torch.onnx.export(
             #     net, (dv.seqs, [dv.adjs]), args.root_path.joinpath("model.onnx").as_posix()
@@ -136,7 +132,6 @@ def train(
                 current_performance.update(stats.scores)
 
         stats.update()
-        progressbar.update()
 
 
 def main(args: Optional[Args] = None):
@@ -146,6 +141,9 @@ def main(args: Optional[Args] = None):
 
     logging_level = {0: logging.ERROR, 1: logging.INFO, 2: logging.DEBUG}[args.verbosity]
     logging.basicConfig(format="%(message)s", level=logging_level)
+
+    if args.custom_module:
+        runpy.run_path(args.custom_module.as_posix(), globals())
 
     if args.gpu == -1:
         settings.device = torch.device("cpu")
@@ -181,8 +179,8 @@ def main(args: Optional[Args] = None):
     result: Dict[str, Union[str, float]] = {}
     try:
         train(args, stats, datapipe, internal_validation_datasets, current_performance=result)
-    except (KeyboardInterrupt, RuntimeExceededError) as e:
-        logger.error("Training terminated with error: '%s'", e)
+    except (KeyboardInterrupt, RuntimeExceededError, DatasetFinishedError) as e:
+        logger.error("Training terminated with error '%s': '%s'", type(e), e)
 
     result["time_elapsed"] = time.perf_counter() - start_time
 

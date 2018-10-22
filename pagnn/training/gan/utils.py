@@ -8,7 +8,6 @@ from typing import Dict, Generator, Iterator, List, Mapping, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-import tqdm
 
 from pagnn import settings
 from pagnn.dataset import dataset_to_gan, row_to_dataset
@@ -171,29 +170,25 @@ def _get_internal_validation_dataset(
     next(nsa)
 
     dataset: List[DataSetGAN] = []
-    with tqdm.tqdm(
-        total=args.validation_num_sequences, desc=method, disable=not settings.SHOW_PROGRESSBAR
-    ) as progressbar:
-        while len(dataset) < args.validation_num_sequences:
-            pos_row = next(rowgen_pos)
-            pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
-            # Filter out bad datasets
-            n_aa = len(pos_ds.seqs[0])
-            if not (args.min_seq_length <= n_aa < args.max_seq_length):
-                logger.debug(f"Skipping because wrong sequence length: {n_aa}.")
-                continue
-            adj_nodiag = remove_eye_sparse(pos_ds.adjs[0], 3)
-            n_interactions = adj_nodiag.nnz
-            if n_interactions <= 0:
-                logger.debug(f"Skipping because too few interactions: {n_interactions}.")
-                continue
-            #
-            ds = nsa.send(pos_ds)
-            if ds is None:
-                logger.debug("Skipping this sequence...")
-                continue
-            dataset.append(ds)
-            progressbar.update(1)
+    while len(dataset) < args.validation_num_sequences:
+        pos_row = next(rowgen_pos)
+        pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
+        # Filter out bad datasets
+        n_aa = len(pos_ds.seqs[0])
+        if not (args.min_seq_length <= n_aa < args.max_seq_length):
+            logger.debug(f"Skipping because wrong sequence length: {n_aa}.")
+            continue
+        adj_nodiag = remove_eye_sparse(pos_ds.adjs[0], 3)
+        n_interactions = adj_nodiag.nnz
+        if n_interactions <= 0:
+            logger.debug(f"Skipping because too few interactions: {n_interactions}.")
+            continue
+        #
+        ds = nsa.send(pos_ds)
+        if ds is None:
+            logger.debug("Skipping this sequence...")
+            continue
+        dataset.append(ds)
 
     assert len(dataset) == args.validation_num_sequences
     return dataset

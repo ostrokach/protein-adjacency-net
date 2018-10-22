@@ -8,7 +8,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import tqdm
 from sklearn import metrics
 from torch.autograd import Variable
 
@@ -86,14 +85,7 @@ def train(
     outputs: List[Variable] = []
     num_aa_processed = 0
     validation_time = None
-    for step, (pos, neg) in enumerate(
-        tqdm.tqdm(
-            training_datagen(),
-            initial=checkpoint.get("step", 0),
-            disable=not settings.SHOW_PROGRESSBAR,
-        ),
-        start=checkpoint.get("step", 0),
-    ):
+    for step, (pos, neg) in training_datagen():
 
         # Validation score
         if step % args.steps_between_validation == 0:

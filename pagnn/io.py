@@ -85,9 +85,7 @@ def _read_random_row_group(
     parquet_file_obj = pq.ParquetFile(parquet_file)
     row_group_idx = random_state.randint(parquet_file_obj.num_row_groups)
     logger.debug("Reading row group %s from parquet file '%s'.", row_group_idx, parquet_file)
-    table = parquet_file_obj.read_row_group(
-        row_group_idx, columns=list(columns), nthreads=len(columns)
-    )
+    table = parquet_file_obj.read_row_group(row_group_idx, columns=list(columns), use_threads=True)
     df = table.to_pandas(use_threads=True)
     df = df.rename(columns=column_renames)
     for fn in filters:

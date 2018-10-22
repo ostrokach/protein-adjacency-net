@@ -12,7 +12,6 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-import tqdm
 from kmtools import sequence_tools
 
 import pagnn
@@ -148,7 +147,7 @@ def generate_examples(
 
     noise = generate_noise(net_g, adjs_batch)
 
-    for _ in tqdm.tqdm(range(args.nseqs), total=args.nseqs, disable=not settings.SHOW_PROGRESSBAR):
+    for _ in range(args.nseqs):
         noisev = noise.normal_(0, 1)
         with torch.no_grad():
             fake_seq = net_g(noisev, adjs_batch).data
