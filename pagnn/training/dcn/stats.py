@@ -113,6 +113,9 @@ class Stats(StatsBase):
         return info_id
 
     def get_row_data(self) -> pd.DataFrame:
+        preds_array = np.hstack([ar.reshape(-1) for ar in self.preds]).astype(np.float64)
+        targets_array = np.hstack([ar.reshape(-1) for ar in self.targets]).astype(np.float64)
+        losses_array = np.hstack([ar.reshape(-1) for ar in self.losses]).astype(np.float64)
         data = {
             "info_id": self.info_id,
             "step": self.step,
@@ -124,9 +127,10 @@ class Stats(StatsBase):
                 np.hstack([ar.reshape(-1) for ar in self.preds]),
             ),
             # Aggregate statistics
-            "preds-mean": arrays_mean(self.preds),
-            "targets-mean": arrays_mean(self.targets),
-            "losses-mean": arrays_mean(self.losses),
+            "runtime": time.perf_counter() - self.start_time,
+            "pos_preds-mean": preds_array[targets_array > 0.5].mean(),
+            "neg_preds-mean": preds_array[targets_array <= 0.5].mean(),
+            "losses-mean": losses_array.mean(),
             # Metadata (filenames, etc)
             **self.metadata,
             # TODO: Histograms
