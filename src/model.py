@@ -19,11 +19,11 @@ logger = logging.getLogger(__name__)
 class Custom(nn.Module):
     def __init__(
         self,
-        n_layers: int = 4,
+        n_layers: int = 3,
         n_convs: int = 3,
         input_size: int = 20,
-        hidden_size: int = 32,
-        bottleneck_size: int = 1,
+        hidden_size: int = 64,
+        bottleneck_size: int = 0,
         kernel_size: int = 3,
         stride: int = 2,
         padding: int = 1,
