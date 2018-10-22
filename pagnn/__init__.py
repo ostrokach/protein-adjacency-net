@@ -18,7 +18,7 @@
 """
 __author__ = """Alexey Strokach"""
 __email__ = 'alex.strokach@utoronto.ca'
-__version__ = '__version__ = "0.1.10"'
+__version__ = '__version__ = "0.1.11"'
 
 # See: https://github.com/apache/arrow/issues/2637
 import pyarrow  # noqa
