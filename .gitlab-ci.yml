@@ -28,11 +28,11 @@ variables:
 
 .cluster-tags: &cluster-tags
   tags:
-    - niagara-ssh
+    - cedar-ssh
 
 .cluster-envs: &cluster-envs
   SBATCH_SCRIPT: "./scripts/qsub.sh"
-  <<: *niagara-envs
+  <<: *cedar-envs
 
 
 # === Basic GitLab runner tests ===
@@ -189,8 +189,9 @@ train_network:
     SBATCH_TIMELIMIT: "3:00:00"
     # Cedar:
     # SBATCH_EXTRA_ARGS: "--mem 192000M --array=1-15%1 "
+    SBATCH_EXTRA_ARGS: "--mem 128000M --array=0-10%1 "
     # Niagara:
-    SBATCH_EXTRA_ARGS: "--array=0-10%1 "
+    # SBATCH_EXTRA_ARGS: "--array=0-10%1 "
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
