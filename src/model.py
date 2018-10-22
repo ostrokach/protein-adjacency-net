@@ -1,3 +1,7 @@
+"""
+This is a basic ``seq+adj - conv - seq+adj`` network.
+
+"""
 import logging
 
 import torch
