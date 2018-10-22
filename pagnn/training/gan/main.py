@@ -8,7 +8,6 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import tqdm
 from torch.autograd import Variable
 
 from pagnn import init_gpu, settings
@@ -84,7 +83,6 @@ def train(
 
     step = checkpoint.get("step", 0)
     stats = Stats(step, writer)
-    progressbar = tqdm.tqdm(disable=not settings.SHOW_PROGRESSBAR)
 
     while True:
         # num_seqs_processed = (stats.step * (args.d_iters * 3 + args.g_iters) * args.batch_size)
@@ -193,7 +191,6 @@ def train(
                     current_performance.update(writer.scalar_dict)
 
         stats.update()
-        progressbar.update()
 
 
 def main():

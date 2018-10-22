@@ -91,6 +91,7 @@ class Stats(StatsBase):
     def update(self) -> None:
         self.step += 1
         self._init_containers()
+        logger.info("step: %s", self.step)
 
     def _load_step(self) -> int:
         if self._engine.has_table("stats"):
@@ -112,6 +113,9 @@ class Stats(StatsBase):
         return info_id
 
     def get_row_data(self) -> pd.DataFrame:
+        preds_array = np.hstack([ar.reshape(-1) for ar in self.preds]).astype(np.float64)
+        targets_array = np.hstack([ar.reshape(-1) for ar in self.targets]).astype(np.float64)
+        losses_array = np.hstack([ar.reshape(-1) for ar in self.losses]).astype(np.float64)
         data = {
             "info_id": self.info_id,
             "step": self.step,
@@ -123,9 +127,10 @@ class Stats(StatsBase):
                 np.hstack([ar.reshape(-1) for ar in self.preds]),
             ),
             # Aggregate statistics
-            "preds-mean": arrays_mean(self.preds),
-            "targets-mean": arrays_mean(self.targets),
-            "losses-mean": arrays_mean(self.losses),
+            "runtime": time.perf_counter() - self.start_time,
+            "pos_preds-mean": preds_array[targets_array > 0.5].mean(),
+            "neg_preds-mean": preds_array[targets_array <= 0.5].mean(),
+            "losses-mean": losses_array.mean(),
             # Metadata (filenames, etc)
             **self.metadata,
             # TODO: Histograms
@@ -172,6 +177,6 @@ class Stats(StatsBase):
 
     def load_model_state(self) -> Any:
         sql_query = f"select model_location from stats where step = {self.step}"
-        model_location = pd.read_sql_query(sql_query).at[0, "model_location"]
+        model_location = pd.read_sql_query(sql_query, self._engine).at[0, "model_location"]
         model_path = self.root_path.joinpath(model_location).resolve()
         return torch.load(model_path.as_posix())

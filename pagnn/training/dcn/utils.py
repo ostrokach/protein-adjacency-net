@@ -7,9 +7,7 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Mapping, Optional
 
 import numpy as np
-import tqdm
 
-from pagnn import settings
 from pagnn.datapipe import set_buf_size
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
@@ -42,9 +40,9 @@ def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
         logger.debug(f"Wrong sequence length: {n_aa}.")
         return False
     adj_nodiag = remove_eye_sparse(ds.adjs[0], 3)
-    n_interactions = adj_nodiag.nnz
-    if n_interactions == 0:
-        logger.debug(f"Too few interactions: {n_interactions}.")
+    frac_interactions = adj_nodiag.nnz / adj_nodiag.shape[0]
+    if frac_interactions < 0.05:
+        logger.debug(f"Too few interactions: {frac_interactions}.")
         return False
     return True
 
@@ -56,12 +54,12 @@ def get_data_pipe(args):
     if (
         args.training_data_cache is not None
         and args.training_data_cache.with_suffix(".index").is_file()
-        and args.training_data_cache.with_suffix(".data").isfile()
+        and args.training_data_cache.with_suffix(".data").is_file()
     ):
         logger.info("Reading training data from cache.")
         yield from _read_ds_from_cache(args.training_data_cache)
     else:
-        logger.info("Generating trainign data as we go.")
+        logger.info("Generating training data as we go.")
         yield from _generate_ds(args)
 
 
@@ -159,7 +157,6 @@ def _gen_ds_writer(index_write: int, data_write: int, ds_source: Iterator[DataSe
 
 
 def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
-    logger.info("Setting up training datapipe...")
     random_state = np.random.RandomState(args.array_id)
 
     positive_rowgen = iter_datarows_shuffled(
@@ -239,12 +236,8 @@ def _get_internal_validation_dataset(
     next(negative_dsgen)
 
     ds_list: List[DataSetGAN] = []
-    with tqdm.tqdm(
-        total=args.validation_num_sequences, desc=method, disable=not settings.SHOW_PROGRESSBAR
-    ) as progressbar:
-        while len(ds_list) < args.validation_num_sequences:
-            ds = prepare_dataset(positive_rowgen, negative_dsgen, args)
-            ds_list.append(ds)
-            progressbar.update(1)
+    while len(ds_list) < args.validation_num_sequences:
+        ds = prepare_dataset(positive_rowgen, negative_dsgen, args)
+        ds_list.append(ds)
     assert len(ds_list) == args.validation_num_sequences
     return ds_list

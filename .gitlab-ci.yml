@@ -10,7 +10,7 @@ stages:
 # === Variables ===
 
 variables:
-  PACKAGE_VERSION: "0.1.10"
+  PACKAGE_VERSION: "0.1.11"
 
 .py36: &py36
   PYTHON_VERSION: "3.6"
@@ -51,6 +51,7 @@ variables:
     # Clear cache
     - rm -rf /opt/conda/pkgs/*
     # Update conda
+    - conda install -n root -yq conda-verify --no-channel-priority
     - conda update -n root -yq conda conda-build --no-channel-priority
 
 # === Lint ===
