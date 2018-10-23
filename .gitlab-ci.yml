@@ -188,7 +188,7 @@ train_network:
     NOTEBOOK_NAME: "03-train_network"
     SBATCH_TIMELIMIT: "3:00:00"
     # Cedar:
-    SBATCH_EXTRA_ARGS: "--mem 192000M --array=0-15%1 "
+    SBATCH_EXTRA_ARGS: "--constraint=skylake --mem 192000M --array=0-15%1 "
     # SBATCH_EXTRA_ARGS: "--array=0-10%1 "
     # Niagara:
     # SBATCH_EXTRA_ARGS: "--array=0-10%1 "
