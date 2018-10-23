@@ -35,7 +35,7 @@ dependencies:
   # Spark
   - findspark
   # PyTorch
-  - pytorch::pytorch-nightly-cpu=1.0.0.dev20181017
+  - pytorch::pytorch-nightly-cpu=1.0.0.dev20181022
   # KimLab
   - kmbio
   - kmtools
