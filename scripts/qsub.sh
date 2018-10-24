@@ -63,7 +63,7 @@ if [[ -n ${INTERACTIVE} ]] ; then
 else
     python ${SLURM_SUBMIT_DIR}/scripts/execute_notebook.py \
         -i ./notebooks/${NOTEBOOK_NAME}.ipynb \
-        -o "${OUTPUT_DIR}/${NOTEBOOK_NAME}${EXTENSION}.html"
+        -o "${OUTPUT_DIR}/notebooks/${NOTEBOOK_NAME}${EXTENSION}.html"
 fi
 
 # Alternatively, we can use the CLI
