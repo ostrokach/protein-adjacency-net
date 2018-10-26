@@ -165,7 +165,7 @@ create-conda-environment:
       cat $file ;
       done
     # Display job resource consumption
-    - sacct -j ${JOB_ID} -p | xsv table -d '|'
+    - sacct -j ${JOB_ID} --fields JobID,User,Account,AllocNodes,Start,End,Elapsed,AllocTRES,CPUTime,NodeList,ExitCode,State,SystemCPU,UserCPU,TotalCPU,AveDiskRead,MaxDiskRead,AveRSS,MaxRSS,AveVMSize,MaxVMSize -p --delimiter \| | xsv table -d '|'
   artifacts:
     paths:
       - env.sh
