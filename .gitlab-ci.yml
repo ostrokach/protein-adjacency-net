@@ -114,7 +114,7 @@ create-conda-environment:
     # Set output directory
     - GIT_REV=$(git rev-parse --short HEAD)
     - export OUTPUT_DIR=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}/${CI_JOB_NAME}/${GIT_REV}
-    - if [[ -d ${OUTPUT_DIR} ]] ; then echo "OUTPUT_DIR '${OUTPUT_DIR}' already exists!" ; exit -1 ; fi
+    - if [[ -d ${OUTPUT_DIR} && -z ${ORIGINAL_ARRAY_TASK_COUNT} ]] ; then echo "OUTPUT_DIR '${OUTPUT_DIR}' already exists!" ; exit -1 ; fi
     - mkdir -p "${OUTPUT_DIR}" "${OUTPUT_DIR}/logs" "${OUTPUT_DIR}/notebooks"
     - echo "export OUTPUT_DIR=${OUTPUT_DIR}" | tee -a env.sh
 
