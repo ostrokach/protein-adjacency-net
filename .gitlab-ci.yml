@@ -156,7 +156,7 @@ create-conda-environment:
     - mkdir -p ${OUTPUT_DIR_FINAL}
     - rsync -a --link-dest=${OUTPUT_DIR} ${OUTPUT_DIR}/ ${OUTPUT_DIR_FINAL}
     # Display job output
-    - for file in output/sbatch-${CI_JOB_ID}-*.log ; do
+    - for file in output/logs/*.log ; do
       echo -e "\e[1m\e[35m${file}\e[0m" ;
       cat $file ;
       done
