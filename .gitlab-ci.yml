@@ -126,7 +126,6 @@ create-conda-environment:
 
 .sbatch: &sbatch
   script:
-    - echo ${SBATCH_TIMELIMIT}
     - sbatch
       --nodes=1
       --ntasks-per-node=1
@@ -136,7 +135,6 @@ create-conda-environment:
       --chdir=`pwd`
       --output=${OUTPUT_DIR}/logs/sbatch-${CI_JOB_ID}-%N-%A-%a.log
       --export=ALL
-      --time ${SBATCH_TIMELIMIT}
       --wait
       ${SBATCH_ARGS}
       ${SBATCH_EXTRA_ARGS}
@@ -197,7 +195,7 @@ train_network:
     <<: *cluster-envs
     NOTEBOOK_NAME: "03-train_network"
     SBATCH_TIMELIMIT: "3:00:00"
-    SBATCH_EXTRA_ARGS: "--array=0-10%1 "
+    SBATCH_EXTRA_ARGS: "--array=0-10%1 --time ${SBATCH_TIMELIMIT} "
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
