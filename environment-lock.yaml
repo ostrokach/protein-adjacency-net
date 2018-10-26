@@ -190,4 +190,3 @@ dependencies:
     - msgpack==0.5.6
     - tables==3.4.4
     - torch==1.0.0.dev20181022
-prefix: /home/strokach/anaconda3/envs/ci-datapkg-adjacency-net-v2-master-debug
