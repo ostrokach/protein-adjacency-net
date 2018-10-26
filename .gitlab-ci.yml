@@ -112,11 +112,15 @@ create-conda-environment:
     # Activate conda environment
     - source activate ${CONDA_ENVIRONMENT_NAME}
     # Set output directory
-    - GIT_REV=$(git rev-parse --short HEAD)
-    - export OUTPUT_DIR=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}/${CI_JOB_NAME}/${GIT_REV}
-    - if [[ -d ${OUTPUT_DIR} && -z ${ORIGINAL_ARRAY_TASK_COUNT} ]] ; then echo "OUTPUT_DIR '${OUTPUT_DIR}' already exists!" ; exit -1 ; fi
+    - export OUTPUT_DIR=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_SHA}/${CI_JOB_NAME}
+    - export OUTPUT_DIR_FINAL=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}/${CI_JOB_NAME}
+    - if [[ -d ${OUTPUT_DIR} || -d ${OUTPUT_DIR_FINAL} && -z ${ORIGINAL_ARRAY_TASK_COUNT} ]] ; then
+      echo "OUTPUT_DIR '${OUTPUT_DIR}' already exists!" ;
+      exit -1 ;
+      fi
     - mkdir -p "${OUTPUT_DIR}" "${OUTPUT_DIR}/logs" "${OUTPUT_DIR}/notebooks"
     - echo "export OUTPUT_DIR=${OUTPUT_DIR}" | tee -a env.sh
+    - echo "export OUTPUT_DIR_FINAL=${OUTPUT_DIR_FINAL}" | tee -a env.sh
 
 .sbatch: &sbatch
   script:
@@ -144,11 +148,13 @@ create-conda-environment:
     - echo "export JOB_ID=${JOB_ID}" >> env.sh
     # Load environment variables from previous stages
     - source env.sh
-    # Save job output
+    - cp env.sh ${OUTPUT_DIR}/env-${CI_COMMIT_SHA}.sh
+    # Save job output to GitLab CI
     - mkdir -p output
-    - cp ${OUTPUT_DIR}/sbatch-${CI_JOB_ID}-*.log output
-    - cp ${OUTPUT_DIR}/*.html output || true  # files may not exist if job failed
-    # - cp -al ${OUTPUT_DIR} output
+    - rsync -a --link-dest=${OUTPUT_DIR} --include="notebooks/***" --include="logs/***" --exclude="*" ${OUTPUT_DIR}/ output
+    # Update job output to ${OUTPUT_DIR_FINAL}
+    - mkdir -p ${OUTPUT_DIR_FINAL}
+    - rsync -a --link-dest=${OUTPUT_DIR} ${OUTPUT_DIR}/ ${OUTPUT_DIR_FINAL}
     # Display job output
     - for file in output/sbatch-${CI_JOB_ID}-*.log ; do
       echo -e "\e[1m\e[35m${file}\e[0m" ;
