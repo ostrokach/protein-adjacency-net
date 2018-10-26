@@ -23,7 +23,7 @@ variables:
   # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
 
 .cedar-envs: &cedar-envs
-  SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem=0"
+  SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem=0 --constraint=skylake"
   # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
 
 .cluster-tags: &cluster-tags
@@ -85,6 +85,7 @@ create-conda-environment:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*create-conda-environment(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*create-conda-environment(,\s?.*)*\]/i
     changes:
+      # Not working together with variables ATM
       - environment-lock.yaml
 
 
@@ -125,6 +126,7 @@ create-conda-environment:
 
 .sbatch: &sbatch
   script:
+    - echo ${SBATCH_TIMELIMIT}
     - sbatch
       --nodes=1
       --ntasks-per-node=1
@@ -134,6 +136,7 @@ create-conda-environment:
       --chdir=`pwd`
       --output=${OUTPUT_DIR}/logs/sbatch-${CI_JOB_ID}-%N-%A-%a.log
       --export=ALL
+      --time ${SBATCH_TIMELIMIT}
       --wait
       ${SBATCH_ARGS}
       ${SBATCH_EXTRA_ARGS}
@@ -194,10 +197,6 @@ train_network:
     <<: *cluster-envs
     NOTEBOOK_NAME: "03-train_network"
     SBATCH_TIMELIMIT: "3:00:00"
-    # Cedar:
-    # SBATCH_EXTRA_ARGS: "--constraint=skylake --array=0-15%1 "
-    # SBATCH_EXTRA_ARGS: "--array=0-10%1 "
-    # Niagara:
     SBATCH_EXTRA_ARGS: "--array=0-10%1 "
   only:
     variables:
