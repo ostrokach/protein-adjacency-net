@@ -81,11 +81,11 @@ create-conda-environment:
     - source activate ${CONDA_ENVIRONMENT_NAME}
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@${PYPROJECT_GIT_REV}
   only:
+    changes:
+      - environment-lock.yaml
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*create-conda-environment(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*create-conda-environment(,\s?.*)*\]/i
-      - $JOBS_TO_RUN =~ /all/i
-      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*all\]/i
 
 
 # === Batch jobs ===
