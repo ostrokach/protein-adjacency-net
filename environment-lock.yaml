@@ -1,4 +1,4 @@
-name: ci-datapkg-adjacency-net-v2-master
+name: ci-datapkg-adjacency-net-v2-master-mod
 channels:
   - conda-forge
   - defaults
