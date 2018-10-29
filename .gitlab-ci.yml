@@ -15,6 +15,7 @@ variables:
   CONDA_ENVIRONMENT_NAME: ci-${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}
 
 .niagara-envs: &niagara-envs
+  # Uses all memory on node by default
   SBATCH_ARGS: "--account=def-pmkim"
   # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
 
