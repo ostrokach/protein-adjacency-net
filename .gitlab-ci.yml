@@ -2,7 +2,8 @@ image: registry.gitlab.com/ostrokach-docker/conda:latest
 
 stages:
   - init
-  - notebooks-01
+  - notebooks-03
+  - notebooks-04
   - deploy
 
 
@@ -191,7 +192,7 @@ create-conda-environment:
 
 train_network:
   <<: *notebook
-  stage: notebooks-01
+  stage: notebooks-03
   variables:
     <<: *cluster-envs
     NOTEBOOK_NAME: "03-train_network"
@@ -201,6 +202,62 @@ train_network:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*train_network(,\s?.*)*\]/i
+
+validation_training_stats:
+  <<: *notebook
+  stage: notebooks-04
+  variables:
+    <<: *cluster-envs
+    NOTEBOOK_NAME: "04-validation_training_stats"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_training_stats(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_training_stats(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
+
+validation_protherm_dataset:
+  <<: *notebook
+  stage: notebooks-04
+  variables:
+    <<: *cluster-envs
+    NOTEBOOK_NAME: "04-validation_protherm_dataset"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_protherm_dataset(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_protherm_dataset(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
+
+validation_homology_models:
+  <<: *notebook
+  stage: notebooks-04
+  variables:
+    <<: *cluster-envs
+    NOTEBOOK_NAME: "04-validation_homology_models"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_homology_models(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_homology_models(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
+
+validation_remote_homology_detection:
+  <<: *notebook
+  stage: notebooks-04
+  variables:
+    <<: *cluster-envs
+    NOTEBOOK_NAME: "04-validation_remote_homology_detection"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_remote_homology_detection(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_remote_homology_detection(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
 
 # === Pages ===
 
