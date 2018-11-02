@@ -214,8 +214,8 @@ validation_training_stats:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_training_stats(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_training_stats(,\s?.*)*\]/i
-      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
-      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
 validation_protherm_dataset:
   <<: *notebook
@@ -228,8 +228,8 @@ validation_protherm_dataset:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_protherm_dataset(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_protherm_dataset(,\s?.*)*\]/i
-      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
-      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
 validation_homology_models:
   <<: *notebook
@@ -242,8 +242,8 @@ validation_homology_models:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_homology_models(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_homology_models(,\s?.*)*\]/i
-      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
-      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
 validation_remote_homology_detection:
   <<: *notebook
@@ -256,8 +256,8 @@ validation_remote_homology_detection:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_remote_homology_detection(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_remote_homology_detection(,\s?.*)*\]/i
-      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation(,\s?.*)*\z/i
-      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
 # === Pages ===
 
