@@ -10,7 +10,7 @@ default_context:
     project_import: pagnn
     project_short_description: Protein Adjacency Graph Neural Network.
     docs_secret_key: ""
-    version: "0.1.11"
+    version: "0.1.12"
     create_author_file: "y"
     open_source_license: MIT License
     _copy_without_render:

@@ -41,7 +41,7 @@ def str_to_timedelta(time_val: str) -> timedelta:
         >>> str_to_timedelta('120s')
         datetime.timedelta(0, 120)
     """
-    num = int(time_val[:-1])
+    num = float(time_val[:-1])
     if time_val.endswith("s"):
         return timedelta(seconds=num)
     elif time_val.endswith("m"):
@@ -55,7 +55,15 @@ def str_to_timedelta(time_val: str) -> timedelta:
 
 
 def str_to_seconds(duration: str) -> float:
-    return str_to_timedelta(duration).total_seconds()
+    seconds = 0
+    if any(s in duration for s in ["s", "m", "h", "d"]):
+        for d in duration.split(","):
+            seconds += str_to_timedelta(d).total_seconds()
+    else:
+        duration = duration.replace("-", ":")
+        for time, multiplier in zip(reversed(duration.split(":")), [1, 60, 60 * 60, 24 * 60 * 60]):
+            seconds += float(time) * multiplier
+    return seconds
 
 
 def load_yaml(file: Any) -> Dict[str, Any]:

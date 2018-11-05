@@ -74,7 +74,7 @@ def _generate_ds(args):
         os.close(data_write)
         try:
             yield from _gen_ds_reader(index_read, data_read, args.training_data_cache)
-        except Exception as e:
+        except Exception:
             os.close(index_read)
             os.close(data_read)
     else:
