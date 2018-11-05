@@ -51,8 +51,7 @@ variables:
     # Clear cache
     - rm -rf /opt/conda/pkgs/*
     # Update conda
-    - conda install -n root -yq conda-verify --no-channel-priority
-    - conda update -n root -yq conda 'conda-build<3.16' --no-channel-priority
+    - conda install -n root -yq conda 'conda-build<3.16' conda-verify --no-channel-priority
 
 # === Lint ===
 
