@@ -46,5 +46,5 @@ test:
 
 about:
   home: https://gitlab.com/kimlab/pagnn
-  license: MIT License
+  license: MIT
   summary: "Protein Adjacency Graph Neural Network."
