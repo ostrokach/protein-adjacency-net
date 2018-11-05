@@ -22,10 +22,15 @@ def make_predictions(args: Args, datagen: Callable[[], Iterator[DataSet]]) -> np
     net.load_state_dict(torch.load(args.network_state.as_posix()))
 
     outputs_list: List[np.ndarray] = []
-    for dataset in datagen():
+    for i, dataset in enumerate(datagen()):
         datavar = net.dataset_to_datavar(dataset)
-        outputs = net(datavar.seqs, [datavar.adjs])
-        outputs_list.append(outputs.sigmoid().mean().data.numpy())
+        try:
+            outputs = net(datavar.seqs, [datavar.adjs])
+        except RuntimeError as e:
+            logger.error("Caught %s when making a prediction for row %s: '%s'.", type(e), i, str(e))
+            outputs_list.append(np.NaN)
+        else:
+            outputs_list.append(outputs.sigmoid().mean().data.numpy())
     outputs = np.vstack(outputs_list).squeeze()
     return outputs
 
@@ -47,7 +52,7 @@ def main(args: Optional[Args] = None, input_df: Optional[pd.DataFrame] = None) -
             dataset = dataset_to_gan(row_to_dataset(row, 0))
             yield dataset
 
-    outputs = make_predictions(args, datagen)
+    outputs = make_predictions(args.network_info, args.network_state, datagen)
     outputs_df = pd.DataFrame({"predictions": outputs}, index=range(len(outputs)))
 
     if args.output_file is not None:
