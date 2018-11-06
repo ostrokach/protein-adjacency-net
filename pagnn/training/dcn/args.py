@@ -66,9 +66,13 @@ class Args(TrainingArgsBase):
         "10m", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
     )
 
-    #: Number of seconds after which training should be terminated (default = `999d``).
-    runtime: float = attr.ib(  # type: ignore
-        "999d", converter=str_to_seconds, validator=instance_of(float)  # type: ignore
+    #: Number of seconds after which training should be terminated
+    #: (default = ``999d | ${SBATCH_TIMELIMIT} - 20min``).
+    #: Note that we subtract ``20min`` to give the job some time for cleanup.
+    runtime: float = attr.ib(
+        str_to_seconds(os.getenv("SBATCH_TIMELIMIT", "999d")) - 1200.0,
+        converter=str_to_seconds,
+        validator=instance_of(float),  # type: ignore
     )
 
     #: Number of D network training iterations per round.
