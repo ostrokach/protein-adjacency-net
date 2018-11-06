@@ -54,7 +54,9 @@ def str_to_timedelta(time_val: str) -> timedelta:
         raise Exception(f"Unsuported duration: {time_val}")
 
 
-def str_to_seconds(duration: str) -> float:
+def str_to_seconds(duration: Union[str, float]) -> float:
+    if not isinstance(duration, str):
+        return duration
     seconds = 0
     if any(s in duration for s in ["s", "m", "h", "d"]):
         for d in duration.split(","):
