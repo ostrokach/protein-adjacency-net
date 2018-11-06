@@ -140,6 +140,8 @@ def main(args: Optional[Args] = None):
     logging_level = {0: logging.ERROR, 1: logging.INFO, 2: logging.DEBUG}[args.verbosity]
     logging.basicConfig(format="%(message)s", level=logging_level)
 
+    logger.info("Started training network with args: %s", args.to_dict())
+
     if args.custom_module:
         runpy.run_path(args.custom_module.as_posix(), globals())
 
