@@ -98,7 +98,6 @@ create-conda-environment:
     # Make sure all required environment variables have been set
     - REQUIRED_VARS=(
       CONDA_ENVIRONMENT_NAME
-      NOTEBOOK_NAME
       DATAPKG_INPUT_DIR
       DATAPKG_OUTPUT_DIR
       CI_PROJECT_NAME
@@ -195,7 +194,7 @@ train_network:
   stage: notebooks-03
   variables:
     <<: *cluster-envs
-    NOTEBOOK_NAME: "03-train_network"
+    SBATCH_SCRIPT: "./scripts/train_network.sh"
     SBATCH_TIMELIMIT: "3:00:00"
     SBATCH_EXTRA_ARGS: "--array=0-10%1 --time ${SBATCH_TIMELIMIT} "
   only:
