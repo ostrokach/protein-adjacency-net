@@ -48,7 +48,10 @@ def train(
     # Set up network
     Net = getattr(pagnn.models.dcn, args.network_name)
     net = Net().to(settings.device)
-    loss = nn.BCELoss().to(settings.device)
+    ds_weight = torch.tensor(
+        [1.0] + [1.0 / args.num_negative_examples] * args.num_negative_examples
+    )
+    loss = nn.BCELoss(weight=ds_weight).to(settings.device)
     optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
     if args.array_id:
@@ -83,16 +86,19 @@ def train(
 
         pred_list = []
         target_list = []
+        error_list = []
         for ds in ds_list:
             dv = net.dataset_to_datavar(ds)
             pred = net(dv.seqs, [dv.adjs])
             pred = pred.sigmoid().mean(2).squeeze()
+            error = loss(pred, ds.targets)
             pred_list.append(pred)
             target_list.append(ds.targets)
+            error_list.append(error)
         preds = torch.cat(pred_list)
         targets = torch.cat(target_list)
-        error = loss(preds, targets)
-        error.backward()
+        errors = torch.stack(error_list)
+        errors.sum().backward()
         optimizer.step()
 
         # === Calculate Statistics ===
@@ -111,7 +117,7 @@ def train(
 
             stats.preds.append(preds.detach().numpy())
             stats.targets.append(targets.detach().numpy())
-            stats.losses.append(error.detach().numpy())
+            stats.losses.append(errors.detach().numpy())
 
             with torch.no_grad(), eval_net(net):
                 stats.calculate_statistics_basic()
