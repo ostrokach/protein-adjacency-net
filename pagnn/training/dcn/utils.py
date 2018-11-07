@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Iterator, List, Mapping, Optional
 
 import numpy as np
+import torch
 
 from pagnn.datapipe import set_buf_size
 from pagnn.dataset import dataset_to_gan, row_to_dataset
@@ -50,6 +51,13 @@ def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
 # Data Pipe
 
 
+def check():
+    indices = torch.LongTensor([[0, 1, 1], [2, 0, 2]])
+    values = torch.FloatTensor([3, 4, 5])
+    tensor = torch.sparse_coo_tensor(indices, values, torch.Size([2, 4]))
+    return tensor
+
+
 def get_data_pipe(args):
     if (
         args.training_data_cache is not None
@@ -81,6 +89,9 @@ def _generate_ds(args):
         # This is the child process
         os.close(index_read)
         os.close(data_read)
+        logger.info("Before check")
+        check()
+        logger.info("After check")
         try:
             ds_source = get_training_datasets(args)
             _gen_ds_writer(index_write, data_write, ds_source)
