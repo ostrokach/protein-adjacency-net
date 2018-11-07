@@ -16,7 +16,6 @@ from pagnn.types import DataSetGAN, DataVarGAN
 from pagnn.utils import (
     add_eye_sparse,
     conv2d_shape,
-    expand_adjacency,
     remove_eye_sparse,
     to_sparse_tensor,
 )
