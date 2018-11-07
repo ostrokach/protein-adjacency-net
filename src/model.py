@@ -4,6 +4,7 @@ This is a basic ``seq+adj - conv - seq+adj`` network.
 """
 import logging
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,6 +15,63 @@ from pagnn.models.common import AdjacencyConv, SequenceConv, SequentialMod
 from pagnn.utils import padding_amount, reshape_internal_dim
 
 logger = logging.getLogger(__name__)
+
+
+class SimpleAdjacencyConv(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.spatial_conv = nn.Conv1d(
+            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False
+        )
+        self.normalize = True
+        self.takes_extra_args = True
+
+    def forward(self, x, adj):
+        if adj.layout == torch.sparse_coo:
+            adj = adj.to_dense()
+        x = self._conv(x, adj)
+        return x
+
+    def _conv(self, x, adj):
+        x = x @ adj.transpose(0, 1)
+        x = self.spatial_conv(x)
+        x = x @ adj[::2, :]
+        if self.normalize:
+            adj_sum = adj.sum(dim=0)
+            adj_sum[adj_sum == 0] = 1
+            x = x / adj_sum
+        return x
+
+
+class GraphConvolution(nn.Module):
+    """
+    Simple GCN layer, similar to https://arxiv.org/abs/1609.02907
+    """
+
+    def __init__(self, in_features, out_features, bias=True):
+        super(GraphConvolution, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = torch.FloatTensor(in_features, out_features, requires_grad=True)
+        if bias:
+            self.bias = torch.FloatTensor(out_features, requires_grad=True)
+        else:
+            self.register_parameter('bias', None)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        stdv = 1. / np.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+        if self.bias is not None:
+            self.bias.data.uniform_(-stdv, stdv)
+
+    def forward(self, input, adj):
+        support = torch.mm(input, self.weight)
+        output = torch.mm(adj, support)
+        if self.bias is not None:
+            return output + self.bias
+        else:
+            return output
 
 
 class Custom(nn.Module):
@@ -43,7 +101,11 @@ class Custom(nn.Module):
         self.padding = padding
         self.bias = bias
 
-        self._configure_encoder()
+        # self._configure_encoder()
+        self.encoder = SequentialMod(
+            SimpleAdjacencyConv(self.input_size, 64), nn.ReLU(inplace=True)
+        )
+        self.linear_in = nn.Linear(64, 1, bias=True)
 
     def _configure_encoder(self):
         conv_kwargs = dict(
@@ -125,6 +187,13 @@ class Custom(nn.Module):
         return input_channels
 
     def forward(self, seq, adjs):
+        x = seq
+        x = self.encoder(x, adjs[0][0])
+        x = x.max(2)[0]
+        x = self.linear_in(x).unsqueeze(-1)
+        return x
+
+    def forward_bak(self, seq, adjs):
         x = seq
 
         for i in range(self.n_layers):
