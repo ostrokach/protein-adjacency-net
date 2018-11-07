@@ -131,9 +131,23 @@ def push_seqs(seqs: List[torch.sparse.FloatTensor]) -> torch.FloatTensor:
     return seq_t
 
 
-def push_adjs(adjs: List[sparse.spmatrix]) -> torch.FloatTensor:
+def push_adjs_bak(adjs: List[sparse.spmatrix]) -> List[torch.FloatTensor]:
     """Convert a `DataSetGAN` adjacency into a `Variable`."""
     adjs_spt = [expand_adjacency(adj).to(settings.device) for adj in adjs]
+    adjs_t = [adj.coalesce().to_dense() for adj in adjs_spt]
+    return adjs_t
+
+
+def push_adjs(adjs: List[sparse.spmatrix]) -> torch.FloatTensor:
+    def sparray_to_tensor(sparray):
+        row = torch.tensor(sparray.row, dtype=torch.int64)
+        col = torch.tensor(sparray.col, dtype=torch.int64)
+        i = torch.stack([row, col])
+        v = torch.tensor(sparray.data, dtype=torch.float32)
+        t = torch.sparse.FloatTensor(i, v, size=sparray.shape)
+        return t
+
+    adjs_spt = [sparray_to_tensor(adj).to(settings.device) for adj in adjs]
     adjs_t = [adj.coalesce().to_dense() for adj in adjs_spt]
     return adjs_t
 
