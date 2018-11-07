@@ -9,6 +9,7 @@
    conv1d_shape_ceil
    conv2d_shape
    to_sparse_tensor
+   expand_adjacency_tensor
    reshape_internal_dim
    unfold_to
    unfold_from
@@ -71,6 +72,7 @@ from .stats import StatsBase
 from .tensor_ops import (
     argmax_onehot,
     to_sparse_tensor,
+    expand_adjacency_tensor,
 )
 from .interpolation import interpolate_adjacencies, interpolate_sequences
 from .iter_ops import iter_forever, iter_submodules
