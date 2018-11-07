@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import pagnn.models.dcn
 from pagnn.datavargan import dataset_to_datavar
 from pagnn.models.common import AdjacencyConv, SequenceConv, SequentialMod
-from pagnn.utils import padding_amount, reshape_internal_dim
+from pagnn.utils import expand_adjacency_tensor, padding_amount, reshape_internal_dim
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,8 @@ class SimpleAdjacencyConv(nn.Module):
         self.takes_extra_args = True
 
     def forward(self, x, adj):
-        if adj.layout == torch.sparse_coo:
-            adj = adj.to_dense()
+        adj = expand_adjacency_tensor(adj)
+        adj = adj.to_dense()
         x = self._conv(x, adj)
         return x
 
@@ -102,7 +102,9 @@ class Custom(nn.Module):
         self.bias = bias
 
         # self._configure_encoder()
-        self.encoder = SequentialMod(GraphConvolution(self.input_size, 64), nn.ReLU(inplace=True))
+        self.encoder = SequentialMod(
+            SimpleAdjacencyConv(self.input_size, 64), nn.ReLU(inplace=True)
+        )
         self.linear_in = nn.Linear(64, 1, bias=True)
 
     def _configure_encoder(self):
