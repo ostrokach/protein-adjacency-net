@@ -13,12 +13,7 @@ from torch.autograd import Variable
 from pagnn import settings
 from pagnn.dataset import extract_adjacency_from_middle, get_indices
 from pagnn.types import DataSetGAN, DataVarGAN
-from pagnn.utils import (
-    add_eye_sparse,
-    conv2d_shape,
-    remove_eye_sparse,
-    to_sparse_tensor,
-)
+from pagnn.utils import add_eye_sparse, conv2d_shape, remove_eye_sparse, to_sparse_tensor
 
 logger = logging.getLogger(__name__)
 
