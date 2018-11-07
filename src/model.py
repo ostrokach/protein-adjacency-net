@@ -103,7 +103,7 @@ class Custom(nn.Module):
 
         # self._configure_encoder()
         self.encoder = SequentialMod(
-            SimpleAdjacencyConv(self.input_size, 64), nn.ReLU(inplace=True)
+            SimpleAdjacencyConv(self.input_size, 64), nn.ReLU(), nn.Dropout(p=0.5)
         )
         self.linear_in = nn.Linear(64, 1, bias=True)
 
