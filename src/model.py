@@ -74,6 +74,14 @@ class GraphConvolution(nn.Module):
         return output
 
 
+class MaxPoolEverything(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x.max(2)[0]
+
+
 class Custom(nn.Module):
     def __init__(
         self,
@@ -102,10 +110,41 @@ class Custom(nn.Module):
         self.bias = bias
 
         # self._configure_encoder()
-        self.encoder = SequentialMod(
-            SimpleAdjacencyConv(self.input_size, 64), nn.ReLU(), nn.Dropout(p=0.5)
+
+        # === Layer 1 ===
+        input_size = self.input_size
+        output_size = self.hidden_size
+
+        self.layer_1 = nn.Conv1d(input_size, output_size, kernel_size=1, stride=1, padding=0)
+
+        # === Layer 2 ===
+        input_size = output_size
+        output_size = int(input_size * 2)
+
+        self.layer_2_seq = nn.Sequential(
+            nn.Conv1d(
+                input_size // 2,
+                output_size // 2,
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+            )
         )
-        self.linear_in = nn.Linear(64, 1, bias=True)
+
+        self.layer_2_adj = SequentialMod(
+            SimpleAdjacencyConv(input_size // 2, output_size // 2),
+            nn.MaxPool1d(kernel_size=self.kernel_size, stride=self.stride, padding=self.padding),
+        )
+
+        self.layer_2_post = nn.Sequential(nn.ReLU(), nn.Dropout(p=0.5))
+
+        # === Layer N ===
+        input_size = output_size
+        output_size = 1
+
+        self.layer_n = nn.Sequential(
+            MaxPoolEverything(), nn.Linear(input_size, output_size, bias=True)
+        )
 
     def _configure_encoder(self):
         conv_kwargs = dict(
@@ -188,9 +227,18 @@ class Custom(nn.Module):
 
     def forward(self, seq, adjs):
         x = seq
-        x = self.encoder(x, adjs[0][0])
-        x = x.max(2)[0]
-        x = self.linear_in(x).unsqueeze(-1)
+        # Layer 1
+        x = self.layer_1(x)
+        # Layer 2
+        x_seq = x[:, : x.shape[1] // 2, :]
+        x_adj = x[:, x.shape[1] // 2 :, :]
+        x_seq = self.layer_2_seq(x_seq)
+        x_adj = self.layer_2_adj(x_adj, adjs[0][0])
+        x = torch.cat([x_seq, x_adj], 1)
+        x = self.layer_2_post(x)
+        # Layer N
+        x = self.layer_n(x)
+        x = x.unsqueeze(-1)
         return x
 
     def forward_bak(self, seq, adjs):
