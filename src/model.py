@@ -50,28 +50,28 @@ class GraphConvolution(nn.Module):
 
     def __init__(self, in_features, out_features, bias=True):
         super(GraphConvolution, self).__init__()
-        self.in_features = in_features
-        self.out_features = out_features
-        self.weight = torch.FloatTensor(in_features, out_features, requires_grad=True)
+        self.conv = nn.Conv1d(
+            in_features, out_features, kernel_size=1, stride=1, padding=0, bias=False
+        )
         if bias:
-            self.bias = torch.FloatTensor(out_features, requires_grad=True)
+            self.bias = torch.empty(out_features, dtype=torch.float32, requires_grad=True)
         else:
-            self.register_parameter('bias', None)
+            self.register_parameter("bias", None)
         self.reset_parameters()
+        self.takes_extra_args = True
 
     def reset_parameters(self):
-        stdv = 1. / np.sqrt(self.weight.size(1))
-        self.weight.data.uniform_(-stdv, stdv)
+        stdv = 1. / np.sqrt(self.conv.weight.size(1))
+        self.conv.weight.data.uniform_(-stdv, stdv)
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
 
     def forward(self, input, adj):
-        support = torch.mm(input, self.weight)
-        output = torch.mm(adj, support)
+        support = self.conv(input)
+        output = support @ adj.transpose(0, 1)
         if self.bias is not None:
-            return output + self.bias
-        else:
-            return output
+            output = (output.transpose(1, 2) + self.bias).transpose(2, 1)
+        return output
 
 
 class Custom(nn.Module):
@@ -102,9 +102,7 @@ class Custom(nn.Module):
         self.bias = bias
 
         # self._configure_encoder()
-        self.encoder = SequentialMod(
-            SimpleAdjacencyConv(self.input_size, 64), nn.ReLU(inplace=True)
-        )
+        self.encoder = SequentialMod(GraphConvolution(self.input_size, 64), nn.ReLU(inplace=True))
         self.linear_in = nn.Linear(64, 1, bias=True)
 
     def _configure_encoder(self):
