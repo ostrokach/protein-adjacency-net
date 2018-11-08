@@ -21,11 +21,11 @@ dependencies:
   - isort
   - psutil
   # Scientific Python
-  - numpy
+  - defaults::numpy
   - scipy
   - pandas
   - numba
-  - pyarrow >=0.10
+  - pyarrow >=0.11.1
   - scikit-learn
   - sqlalchemy
   # Plotting
@@ -35,7 +35,7 @@ dependencies:
   # Spark
   - findspark
   # PyTorch
-  - pytorch::pytorch-nightly-cpu=1.0.0.dev20181022
+  - pytorch::pytorch-nightly-cpu=1.0.0.dev20181108=py3.6_cpu_0
   # KimLab
   - kmbio
   - kmtools
@@ -43,4 +43,3 @@ dependencies:
   - attrs
   - click
   - pyyaml
-  - tqdm
