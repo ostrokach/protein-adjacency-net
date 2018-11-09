@@ -128,8 +128,37 @@ class Custom(nn.Module):
         self.passthrough_fraction = 1 / 3
 
         # *** Layers ***
-        # self._configure_encoder()
+        self._configure_basic_adj()
 
+    def forward(self, seq, adjs):
+        return self._forward_basic_adj(seq, adjs)
+
+    # Network with a single adj layer.
+
+    def _configure_basic_adj(self):
+        self.layer_1 = SequentialMod(
+            SimpleAdjacencyConv(self.input_size, self.hidden_size), nn.ReLU(inplace=True)
+        )
+        self.linear_n = nn.Sequential(
+            nn.Conv1d(
+                self.hidden_size,
+                int(self.hidden_size * 2),
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+            ),
+            FinalLayer(int(self.hidden_size * 2), 1, bias=True),
+        )
+
+    def _forward_basic_adj(self, seq, adjs):
+        x = seq
+        x = self.layer_1(x, adjs[0][0])
+        x = self.linear_n(x)
+        return x
+
+    # Network with two seq+adj layers.
+
+    def _configure_two_layer_seqadj(self):
         # === Layer 1 ===
         input_size = self.input_size
         hidden_size = self.hidden_size
@@ -176,13 +205,13 @@ class Custom(nn.Module):
 
         self.layer_n = FinalLayer(input_size, output_size, bias=True)
 
-    def forward(self, seq, adjs):
+    def _forward_two_layer_seqadj(self, seq, adjs):
         x = seq
         # Layer 1
         x = self.layer_1_pre(x)
         num_seq_features = int(x.size(1) * self.passthrough_fraction)
-        x_seq = x[:, : num_seq_features, :]
-        x_adj = x[:, num_seq_features :, :]
+        x_seq = x[:, :num_seq_features, :]
+        x_adj = x[:, num_seq_features:, :]
         x_seq = self.layer_1_seq(x_seq)
         x_adj = self.layer_1_adj(x_adj, adjs[0][0])
         x = torch.cat([x_seq, x_adj], 1)
@@ -190,8 +219,8 @@ class Custom(nn.Module):
         # Layer 2
         x = self.layer_2_pre(x)
         num_seq_features = int(x.size(1) * self.passthrough_fraction)
-        x_seq = x[:, : num_seq_features, :]
-        x_adj = x[:, num_seq_features :, :]
+        x_seq = x[:, :num_seq_features, :]
+        x_adj = x[:, num_seq_features:, :]
         x_seq = self.layer_2_seq(x_seq)
         x_adj = self.layer_2_adj(x_adj, adjs[0][1])
         x = torch.cat([x_seq, x_adj], 1)
