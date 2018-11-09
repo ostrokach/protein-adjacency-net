@@ -33,7 +33,7 @@ class SimpleAdjacencyConv(nn.Module):
         self.takes_extra_args = True
         # Layers
         if add_counts:
-            out_channels -= 1
+            out_channels = out_channels - 1
         self.spatial_conv = nn.Conv1d(
             in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False
         )
@@ -97,77 +97,108 @@ class GraphConvolution(nn.Module):
         return output
 
 
-class MaxPoolEverything(nn.Module):
-    def __init__(self):
+class FinalLayer(nn.Module):
+    def __init__(self, input_size, output_size, bias=True):
         super().__init__()
+        self.linear = nn.Linear(input_size, output_size, bias=bias)
 
     def forward(self, x):
-        return x.max(2)[0]
+        x = x.max(2)[0]
+        x = self.linear(x)
+        x = x.unsqueeze(-1)
+        return x
 
 
 class Custom(nn.Module):
-    def __init__(
-        self,
-        n_layers: int = 3,
-        n_convs: int = 3,
-        input_size: int = 20,
-        hidden_size: int = 64,
-        bottleneck_size: int = 0,
-        kernel_size: int = 3,
-        stride: int = 2,
-        padding: int = 1,
-        bias: bool = False,
-    ) -> None:
+    def __init__(self) -> None:
         super().__init__()
-
         logger.info("Network name: '%s'", self.__class__.__name__)
 
-        self.n_layers = n_layers
-        self.n_convs = n_convs
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.bottleneck_size = bottleneck_size
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.padding = padding
-        self.bias = bias
+        # *** Parameters ***
+        self.n_layers = 3
+        self.n_convs = 3
+        self.input_size = 20
+        self.hidden_size = 64
+        self.bottleneck_size = 0
+        self.kernel_size = 3
+        self.stride = 2
+        self.padding = 1
+        self.bias = False
+        self.dropout_probability = 0.5
+        self.passthrough_fraction = 1 / 3
 
+        # *** Layers ***
         # self._configure_encoder()
 
         # === Layer 1 ===
         input_size = self.input_size
-        output_size = self.hidden_size
+        hidden_size = self.hidden_size
+        output_size = hidden_size
 
-        self.layer_1 = nn.Conv1d(input_size, output_size, kernel_size=1, stride=1, padding=0)
+        self.layer_1_pre = nn.Conv1d(input_size, hidden_size, kernel_size=1, stride=1, padding=0)
+        num_seq_features = int(hidden_size * self.passthrough_fraction)
+        self.layer_1_seq = nn.Sequential()
+        self.layer_1_adj = SequentialMod(
+            SimpleAdjacencyConv(
+                int(hidden_size - num_seq_features), int(hidden_size - num_seq_features)
+            )
+        )
+        self.layer_1_post = nn.Sequential(nn.ReLU(), nn.Dropout(p=self.dropout_probability))
+
+        # nn.MaxPool1d(kernel_size=self.kernel_size, stride=self.stride, padding=self.padding)
 
         # === Layer 2 ===
         input_size = output_size
-        output_size = int(input_size * 2)
+        hidden_size = int(input_size * 2)
+        output_size = hidden_size
 
-        self.layer_2_seq = nn.Sequential(
+        self.layer_2_pre = nn.Sequential(
             nn.Conv1d(
-                input_size // 2,
-                output_size // 2,
+                input_size,
+                output_size,
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
             )
         )
-
+        num_seq_features = int(hidden_size * self.passthrough_fraction)
+        self.layer_2_seq = nn.Sequential()
         self.layer_2_adj = SequentialMod(
-            SimpleAdjacencyConv(input_size // 2, output_size // 2),
-            nn.MaxPool1d(kernel_size=self.kernel_size, stride=self.stride, padding=self.padding),
+            SimpleAdjacencyConv(
+                int(hidden_size - num_seq_features), int(hidden_size - num_seq_features)
+            )
         )
-
-        self.layer_2_post = nn.Sequential(nn.ReLU(), nn.Dropout(p=0.5))
+        self.layer_2_post = nn.Sequential(nn.ReLU())
 
         # === Layer N ===
         input_size = output_size
         output_size = 1
 
-        self.layer_n = nn.Sequential(
-            MaxPoolEverything(), nn.Linear(input_size, output_size, bias=True)
-        )
+        self.layer_n = FinalLayer(input_size, output_size, bias=True)
+
+    def forward(self, seq, adjs):
+        x = seq
+        # Layer 1
+        x = self.layer_1_pre(x)
+        num_seq_features = int(x.size(1) * self.passthrough_fraction)
+        x_seq = x[:, : num_seq_features, :]
+        x_adj = x[:, num_seq_features :, :]
+        x_seq = self.layer_1_seq(x_seq)
+        x_adj = self.layer_1_adj(x_adj, adjs[0][0])
+        x = torch.cat([x_seq, x_adj], 1)
+        x = self.layer_1_post(x)
+        # Layer 2
+        x = self.layer_2_pre(x)
+        num_seq_features = int(x.size(1) * self.passthrough_fraction)
+        x_seq = x[:, : num_seq_features, :]
+        x_adj = x[:, num_seq_features :, :]
+        x_seq = self.layer_2_seq(x_seq)
+        x_adj = self.layer_2_adj(x_adj, adjs[0][1])
+        x = torch.cat([x_seq, x_adj], 1)
+        x = self.layer_2_post(x)
+        # Layer N
+        x = self.layer_n(x)
+        return x
 
     def _configure_encoder(self):
         conv_kwargs = dict(
@@ -247,22 +278,6 @@ class Custom(nn.Module):
             )
 
         return input_channels
-
-    def forward(self, seq, adjs):
-        x = seq
-        # Layer 1
-        x = self.layer_1(x)
-        # Layer 2
-        x_seq = x[:, : x.shape[1] // 2, :]
-        x_adj = x[:, x.shape[1] // 2 :, :]
-        x_seq = self.layer_2_seq(x_seq)
-        x_adj = self.layer_2_adj(x_adj, adjs[0][0])
-        x = torch.cat([x_seq, x_adj], 1)
-        x = self.layer_2_post(x)
-        # Layer N
-        x = self.layer_n(x)
-        x = x.unsqueeze(-1)
-        return x
 
     def forward_bak(self, seq, adjs):
         x = seq
