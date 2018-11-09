@@ -17,29 +17,45 @@ from pagnn.utils import expand_adjacency_tensor, padding_amount, reshape_interna
 logger = logging.getLogger(__name__)
 
 
+def sparse_sum(input):
+    # Need to test if this is faster...
+    mone = torch.ones(input.shape[0], 1, dtype=torch.float)
+    input = (input @ mone).squeeze()
+    return input
+
+
 class SimpleAdjacencyConv(nn.Module):
-    def __init__(self, in_channels, out_channels):
+    def __init__(self, in_channels, out_channels, normalize=True, add_counts=True):
         super().__init__()
+        # Parameters
+        self.normalize = normalize
+        self.add_counts = add_counts
+        self.takes_extra_args = True
+        # Layers
+        if add_counts:
+            out_channels -= 1
         self.spatial_conv = nn.Conv1d(
             in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False
         )
-        self.normalize = True
-        self.takes_extra_args = True
 
-    def forward(self, x, adj):
-        adj = expand_adjacency_tensor(adj)
+    def forward(self, x: torch.Tensor, adj: torch.sparse.FloatTensor):
+        adj_pw = expand_adjacency_tensor(adj)
         adj = adj.to_dense()
-        x = self._conv(x, adj)
-        return x
-
-    def _conv(self, x, adj):
-        x = x @ adj.transpose(0, 1)
-        x = self.spatial_conv(x)
-        x = x @ adj[::2, :]
+        adj_pw = adj_pw.to_dense()
+        x = self._conv(x, adj_pw)
         if self.normalize:
             adj_sum = adj.sum(dim=0)
             adj_sum[adj_sum == 0] = 1
             x = x / adj_sum
+        if self.add_counts:
+            adj_sum = adj.sum(dim=0)
+            x = torch.cat([x, adj_sum.expand(x.size(0), 1, -1)], dim=1)
+        return x
+
+    def _conv(self, x, adj_pw):
+        x = x @ adj_pw.transpose(0, 1)
+        x = self.spatial_conv(x)
+        x = x @ adj_pw[::2, :]
         return x
 
 
