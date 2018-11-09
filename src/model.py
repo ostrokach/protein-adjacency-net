@@ -64,8 +64,12 @@ class GraphConvolution(nn.Module):
     Simple GCN layer, similar to https://arxiv.org/abs/1609.02907
     """
 
-    def __init__(self, in_features, out_features, bias=True):
+    def __init__(self, in_features, out_features, normalize=True, bias=True):
         super(GraphConvolution, self).__init__()
+        # Parameters
+        self.normalize = normalize
+        self.takes_extra_args = True
+        # Layers
         self.conv = nn.Conv1d(
             in_features, out_features, kernel_size=1, stride=1, padding=0, bias=False
         )
@@ -74,7 +78,6 @@ class GraphConvolution(nn.Module):
         else:
             self.register_parameter("bias", None)
         self.reset_parameters()
-        self.takes_extra_args = True
 
     def reset_parameters(self):
         stdv = 1. / np.sqrt(self.conv.weight.size(1))
@@ -82,8 +85,12 @@ class GraphConvolution(nn.Module):
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
 
-    def forward(self, input, adj):
+    def forward(self, input: torch.Tensor, adj: torch.sparse.FloatTensor):
         support = self.conv(input)
+        adj = adj.to_dense()
+        if self.normalize:
+            degree = adj.sum(0).diag()
+            adj = degree.inverse() @ adj
         output = support @ adj.transpose(0, 1)
         if self.bias is not None:
             output = (output.transpose(1, 2) + self.bias).transpose(2, 1)
