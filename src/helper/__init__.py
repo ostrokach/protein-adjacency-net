@@ -8,7 +8,7 @@ import pandas as pd
 def get_default_network_data(network_name: str) -> dict:
     network_path = (
         Path(os.environ['DATAPKG_OUTPUT_DIR'])
-        .joinpath("adjacency-net-v2", "master", "train_network", network_name)
+        .joinpath("adjacency-net-v2", network_name, "train_network")
     )
     return dict(
         network_state = sorted(network_path.joinpath("models").glob("*.state"))[-1],
