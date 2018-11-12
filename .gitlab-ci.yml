@@ -119,7 +119,8 @@ create-conda-environment:
         export NETWORK_NAME=${GIT_REV} ;
       fi
     - export OUTPUT_DIR=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_SHA}/${CI_JOB_NAME}
-    - export OUTPUT_DIR_FINAL=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}/${CI_JOB_NAME}/${NETWORK_NAME}
+    # - export OUTPUT_DIR_FINAL=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/${CI_COMMIT_REF_SLUG}/${CI_JOB_NAME}/${NETWORK_NAME}
+    - export OUTPUT_DIR_FINAL=${DATAPKG_OUTPUT_DIR}/${CI_PROJECT_NAME}/master/${CI_JOB_NAME}/${NETWORK_NAME}
     - echo "export OUTPUT_DIR=${OUTPUT_DIR}" | tee -a env.sh
     - echo "export OUTPUT_DIR_FINAL=${OUTPUT_DIR_FINAL}" | tee -a env.sh
     - if [[ -d ${OUTPUT_DIR} || -d ${OUTPUT_DIR_FINAL} && -z ${ORIGINAL_ARRAY_TASK_COUNT} ]] ; then
