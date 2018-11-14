@@ -195,7 +195,7 @@ train_network:
     <<: *cluster-envs
     SBATCH_SCRIPT: "./scripts/train_network.sh"
     SBATCH_TIMELIMIT: "3:00:00"
-    SBATCH_EXTRA_ARGS: "--array=0-10%1 --time ${SBATCH_TIMELIMIT} "
+    SBATCH_EXTRA_ARGS: "--array=0-15%1 --time ${SBATCH_TIMELIMIT} "
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
