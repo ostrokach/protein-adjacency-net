@@ -153,10 +153,22 @@ create-conda-environment:
     - cp env.sh ${OUTPUT_DIR}/env-${CI_COMMIT_SHA}.sh
     # Save job output to GitLab CI
     - mkdir -p output
-    - rsync -a --link-dest=${OUTPUT_DIR} --include="notebooks/***" --include="logs/***" --exclude="*" ${OUTPUT_DIR}/ output
+    - rsync -a
+      --link-dest=${OUTPUT_DIR}
+      --include="*.pdf"
+      --include="*.png"
+      --include="*.svg"
+      --include="notebooks/***"
+      --include="logs/***"
+      --exclude="*"
+      ${OUTPUT_DIR}/
+      output
     # Update job output to ${OUTPUT_DIR_FINAL}
     - mkdir -p ${OUTPUT_DIR_FINAL}
-    - rsync -a --link-dest=${OUTPUT_DIR} ${OUTPUT_DIR}/ ${OUTPUT_DIR_FINAL}
+    - rsync -a
+      --link-dest=${OUTPUT_DIR}
+      ${OUTPUT_DIR}/
+      ${OUTPUT_DIR_FINAL}
     # Display job output
     - for file in output/logs/*.log ; do
       echo -e "\e[1m\e[35m${file}\e[0m" ;
