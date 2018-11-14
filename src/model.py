@@ -160,10 +160,25 @@ class Custom(nn.Module):
     # Network with a signle graph-conv layer
 
     def _configure_single_graphconv(self):
+        input_size = self.input_size
+        hidden_size = self.hidden_size
+        output_size = int(hidden_size * 2)
+
         self.layer_1 = SequentialMod(
-            GraphConv(self.input_size, self.hidden_size), nn.ReLU(inplace=True)
+            #
+            GraphConv(input_size, hidden_size),
+            nn.ReLU(inplace=True),
         )
-        self.linear_n = nn.Sequential(FinalLayer(self.hidden_size, 1, bias=True))
+        self.linear_n = nn.Sequential(
+            nn.Conv1d(
+                hidden_size,
+                output_size,
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+            ),
+            FinalLayer(output_size, 1, bias=True),
+        )
 
     def _forward_single_graphconv(self, seq, adjs):
         x = seq
