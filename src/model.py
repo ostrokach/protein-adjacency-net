@@ -24,7 +24,7 @@ def sparse_sum(input):
     return input
 
 
-class SimpleAdjacencyConv(nn.Module):
+class PairwiseConv(nn.Module):
     def __init__(self, in_channels, out_channels, normalize=True, add_counts=True):
         super().__init__()
         # Parameters
@@ -59,13 +59,13 @@ class SimpleAdjacencyConv(nn.Module):
         return x
 
 
-class GraphConvolution(nn.Module):
+class GraphConv(nn.Module):
     """
     Simple GCN layer, similar to https://arxiv.org/abs/1609.02907
     """
 
     def __init__(self, in_features, out_features, normalize=True, bias=True):
-        super(GraphConvolution, self).__init__()
+        super().__init__()
         # Parameters
         self.normalize = normalize
         self.takes_extra_args = True
@@ -89,8 +89,9 @@ class GraphConvolution(nn.Module):
         support = self.conv(input)
         adj = adj.to_dense()
         if self.normalize:
-            degree = adj.sum(0).diag()
-            adj = degree.inverse() @ adj
+            adj_sum = adj.sum(dim=0)
+            adj_sum[adj_sum == 0] = 1
+            adj = adj_sum.diag().inverse() @ adj
         output = support @ adj.transpose(0, 1)
         if self.bias is not None:
             output = (output.transpose(1, 2) + self.bias).transpose(2, 1)
@@ -128,16 +129,16 @@ class Custom(nn.Module):
         self.passthrough_fraction = 1 / 3
 
         # *** Layers ***
-        self._configure_basic_adj()
+        self._configure_single_graphconv()
 
     def forward(self, seq, adjs):
-        return self._forward_basic_adj(seq, adjs)
+        return self._forward_single_graphconv(seq, adjs)
 
-    # Network with a single adj layer.
+    # Network with a single pairwise layer
 
-    def _configure_basic_adj(self):
+    def _configure_single_pairwise(self):
         self.layer_1 = SequentialMod(
-            SimpleAdjacencyConv(self.input_size, self.hidden_size), nn.ReLU(inplace=True)
+            PairwiseConv(self.input_size, self.hidden_size), nn.ReLU(inplace=True)
         )
         self.linear_n = nn.Sequential(
             nn.Conv1d(
@@ -150,7 +151,21 @@ class Custom(nn.Module):
             FinalLayer(int(self.hidden_size * 2), 1, bias=True),
         )
 
-    def _forward_basic_adj(self, seq, adjs):
+    def _forward_single_pairwise(self, seq, adjs):
+        x = seq
+        x = self.layer_1(x, adjs[0][0])
+        x = self.linear_n(x)
+        return x
+
+    # Network with a signle graph-conv layer
+
+    def _configure_single_graphconv(self):
+        self.layer_1 = SequentialMod(
+            GraphConv(self.input_size, self.hidden_size), nn.ReLU(inplace=True)
+        )
+        self.linear_n = nn.Sequential(FinalLayer(self.hidden_size, 1, bias=True))
+
+    def _forward_single_graphconv(self, seq, adjs):
         x = seq
         x = self.layer_1(x, adjs[0][0])
         x = self.linear_n(x)
@@ -168,9 +183,7 @@ class Custom(nn.Module):
         num_seq_features = int(hidden_size * self.passthrough_fraction)
         self.layer_1_seq = nn.Sequential()
         self.layer_1_adj = SequentialMod(
-            SimpleAdjacencyConv(
-                int(hidden_size - num_seq_features), int(hidden_size - num_seq_features)
-            )
+            PairwiseConv(int(hidden_size - num_seq_features), int(hidden_size - num_seq_features))
         )
         self.layer_1_post = nn.Sequential(nn.ReLU(), nn.Dropout(p=self.dropout_probability))
 
@@ -193,9 +206,7 @@ class Custom(nn.Module):
         num_seq_features = int(hidden_size * self.passthrough_fraction)
         self.layer_2_seq = nn.Sequential()
         self.layer_2_adj = SequentialMod(
-            SimpleAdjacencyConv(
-                int(hidden_size - num_seq_features), int(hidden_size - num_seq_features)
-            )
+            PairwiseConv(int(hidden_size - num_seq_features), int(hidden_size - num_seq_features))
         )
         self.layer_2_post = nn.Sequential(nn.ReLU())
 
