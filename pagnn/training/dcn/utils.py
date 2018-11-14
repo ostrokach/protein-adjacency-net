@@ -51,7 +51,7 @@ def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
 # Data Pipe
 
 
-def check():
+def check_for_deadlock():
     indices = torch.LongTensor([[0, 1, 1], [2, 0, 2]])
     values = torch.FloatTensor([3, 4, 5])
     tensor = torch.sparse_coo_tensor(indices, values, torch.Size([2, 4]))
@@ -81,7 +81,7 @@ def _generate_ds(args):
         os.close(index_write)
         os.close(data_write)
         try:
-            yield from _gen_ds_reader(index_read, data_read, args.training_data_cache)
+            yield from _gen_ds_reader(index_read, data_read)
         except Exception:
             os.close(index_read)
             os.close(data_read)
@@ -89,20 +89,20 @@ def _generate_ds(args):
         # This is the child process
         os.close(index_read)
         os.close(data_read)
-        logger.info("Before check")
-        check()
-        logger.info("After check")
+        logger.info("Before checking for deadlock.")
+        check_for_deadlock()
+        logger.info("After checking for deadlock.")
         try:
             ds_source = get_training_datasets(args)
-            _gen_ds_writer(index_write, data_write, ds_source)
+            _gen_ds_writer(index_write, data_write, ds_source, args.training_data_cache)
         except BrokenPipeError:
+            # The receiving process terminated
             pass
         except Exception as e:
             logger.error("Caught an exception %s: %s", type(e), e)
         finally:
             os.close(index_write)
             os.close(data_write)
-            # sys.stderr.flush()
             sys.stderr.close()
             sys.exit(0)
 
@@ -122,25 +122,15 @@ def _read_ds_from_cache(cache_file_stem: Path) -> Iterator[DataSetGAN]:
             yield ds
 
 
-def _gen_ds_reader(
-    index_read: int, data_read: int, cache_file_stem: Optional[Path] = None
-) -> Iterator[DataSetGAN]:
-    with ExitStack() as stack:
-        if cache_file_stem is not None:
-            logger.info("Writing generated training data to cache.")
-            index_cache_fh = stack.enter_context(cache_file_stem.with_suffix(".index").open("wb"))
-            data_cache_fh = stack.enter_context(cache_file_stem.with_suffix(".data").open("wb"))
-        while True:
-            size_buf = os.read(index_read, 4)
-            size = int.from_bytes(size_buf, "little")
-            if size == 0:
-                return
-            data_buf = os.read(data_read, size)
-            if cache_file_stem is not None:
-                index_cache_fh.write(size_buf)
-                data_cache_fh.write(data_buf)
-            ds = DataSetGAN.from_buffer(data_buf)
-            yield ds
+def _gen_ds_reader(index_read: int, data_read: int) -> Iterator[DataSetGAN]:
+    while True:
+        size_buf = os.read(index_read, 4)
+        size = int.from_bytes(size_buf, "little")
+        if size == 0:
+            return
+        data_buf = os.read(data_read, size)
+        ds = DataSetGAN.from_buffer(data_buf)
+        yield ds
 
 
 def _write_ds_to_cache(cache_file_stem: Path, ds_list: Iterator[DataSetGAN]) -> None:
@@ -156,12 +146,25 @@ def _write_ds_to_cache(cache_file_stem: Path, ds_list: Iterator[DataSetGAN]) -> 
             data_fh.write(data_buf)
 
 
-def _gen_ds_writer(index_write: int, data_write: int, ds_source: Iterator[DataSetGAN]) -> None:
-    for ds in ds_source:
-        data_buf = ds.to_buffer()
-        size_buf = data_buf.size.to_bytes(4, "little")
-        os.write(index_write, size_buf)
-        os.write(data_write, data_buf)
+def _gen_ds_writer(
+    index_write: int,
+    data_write: int,
+    ds_source: Iterator[DataSetGAN],
+    cache_file_stem: Optional[Path] = None,
+) -> None:
+    with ExitStack() as stack:
+        if cache_file_stem is not None:
+            logger.info("Writing generated training data to cache.")
+            index_cache_fh = stack.enter_context(cache_file_stem.with_suffix(".index").open("wb"))
+            data_cache_fh = stack.enter_context(cache_file_stem.with_suffix(".data").open("wb"))
+        for ds in ds_source:
+            data_buf = ds.to_buffer()
+            size_buf = data_buf.size.to_bytes(4, "little")
+            os.write(index_write, size_buf)
+            os.write(data_write, data_buf)
+            if cache_file_stem is not None:
+                index_cache_fh.write(size_buf)
+                data_cache_fh.write(data_buf)
 
 
 # === Training / Validation Batches ===
