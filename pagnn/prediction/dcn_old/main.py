@@ -21,6 +21,7 @@ def make_predictions(args: Args, datagen: Callable[[], Iterator[DataSet]]) -> np
     Net = getattr(pagnn.models.dcn_old, args.network_info["network_name"])
     net = Net(**args.network_info["network_settings"])
     net.load_state_dict(torch.load(args.network_state.as_posix()))
+    net.eval()
 
     outputs_list: List[np.ndarray] = []
     for dataset in datagen():
