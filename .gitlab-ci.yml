@@ -196,15 +196,16 @@ create-conda-environment:
 
 # === User code ===
 
-.notebook: &notebook
-  <<: *cluster-tags
+.notebook:
   <<: [*sbatch-setup, *sbatch, *sbatch-teardown]
-
-train_network:
-  <<: *notebook
-  stage: notebooks-03
+  <<: *cluster-tags
   variables:
     <<: *cluster-envs
+
+train_network:
+  extends: .notebook
+  stage: notebooks-03
+  variables:
     SBATCH_SCRIPT: "./scripts/train_network.sh"
     SBATCH_TIMELIMIT: "3:00:00"
     SBATCH_EXTRA_ARGS: "--array=0-15%1 --time ${SBATCH_TIMELIMIT} "
@@ -214,10 +215,9 @@ train_network:
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*train_network(,\s?.*)*\]/i
 
 validation_training_stats:
-  <<: *notebook
+  extends: .notebook
   stage: notebooks-04
   variables:
-    <<: *cluster-envs
     NOTEBOOK_NAME: "04-validation_training_stats"
     SBATCH_EXTRA_ARGS: "--time 3:00:00 "
   only:
@@ -228,10 +228,9 @@ validation_training_stats:
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
 validation_protherm_dataset:
-  <<: *notebook
+  extends: .notebook
   stage: notebooks-04
   variables:
-    <<: *cluster-envs
     NOTEBOOK_NAME: "04-validation_protherm_dataset"
     SBATCH_EXTRA_ARGS: "--time 3:00:00 "
   only:
@@ -242,10 +241,9 @@ validation_protherm_dataset:
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
 validation_homology_models:
-  <<: *notebook
+  extends: .notebook
   stage: notebooks-04
   variables:
-    <<: *cluster-envs
     NOTEBOOK_NAME: "04-validation_homology_models"
     SBATCH_EXTRA_ARGS: "--time 3:00:00 "
   only:
@@ -256,10 +254,9 @@ validation_homology_models:
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
 validation_remote_homology_detection:
-  <<: *notebook
+  extends: .notebook
   stage: notebooks-04
   variables:
-    <<: *cluster-envs
     NOTEBOOK_NAME: "04-validation_remote_homology_detection"
     SBATCH_EXTRA_ARGS: "--time 3:00:00 "
   only:
