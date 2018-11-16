@@ -129,10 +129,10 @@ class Custom(nn.Module):
         self.passthrough_fraction = 1 / 3
 
         # *** Layers ***
-        self._configure_single_graphconv()
+        self._configure_single_pairwise()
 
     def forward(self, seq, adjs):
-        return self._forward_single_graphconv(seq, adjs)
+        return self._forward_single_pairwise(seq, adjs)
 
     # Network with a single pairwise layer
 
