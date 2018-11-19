@@ -25,7 +25,7 @@ def sparse_sum(input):
 
 
 class PairwiseConv(nn.Module):
-    def __init__(self, in_channels, out_channels, *, normalize, add_counts):
+    def __init__(self, in_channels, out_channels, *, bias, normalize, add_counts):
         super().__init__()
         # Parameters
         self.normalize = normalize
@@ -35,7 +35,7 @@ class PairwiseConv(nn.Module):
         if add_counts:
             out_channels = out_channels - 1
         self.spatial_conv = nn.Conv1d(
-            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False
+            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=bias
         )
 
     def forward(self, x: torch.Tensor, adj: torch.sparse.FloatTensor):
@@ -61,42 +61,49 @@ class PairwiseConv(nn.Module):
 
 class PairwiseSeqConv(nn.Module):
     def __init__(
-        self, in_channels, out_channels, passthrough_fraction, bias=None, *, normalize, add_counts
+        self, in_features, out_features, passthrough_fraction, bias=None, *, normalize, add_counts
     ):
         super().__init__()
-        self.num_seq_features = int(out_channels * self.passthrough_fraction)
-        self.seq_conv = nn.Conv1D(
-            in_channels, self.num_seq_features, kernel_size=1, stride=1, padding=0
+        self.takes_extra_args = True
+        # Parameters
+        self.in_features = in_features
+        self.out_features = out_features
+        self.passthrough_fraction = passthrough_fraction
+        self.num_seq_features = int(out_features * passthrough_fraction)
+        # Layers
+        self.seq_conv = nn.Conv1d(
+            in_features, self.num_seq_features, kernel_size=1, stride=1, padding=0, bias=False
         )
         self.pairwise_conv = PairwiseConv(
-            in_channels,
-            out_channels - self.num_seq_features,
+            in_features,
+            out_features - self.num_seq_features,
             normalize=normalize,
             add_counts=add_counts,
+            bias=False,
         )
         if bias:
-            self.bias = torch.empty(out_channels, dtype=torch.float32, requires_grad=True)
+            self.bias = torch.empty(out_features, dtype=torch.float32, requires_grad=True)
         else:
             self.register_parameter("bias", None)
 
-    def forward(self, seq, adjs):
-        x = seq
-        x_seq = x[:, : self.num_seq_features, :]
-        x_adj = x[:, self.num_seq_features :, :]
-        x_seq = self.seq_conv(x_seq)
-        x_adj = self.pairwise_conv(x_adj)
-        x = torch.cat([x_seq, x_adj], 1)
-        if self.bias:
-            import ipdb; ipdb.set_trace()
-            x = x + self.bias
-        x = self.layer_1_pre(x)
-        num_seq_features = int(x.size(1) * self.passthrough_fraction)
-        x_seq = x[:, :num_seq_features, :]
-        x_adj = x[:, num_seq_features:, :]
-        x_seq = self.layer_1_seq(x_seq)
-        x_adj = self.layer_1_adj(x_adj, adjs[0][0])
+        self.reset_parameters()
 
-        x = self.layer_1_post(x)
+    def reset_parameters(self):
+        stdv = 1. / np.sqrt(self.out_features)
+        # self.conv.weight.data.uniform_(-stdv, stdv)
+        if self.bias is not None:
+            self.bias.data.uniform_(-stdv, stdv)
+
+    def forward(self, seq, adj):
+        x = seq
+        x_seq = self.seq_conv(x)
+        assert x_seq.size(1) == self.num_seq_features
+        x_adj = self.pairwise_conv(x, adj)
+        x = torch.cat([x_seq, x_adj], 1)
+        assert x.size(1) == self.out_features
+        if self.bias is not None:
+            x = (x.transpose(1, 2) + self.bias).transpose(2, 1)
+        return x
 
 
 class GraphConv(nn.Module):
@@ -115,7 +122,6 @@ class GraphConv(nn.Module):
         )
         if bias:
             self.bias = torch.empty(out_features, dtype=torch.float32, requires_grad=True)
-            nn.init.xavier_uniform_(self.bias, gain=nn.init.calculate_gain('relu'))
         else:
             self.register_parameter("bias", None)
         self.reset_parameters()
@@ -170,10 +176,10 @@ class Custom(nn.Module):
         self.passthrough_fraction = 1 / 3
 
         # *** Layers ***
-        self._configure_single_pairwise()
+        self._configure_test_13()
 
     def forward(self, seq, adjs):
-        return self._forward_single_pairwise(seq, adjs)
+        return self._forward_test_13(seq, adjs)
 
     # Network with a single pairwise layer
 
@@ -196,6 +202,53 @@ class Custom(nn.Module):
         x = seq
         x = self.layer_1(x, adjs[0][0])
         x = self.linear_n(x)
+        return x
+
+    # === Test 13 ===
+    # || PairwiseConv + Conv1d (full)
+    # || Conv1D
+    # || Final
+    def _configure_test_13(self):
+        # === Layer 1 ===
+        input_size = self.input_size
+        hidden_size = self.hidden_size
+        output_size = hidden_size
+
+        self.layer_1 = SequentialMod(
+            PairwiseSeqConv(
+                input_size,
+                output_size,
+                self.passthrough_fraction,
+                normalize=True,
+                add_counts=True,
+                bias=True,
+            ),
+            nn.ReLU(),
+        )
+
+        # === Layer N ===
+        input_size = output_size
+        hidden_size = int(input_size * 2)
+        output_size = 1
+
+        self.layer_n = nn.Sequential(
+            nn.Conv1d(
+                input_size,
+                hidden_size,
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+                bias=True,
+            ),
+            FinalLayer(hidden_size, output_size, bias=True),
+        )
+
+    def _forward_test_13(self, seq, adjs):
+        x = seq
+        # Layer 1
+        x = self.layer_1(x, adjs[0][0])
+        # Layer N
+        x = self.layer_n(x)
         return x
 
     # Network with a signle graph-conv layer
@@ -225,71 +278,6 @@ class Custom(nn.Module):
         x = seq
         x = self.layer_1(x, adjs[0][0])
         x = self.linear_n(x)
-        return x
-
-    # === Test 13 ===
-    # || PairwiseConv + Conv1d (full)
-    # || Conv1D
-    # || Final
-    def _configure_test_13(self):
-        # === Layer 1 ===
-        input_size = self.input_size
-        hidden_size = self.hidden_size
-        output_size = hidden_size
-
-        num_seq_features = int(hidden_size * self.passthrough_fraction)
-        self.layer_1_seq = nn.Sequential(
-            nn.Conv1d(
-                input_size,
-                num_seq_features,
-                kernel_size=self.kernel_size,
-                stride=self.stride,
-                padding=self.padding,
-            )
-        )
-        self.layer_1_adj = SequentialMod(
-            PairwiseConv(int(hidden_size - num_seq_features), int(hidden_size - num_seq_features))
-        )
-        self.layer_1_post = nn.Sequential(nn.ReLU())
-
-        # === Layer N ===
-        input_size = output_size
-        hidden_size = int(input_size * 2)
-        output_size = 1
-
-        self.layer_n = nn.Sequential(
-            nn.Conv1d(
-                input_size,
-                hidden_size,
-                kernel_size=self.kernel_size,
-                stride=self.stride,
-                padding=self.padding,
-            ),
-            FinalLayer(hidden_size, output_size, bias=False),
-        )
-
-    def _forward_test_13(self, seq, adjs):
-        x = seq
-        # Layer 1
-        x = self.layer_1_pre(x)
-        num_seq_features = int(x.size(1) * self.passthrough_fraction)
-        x_seq = x[:, :num_seq_features, :]
-        x_adj = x[:, num_seq_features:, :]
-        x_seq = self.layer_1_seq(x_seq)
-        x_adj = self.layer_1_adj(x_adj, adjs[0][0])
-        x = torch.cat([x_seq, x_adj], 1)
-        x = self.layer_1_post(x)
-        # Layer 2
-        x = self.layer_2_pre(x)
-        num_seq_features = int(x.size(1) * self.passthrough_fraction)
-        x_seq = x[:, :num_seq_features, :]
-        x_adj = x[:, num_seq_features:, :]
-        x_seq = self.layer_2_seq(x_seq)
-        x_adj = self.layer_2_adj(x_adj, adjs[0][1])
-        x = torch.cat([x_seq, x_adj], 1)
-        x = self.layer_2_post(x)
-        # Layer N
-        x = self.layer_n(x)
         return x
 
     # Network with two seq+adj layers.
