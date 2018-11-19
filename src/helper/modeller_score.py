@@ -8,6 +8,24 @@ from tkpod.plugins.modeller import Modeller
 from .adjacency_matrix import get_interaction_dataset
 
 
+def get_modeller_scores(row):
+    structure_data = row.structure_text
+    fh = io.StringIO()
+    fh.write(structure_data)
+    fh.seek(0)
+
+    parser = kmbio.PDB.PDBParser()
+    structure = parser.get_structure(fh, bioassembly_id=False)
+    chain = structure[0][row.chain_id]
+    sequence = structure_tools.get_chain_sequence(chain)
+
+    target = structure_tools.DomainTarget(0, row.chain_id, sequence, 1, len(sequence), sequence)
+    modeller_data = Modeller.build(structure, bioassembly_id=False, use_strict_alignment=True)
+    structure_bm, modeller_results = Modeller.create_model([target], modeller_data)
+
+    return structure_bm, sequence, modeller_results
+
+
 def get_pdb_interactions(row, pdb_ffindex_path: Path):
     structure_id, _, chain_id = row.template_id.partition("_")
     structure_url = f"ff://{pdb_ffindex_path}?{structure_id.lower()}.cif.gz"

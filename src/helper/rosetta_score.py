@@ -7,7 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 
-def get_rosetta_results(row):
+def get_rosetta_scores(row):
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         input_file = temp_path.joinpath(row.unique_id + ".pdb")
@@ -17,6 +17,7 @@ def get_rosetta_results(row):
         input_files = [input_file] + list(input_file.parent.glob(input_file.stem + "_*.pdb"))
         assert len(input_files) > 1
         score_jd2_df = run_rosetta_score(input_files, temp_path)
+    import ipdb; ipdb.set_trace()
     relax_best_row = relax_df[
         #
         (relax_df["total_score"] == relax_df["total_score"].min()),
@@ -31,7 +32,7 @@ def get_rosetta_results(row):
     return rosetta_results
 
 
-def run_rosetta_relax(input_file, temp_path, row):
+def run_rosetta_relax(input_file, temp_path):
     output_file = temp_path.joinpath("relax.sc")
     if output_file.is_file():
         output_file.unlink()
@@ -66,7 +67,7 @@ def run_rosetta_relax(input_file, temp_path, row):
     return relax_df
 
 
-def run_rosetta_score(input_files, temp_path, row):
+def run_rosetta_score(input_files, temp_path):
     output_file = temp_path.joinpath("score_jd2.sc")
     if output_file.is_file():
         output_file.unlink()
