@@ -24,17 +24,21 @@ variables:
   SBATCH_ARGS: "--account=def-pmkim --exclusive --mem=0"
   # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
 
+.orca-envs: &orca-envs
+  SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem=0"
+  # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
+
 .cedar-envs: &cedar-envs
   SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem=0 --constraint=skylake"
   # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
 
 .cluster-tags: &cluster-tags
   tags:
-    - niagara-ssh
+    - orca-ssh
 
 .cluster-envs: &cluster-envs
   SBATCH_SCRIPT: "./scripts/qsub.sh"
-  <<: *niagara-envs
+  <<: *orca-envs
 
 
 # === Basic GitLab runner tests ===
