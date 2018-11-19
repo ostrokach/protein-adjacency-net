@@ -25,7 +25,7 @@ def sparse_sum(input):
 
 
 class PairwiseConv(nn.Module):
-    def __init__(self, in_channels, out_channels, normalize=True, add_counts=True):
+    def __init__(self, in_channels, out_channels, *, normalize, add_counts):
         super().__init__()
         # Parameters
         self.normalize = normalize
@@ -59,6 +59,46 @@ class PairwiseConv(nn.Module):
         return x
 
 
+class PairwiseSeqConv(nn.Module):
+    def __init__(
+        self, in_channels, out_channels, passthrough_fraction, bias=None, *, normalize, add_counts
+    ):
+        super().__init__()
+        self.num_seq_features = int(out_channels * self.passthrough_fraction)
+        self.seq_conv = nn.Conv1D(
+            in_channels, self.num_seq_features, kernel_size=1, stride=1, padding=0
+        )
+        self.pairwise_conv = PairwiseConv(
+            in_channels,
+            out_channels - self.num_seq_features,
+            normalize=normalize,
+            add_counts=add_counts,
+        )
+        if bias:
+            self.bias = torch.empty(out_channels, dtype=torch.float32, requires_grad=True)
+        else:
+            self.register_parameter("bias", None)
+
+    def forward(self, seq, adjs):
+        x = seq
+        x_seq = x[:, : self.num_seq_features, :]
+        x_adj = x[:, self.num_seq_features :, :]
+        x_seq = self.seq_conv(x_seq)
+        x_adj = self.pairwise_conv(x_adj)
+        x = torch.cat([x_seq, x_adj], 1)
+        if self.bias:
+            import ipdb; ipdb.set_trace()
+            x = x + self.bias
+        x = self.layer_1_pre(x)
+        num_seq_features = int(x.size(1) * self.passthrough_fraction)
+        x_seq = x[:, :num_seq_features, :]
+        x_adj = x[:, num_seq_features:, :]
+        x_seq = self.layer_1_seq(x_seq)
+        x_adj = self.layer_1_adj(x_adj, adjs[0][0])
+
+        x = self.layer_1_post(x)
+
+
 class GraphConv(nn.Module):
     """
     Simple GCN layer, similar to https://arxiv.org/abs/1609.02907
@@ -75,6 +115,7 @@ class GraphConv(nn.Module):
         )
         if bias:
             self.bias = torch.empty(out_features, dtype=torch.float32, requires_grad=True)
+            nn.init.xavier_uniform_(self.bias, gain=nn.init.calculate_gain('relu'))
         else:
             self.register_parameter("bias", None)
         self.reset_parameters()
@@ -184,6 +225,71 @@ class Custom(nn.Module):
         x = seq
         x = self.layer_1(x, adjs[0][0])
         x = self.linear_n(x)
+        return x
+
+    # === Test 13 ===
+    # || PairwiseConv + Conv1d (full)
+    # || Conv1D
+    # || Final
+    def _configure_test_13(self):
+        # === Layer 1 ===
+        input_size = self.input_size
+        hidden_size = self.hidden_size
+        output_size = hidden_size
+
+        num_seq_features = int(hidden_size * self.passthrough_fraction)
+        self.layer_1_seq = nn.Sequential(
+            nn.Conv1d(
+                input_size,
+                num_seq_features,
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+            )
+        )
+        self.layer_1_adj = SequentialMod(
+            PairwiseConv(int(hidden_size - num_seq_features), int(hidden_size - num_seq_features))
+        )
+        self.layer_1_post = nn.Sequential(nn.ReLU())
+
+        # === Layer N ===
+        input_size = output_size
+        hidden_size = int(input_size * 2)
+        output_size = 1
+
+        self.layer_n = nn.Sequential(
+            nn.Conv1d(
+                input_size,
+                hidden_size,
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+            ),
+            FinalLayer(hidden_size, output_size, bias=False),
+        )
+
+    def _forward_test_13(self, seq, adjs):
+        x = seq
+        # Layer 1
+        x = self.layer_1_pre(x)
+        num_seq_features = int(x.size(1) * self.passthrough_fraction)
+        x_seq = x[:, :num_seq_features, :]
+        x_adj = x[:, num_seq_features:, :]
+        x_seq = self.layer_1_seq(x_seq)
+        x_adj = self.layer_1_adj(x_adj, adjs[0][0])
+        x = torch.cat([x_seq, x_adj], 1)
+        x = self.layer_1_post(x)
+        # Layer 2
+        x = self.layer_2_pre(x)
+        num_seq_features = int(x.size(1) * self.passthrough_fraction)
+        x_seq = x[:, :num_seq_features, :]
+        x_adj = x[:, num_seq_features:, :]
+        x_seq = self.layer_2_seq(x_seq)
+        x_adj = self.layer_2_adj(x_adj, adjs[0][1])
+        x = torch.cat([x_seq, x_adj], 1)
+        x = self.layer_2_post(x)
+        # Layer N
+        x = self.layer_n(x)
         return x
 
     # Network with two seq+adj layers.
