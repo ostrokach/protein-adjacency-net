@@ -240,7 +240,7 @@ class Custom(nn.Module):
                 padding=self.padding,
                 bias=False,
             ),
-            FinalLayer(hidden_size, output_size, bias=True),
+            FinalLayer(hidden_size, output_size, bias=False),
         )
 
     def _forward_test_13(self, seq, adjs):
