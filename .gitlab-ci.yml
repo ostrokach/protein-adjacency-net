@@ -2,6 +2,7 @@ image: registry.gitlab.com/ostrokach-docker/conda:latest
 
 stages:
   - init
+  - notebooks-01
   - notebooks-03
   - notebooks-04
   - deploy
@@ -202,6 +203,18 @@ create-conda-environment:
   <<: *cluster-tags
   variables:
     <<: *cluster-envs
+
+decoy_discrimination_dataset:
+  extends: .notebook
+  stage: notebooks-01
+  variables:
+    NOTEBOOK_NAME: "01-decoy_discrimination_dataset"
+    SBATCH_EXTRA_ARGS: "--array=1-1 --time 12:00:00 "
+    ORIGINAL_ARRAY_TASK_COUNT: "200"
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*decoy_discrimination_dataset(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*decoy_discrimination_dataset(,\s?.*)*\]/i
 
 train_network:
   extends: .notebook

@@ -17,11 +17,7 @@ def get_rosetta_scores(row):
         input_files = [input_file] + list(input_file.parent.glob(input_file.stem + "_*.pdb"))
         assert len(input_files) > 1
         score_jd2_df = run_rosetta_score(input_files, temp_path)
-    import ipdb; ipdb.set_trace()
-    relax_best_row = relax_df[
-        #
-        (relax_df["total_score"] == relax_df["total_score"].min()),
-    ]
+    relax_best_row = relax_df[(relax_df["total_score"] == relax_df["total_score"].min())]
     score_best_row = score_jd2_df[
         (score_jd2_df["total_score"] == score_jd2_df["total_score"].min())
     ]
