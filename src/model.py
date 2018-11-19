@@ -238,9 +238,9 @@ class Custom(nn.Module):
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=True,
+                bias=False,
             ),
-            FinalLayer(hidden_size, output_size, bias=False),
+            FinalLayer(hidden_size, output_size, bias=True),
         )
 
     def _forward_test_13(self, seq, adjs):
