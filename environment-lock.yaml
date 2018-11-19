@@ -188,4 +188,6 @@ dependencies:
   - ripgrep=0.10.0=hf484d3e_0
   - xsv=0.13.0=hf484d3e_1
   - pytorch-nightly-cpu=1.0.0.dev20181108=py3.6_cpu_0
-prefix: /home/p/pmkim/strokach/anaconda3/envs/ci-datapkg-adjacency-net-v2-master
+  - hdf5-1820=1.8.20=0
+  - modeller=9.20=py36_1
+prefix: /home/strokach/anaconda3/envs/ci-datapkg-adjacency-net-v2-master
