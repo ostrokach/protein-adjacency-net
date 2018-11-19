@@ -34,11 +34,11 @@ variables:
 
 .cluster-tags: &cluster-tags
   tags:
-    - orca-ssh
+    - niagara-ssh
 
 .cluster-envs: &cluster-envs
   SBATCH_SCRIPT: "./scripts/qsub.sh"
-  <<: *orca-envs
+  <<: *niagara-envs
 
 
 # === Basic GitLab runner tests ===
