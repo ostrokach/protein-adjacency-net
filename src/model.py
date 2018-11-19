@@ -221,7 +221,7 @@ class Custom(nn.Module):
                 self.passthrough_fraction,
                 normalize=True,
                 add_counts=True,
-                bias=False,
+                bias=True,
             ),
             nn.ReLU(),
         )
