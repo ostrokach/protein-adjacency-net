@@ -12,7 +12,6 @@ stages:
 variables:
   PROJECT_VERSION: "0.1"
   DOCS_SECRET_KEY: "SWKhaBJiG8O53MTcw97h1vRjVgimQCb4mzTIH4H8dD10vrb6NWOUantGWhqHMoY7"
-  PYPROJECT_GIT_REV: "845d559182c9d2558782f287e6f908e9319dce14"
   CONDA_ENVIRONMENT_NAME: ci-${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}
 
 .niagara-envs: &niagara-envs
@@ -81,7 +80,9 @@ create-conda-environment:
   script:
     - conda env update -q -n ${CONDA_ENVIRONMENT_NAME} -f environment-lock.yaml
     - source activate ${CONDA_ENVIRONMENT_NAME}
-    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@${PYPROJECT_GIT_REV}
+    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-core.git@$5f034566cf8a990e52674d573b25a4475ed114da
+    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-modeller.git@$bb7945c76e891eff1d8eb0ec9bd0273455382c79
+    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@$845d559182c9d2558782f287e6f908e9319dce14
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*create-conda-environment(,\s?.*)*\z/i

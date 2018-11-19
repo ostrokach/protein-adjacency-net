@@ -20,6 +20,10 @@ dependencies:
   - conda-forge::jupyter_contrib_nbextensions
   - isort
   - psutil
+  - boltons
+  - attrs
+  - click
+  - pyyaml
   # Scientific Python
   - defaults::numpy
   - scipy
@@ -28,6 +32,7 @@ dependencies:
   - pyarrow >=0.11.1
   - scikit-learn
   - sqlalchemy
+  - modeller =9.20
   # Plotting
   - matplotlib
   - matplotlib-venn
@@ -39,7 +44,4 @@ dependencies:
   # KimLab
   - kmbio
   - kmtools
-  # pagnn
-  - attrs
-  - click
-  - pyyaml
+  # - pagnn
