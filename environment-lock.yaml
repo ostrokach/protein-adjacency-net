@@ -10,14 +10,27 @@ channels:
   - pytorch
   - salilab
 dependencies:
+  - asn1crypto=0.24.0=py36_0
+  - boltons=18.0.1=py_0
   - boto3=1.9.40=py_0
   - botocore=1.12.40=py_0
   - ca-certificates=2018.10.15=ha4d7672_0
+  - cycler=0.10.0=py36_0
+  - dill=0.2.8.2=py36_0
+  - docutils=0.14=py36_0
+  - entrypoints=0.2.3=py36_2
   - findspark=1.3.0=py_1
   - fontconfig=2.13.1=h65d0f4c_0
   - hdf5=1.10.3=hc401514_2
+  - idna=2.7=py36_0
+  - ipython_genutils=0.2.0=py36_0
+  - isort=4.3.4=py36_0
+  - jedi=0.13.1=py36_0
+  - jinja2=2.10=py36_0
+  - jmespath=0.9.3=py36_0
   - jpeg=9c=h470a237_1
   - jsonschema=3.0.0a3=py36_1000
+  - jupyter_client=5.2.3=py36_0
   - jupyter_contrib_core=0.3.3=py_2
   - jupyter_contrib_nbextensions=0.5.0=py36_1000
   - jupyter_highlight_selected_word=0.2.0=py36_1000
@@ -25,20 +38,40 @@ dependencies:
   - jupyter_nbextensions_configurator=0.4.0=py36_1000
   - krb5=1.16.2=hbb41f41_0
   - libcurl=7.62.0=hbdb9355_0
+  - libgfortran=3.0.0=1
   - libuuid=2.32.1=h470a237_2
   - lz4-c=1.8.3=hfc679d8_0
   - markupsafe=1.1.0=py36h470a237_0
   - matplotlib-venn=0.11.5=py_1
   - mkl_random=1.0.2=py36_0
   - mmtf-python=1.1.2=py_0
+  - more-itertools=4.3.0=py36_0
+  - nbconvert=5.3.1=py36_0
+  - nbformat=4.4.0=py36_0
+  - notebook=5.7.0=py36_0
   - pandoc=2.3.1=0
   - parallel=20181022=0
+  - pexpect=4.6.0=py36_0
+  - pickleshare=0.7.5=py36_0
+  - ptyprocess=0.6.0=py36_0
+  - pygments=2.2.0=py36_0
+  - pyopenssl=18.0.0=py36_0
   - pyrsistent=0.14.5=py36h470a237_1
   - pytables=3.4.4=py36h2392372_1
   - python=3.6.6=h5001a0f_0
+  - qtconsole=4.4.2=py36_0
+  - s3transfer=0.1.13=py36_0
+  - setuptools=40.5.0=py36_0
+  - six=1.11.0=py36_1
   - sqlite=3.25.3=hb1c47c0_0
+  - terminado=0.8.1=py36_1
+  - testpath=0.4.2=py36_0
+  - traitlets=4.3.2=py36_0
+  - urllib3=1.23=py36_0
+  - wcwidth=0.1.7=py36_0
+  - wheel=0.32.2=py36_0
+  - widgetsnbextension=3.4.2=py36_0
   - arrow-cpp=0.11.1=py36h5c3f529_0
-  - asn1crypto=0.24.0=py36_0
   - atomicwrites=1.2.1=py36_0
   - attrs=18.2.0=py36h28b3542_0
   - backcall=0.1.0=py36_0
@@ -54,12 +87,8 @@ dependencies:
   - chardet=3.0.4=py36_1
   - click=7.0=py36_0
   - cryptography=2.3.1=py36hc365091_0
-  - cycler=0.10.0=py36_0
   - dbus=1.13.2=h714fa37_1
   - decorator=4.3.0=py36_0
-  - dill=0.2.8.2=py36_0
-  - docutils=0.14=py36_0
-  - entrypoints=0.2.3=py36_2
   - expat=2.2.6=he6710b0_0
   - freetype=2.9.1=h8a8886c_1
   - gflags=2.2.1=hf484d3e_0
@@ -69,18 +98,11 @@ dependencies:
   - gst-plugins-base=1.14.0=hbbd80ab_1
   - gstreamer=1.14.0=hb453b48_1
   - icu=58.2=h9c2bf20_1
-  - idna=2.7=py36_0
   - intel-openmp=2019.0=118
   - ipykernel=5.1.0=py36h39e3cac_0
   - ipython=7.1.1=py36h39e3cac_0
-  - ipython_genutils=0.2.0=py36_0
   - ipywidgets=7.4.2=py36_0
-  - isort=4.3.4=py36_0
-  - jedi=0.13.1=py36_0
-  - jinja2=2.10=py36_0
-  - jmespath=0.9.3=py36_0
   - jupyter=1.0.0=py36_7
-  - jupyter_client=5.2.3=py36_0
   - jupyter_console=6.0.0=py36_0
   - jupyter_core=4.4.0=py36_0
   - kiwisolver=1.0.1=py36hf484d3e_0
@@ -89,7 +111,6 @@ dependencies:
   - libevent=2.1.8=h93c0eb6_0
   - libffi=3.2.1=hd88cf55_4
   - libgcc-ng=8.2.0=hdf63c60_1
-  - libgfortran=3.0.0=1
   - libgfortran-ng=7.3.0=hdf63c60_0
   - libpng=1.6.35=hbc83047_0
   - libsodium=1.0.16=h1bed415_0
@@ -105,13 +126,9 @@ dependencies:
   - mistune=0.8.4=py36h7b6447c_0
   - mkl=2019.0=118
   - mkl_fft=1.0.6=py36h7dd41cf_0
-  - more-itertools=4.3.0=py36_0
   - msgpack-python=0.5.6=py36h6bb024c_1
-  - nbconvert=5.3.1=py36_0
-  - nbformat=4.4.0=py36_0
   - ncurses=6.1=hf484d3e_0
   - ninja=1.8.2=py36h6bb024c_1
-  - notebook=5.7.0=py36_0
   - numba=0.40.0=py36h962f231_0
   - numexpr=2.6.8=py36hd89afb7_0
   - numpy=1.15.4=py36h1d66e8a_0
@@ -124,22 +141,17 @@ dependencies:
   - patsy=0.5.1=py36_0
   - pcre=8.42=h439df22_0
   - perl=5.26.2=h14c3975_0
-  - pexpect=4.6.0=py36_0
-  - pickleshare=0.7.5=py36_0
   - pip=18.1=py36_0
   - pluggy=0.8.0=py36_0
   - prometheus_client=0.4.2=py36_0
   - prompt_toolkit=2.0.7=py36_0
   - psutil=5.4.8=py36h7b6447c_0
-  - ptyprocess=0.6.0=py36_0
   - py=1.7.0=py36_0
   - pyarrow=0.11.1=py36he6710b0_0
   - pyasn1=0.4.4=py36h28b3542_0
   - pycparser=2.19=py36_0
   - pycurl=7.43.0.2=py36hb7f436b_0
-  - pygments=2.2.0=py36_0
   - pynacl=1.3.0=py36h7b6447c_0
-  - pyopenssl=18.0.0=py36_0
   - pyparsing=2.3.0=py36_0
   - pyqt=5.9.2=py36h05f1152_2
   - pysocks=1.6.8=py36_0
@@ -149,32 +161,22 @@ dependencies:
   - pyyaml=3.13=py36h14c3975_0
   - pyzmq=17.1.2=py36h14c3975_0
   - qt=5.9.6=h8703b6f_2
-  - qtconsole=4.4.2=py36_0
   - readline=7.0=h7b6447c_5
   - requests=2.20.0=py36_0
-  - s3transfer=0.1.13=py36_0
+  - retrying=1.3.3=py36_2
   - scikit-learn=0.20.0=py36h4989274_1
   - scipy=1.1.0=py36hfa4b5c9_1
   - seaborn=0.9.0=py36_0
   - send2trash=1.5.0=py36_0
-  - setuptools=40.5.0=py36_0
   - sip=4.19.8=py36hf484d3e_0
-  - six=1.11.0=py36_1
   - smart_open=1.7.1=py36_0
   - snappy=1.1.7=hbae5bb6_3
   - sqlalchemy=1.2.13=py36h7b6447c_0
   - statsmodels=0.9.0=py36h035aef0_0
-  - terminado=0.8.1=py36_1
-  - testpath=0.4.2=py36_0
   - thrift-cpp=0.11.0=hc04171f_3
   - tk=8.6.8=hbc83047_0
   - tornado=5.1.1=py36h7b6447c_0
-  - traitlets=4.3.2=py36_0
-  - urllib3=1.23=py36_0
-  - wcwidth=0.1.7=py36_0
   - webencodings=0.5.1=py36_1
-  - wheel=0.32.2=py36_0
-  - widgetsnbextension=3.4.2=py36_0
   - xz=5.2.4=h14c3975_4
   - yaml=0.1.7=had09818_2
   - zeromq=4.2.5=hf484d3e_1
@@ -183,7 +185,6 @@ dependencies:
   - kmbio=2.0.11=py36hb4e6623_0
   - kmtools=0.0.35=py36h14c3975_0
   - fd-find=7.0.0=hf484d3e_0
-  - retrying=1.3.3=py36_2
   - ripgrep=0.10.0=hf484d3e_0
   - xsv=0.13.0=hf484d3e_1
   - pytorch-nightly-cpu=1.0.0.dev20181108=py3.6_cpu_0
