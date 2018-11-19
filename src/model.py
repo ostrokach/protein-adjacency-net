@@ -238,7 +238,7 @@ class Custom(nn.Module):
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=False,
+                bias=True,
             ),
             FinalLayer(hidden_size, output_size, bias=False),
         )
