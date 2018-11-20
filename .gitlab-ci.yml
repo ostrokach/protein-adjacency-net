@@ -85,8 +85,8 @@ create-conda-environment:
   script:
     - conda env update -q -n ${CONDA_ENVIRONMENT_NAME} -f environment-lock.yaml
     - source activate ${CONDA_ENVIRONMENT_NAME}
-    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-core.git@4976cab93251b32c45c7250c1d3a27e9713e3ee7
-    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-modeller.git@bb7945c76e891eff1d8eb0ec9bd0273455382c79
+    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-core.git@v0.1.6
+    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-modeller.git@v0.1.5
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@845d559182c9d2558782f287e6f908e9319dce14
   only:
     variables:
