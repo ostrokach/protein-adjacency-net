@@ -221,7 +221,7 @@ class Custom(nn.Module):
                 self.passthrough_fraction,
                 normalize=True,
                 add_counts=True,
-                bias=True,
+                bias=False,
             ),
             nn.ReLU(),
         )
@@ -238,7 +238,7 @@ class Custom(nn.Module):
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=False,
+                bias=True,
             ),
             FinalLayer(hidden_size, output_size, bias=True),
         )
