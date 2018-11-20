@@ -220,6 +220,18 @@ decoy_discrimination_dataset:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*decoy_discrimination_dataset(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*decoy_discrimination_dataset(,\s?.*)*\]/i
 
+decoy_discrimination_dataset_rosetta:
+  extends: .notebook
+  stage: notebooks-01
+  variables:
+    NOTEBOOK_NAME: "01-decoy_discrimination_dataset"
+    SBATCH_EXTRA_ARGS: "--array=1-1 --time 12:00:00 "
+    ORIGINAL_ARRAY_TASK_COUNT: "200"
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*decoy_discrimination_dataset_rosetta(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*decoy_discrimination_dataset_rosetta(,\s?.*)*\]/i
+
 train_network:
   extends: .notebook
   stage: notebooks-03
