@@ -5,6 +5,7 @@ stages:
   - notebooks-01
   - notebooks-03
   - notebooks-04
+  - notebooks-05
   - deploy
 
 
@@ -232,6 +233,8 @@ decoy_discrimination_dataset_rosetta:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*decoy_discrimination_dataset_rosetta(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*decoy_discrimination_dataset_rosetta(,\s?.*)*\]/i
 
+# train_network
+
 train_network:
   extends: .notebook
   stage: notebooks-03
@@ -243,6 +246,8 @@ train_network:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*train_network(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*train_network(,\s?.*)*\]/i
+
+# validate_network
 
 validation_training_stats:
   extends: .notebook
@@ -295,6 +300,60 @@ validation_remote_homology_detection:
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_remote_homology_detection(,\s?.*)*\]/i
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
+
+# validate_network_combined
+
+validation_training_stats_combined:
+  extends: .notebook
+  stage: notebooks-05
+  variables:
+    NOTEBOOK_NAME: "05-validation_training_stats_combined"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_training_stats_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_training_stats_combined(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network_combined(,\s?.*)*\]/i
+
+validation_protherm_dataset_combined:
+  extends: .notebook
+  stage: notebooks-05
+  variables:
+    NOTEBOOK_NAME: "05-validation_protherm_dataset_combined"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_protherm_dataset_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_protherm_dataset_combined(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network_combined(,\s?.*)*\]/i
+
+validation_homology_models_combined:
+  extends: .notebook
+  stage: notebooks-05
+  variables:
+    NOTEBOOK_NAME: "05-validation_homology_models_combined"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_homology_models_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_homology_models_combined(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network_combined(,\s?.*)*\]/i
+
+validation_remote_homology_detection_combined:
+  extends: .notebook
+  stage: notebooks-05
+  variables:
+    NOTEBOOK_NAME: "05-validation_remote_homology_detection_combined"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_remote_homology_detection_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_remote_homology_detection_combined(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network_combined(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network_combined(,\s?.*)*\]/i
 
 # === Pages ===
 
