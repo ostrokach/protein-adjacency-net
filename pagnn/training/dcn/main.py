@@ -48,10 +48,12 @@ def train(
     # Set up network
     Net = getattr(pagnn.models.dcn, args.network_name)
     net = Net().to(settings.device)
+
     ds_weight = torch.tensor(
         [1.0] + [1.0 / args.num_negative_examples] * args.num_negative_examples
     )
     loss = nn.BCELoss(weight=ds_weight).to(settings.device)
+
     optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
     if args.array_id:
@@ -103,9 +105,10 @@ def train(
 
         # === Calculate Statistics ===
         if write_graph:
-            # Commented out because causes error:
+            # Commented out because causes errors:
             # > ** ValueError: Auto nesting doesn't know how to process an input object of type int.
             # > Accepted types: Tensors, or lists/tuples of them.
+            # > ** RuntimeError: sparse tensors not supported.
             # dv = net.dataset_to_datavar(ds_list[0])
             # torch.onnx.export(
             #     net, (dv.seqs, [dv.adjs]), args.root_path.joinpath("model.onnx").as_posix()
