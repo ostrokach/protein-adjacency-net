@@ -7,14 +7,10 @@ from pagnn import settings
 
 def to_sparse_tensor(sparray: sparse.spmatrix) -> torch.sparse.FloatTensor:
     """Convert a scipy `spmatrix` into a torch sparse tensor (possibly on CUDA)."""
-    if sparray.nnz == 0:
-        i = torch.LongTensor()
-        v = torch.FloatTensor()
-    else:
-        i = torch.LongTensor(np.vstack([sparray.row, sparray.col]))
-        v = torch.FloatTensor(sparray.data)
-    s = torch.Size(sparray.shape)
-    tensor = torch.sparse.FloatTensor(i, v, s)
+    indices = torch.LongTensor(np.vstack([sparray.row, sparray.col]))
+    values = torch.FloatTensor(sparray.data)
+    size = torch.Size(sparray.shape)
+    tensor = torch.sparse_coo_tensor(indices, values, size)
     return tensor
 
 
@@ -76,3 +72,20 @@ def add_eye_sparse_tensor(x: torch.sparse.FloatTensor, bandwidth: int) -> torch.
         values_list.extend([values_upper, values_lower])
     out = torch.sparse_coo_tensor(torch.cat(indices_list), torch.cat(values_list), size=x.size)
     return out
+
+
+def expand_adjacency_tensor(adj: torch.sparse.FloatTensor) -> torch.sparse.FloatTensor:
+    row, col = adj._indices()
+    num_interactions = len(row) * 2
+
+    row_new = torch.cat(
+        [
+            torch.arange(0, num_interactions, 2, dtype=torch.long),
+            torch.arange(1, max(1, num_interactions), 2, dtype=torch.long),
+        ]
+    )
+    col_new = torch.cat([row, col])
+    data_new = torch.ones(num_interactions, dtype=torch.float)
+    size_new = (num_interactions, adj.shape[0])  # number of interactions x sequence length
+    adj_new = torch.sparse_coo_tensor(torch.stack([row_new, col_new]), data_new, size=size_new)
+    return adj_new
