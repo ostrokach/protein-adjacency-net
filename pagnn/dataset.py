@@ -8,16 +8,38 @@ from scipy import sparse
 
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.types import DataSet, DataSetGAN, RowGenF
+from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF
 from pagnn.utils import seq_to_array
 
 MAX_TRIES = 256
 
 
-def row_to_dataset(row, target):
-    """Convert a :any:`DataRow` into a :any:`DataSet`."""
+def row_to_dataset(
+    row: DataRow,
+    target: Optional[float] = None,
+    permute=False,
+    random_state: Optional[np.random.RandomState] = None,
+) -> DataSet:
+    """Convert a :any:`DataRow` into a :any:`DataSet`.
+
+    Args:
+        row: A row of data.
+        target: The target associated with the row of data.
+        permute: Whether or not the sequence and adjacency should be permutted by a random amount.
+        random_state: RandomState for generating permutations.
+
+    Returns:
+        A DataSet containing the provided data.
+    """
     seq = seq_to_array(row.sequence.replace("-", "").encode("ascii"))
     adj = utils.get_adjacency(seq.shape[1], row.adjacency_idx_1, row.adjacency_idx_2)
+    target = target if target is not None else row.target
+    if permute:
+        assert random_state is not None
+        seq_length = seq.size(1)
+        offset = get_offset(seq_length, random_state)
+        seq = permute_sequence(seq, offset)
+        adj = permute_adjacency(adj, offset)
     known_fields = {"Index", "sequence", "adjacency_idx_1", "adjacency_idx_2", "target"}
     if set(row._fields) - set(known_fields):
         meta = {k: v for k, v in row._asdict().items() if k not in known_fields}
@@ -26,7 +48,7 @@ def row_to_dataset(row, target):
     return DataSet(seq, adj, target, meta)
 
 
-def dataset_to_gan(ds):
+def dataset_to_gan(ds: DataSet) -> DataSetGAN:
     """Convert a :any:`DataSet` into a :any:`DataSetGAN`."""
     return DataSetGAN([ds.seq], [ds.adj], torch.tensor([ds.target], dtype=torch.float), ds.meta)
 
@@ -69,7 +91,7 @@ def get_negative_example(
         if n_tries > MAX_TRIES:
             raise MaxNumberOfTriesExceededError(n_tries)
         if method == Method.PERMUTE:
-            offset = get_offset(seq_length)
+            offset = get_offset(seq_length, random_state)
             negative_seq = torch.sparse_coo_tensor(
                 torch.cat([ds.seq._indices()[:, offset:], ds.seq._indices()[:, :offset]], 1),
                 ds.seq._values(),
@@ -148,7 +170,7 @@ def get_permuted_examples(
         n_tries += 1
         if n_tries > MAX_TRIES:
             raise MaxNumberOfTriesExceededError(n_tries)
-        offset = get_offset(len(combined_seq))
+        offset = get_offset(len(combined_seq), random_state)
         # Permute sequence
         negative_seq = combined_seq[offset:] + combined_seq[:offset]
         seq_identity = utils.get_seq_identity(combined_seq, negative_seq)
@@ -161,15 +183,13 @@ def get_permuted_examples(
     return negative_datasets
 
 
-def get_offset(length: int, random_state: Optional[np.random.RandomState] = None):
+def get_offset(length: int, random_state: np.random.RandomState):
     """Chose a random offset (useful for permutations, etc).
 
     Examples:
         >>> get_offset(10, np.random.RandomState(42))
         5
     """
-    if random_state is None:
-        random_state = np.random.RandomState()
     min_offset = min(10, length // 2)
     offset = random_state.randint(min_offset, length - min_offset + 1)
     return offset
@@ -270,7 +290,20 @@ def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
     return adjs
 
 
-def _permute_adjacency(adj: sparse.spmatrix, offset: int):
+def permute_sequence(seq: torch.sparse.FloatTensor, offset: int):
+    row, col = seq._indices()
+    values = seq._values()
+    row_new = torch.cat([row[3:], row[:3]])
+    col_new = col
+    indices_new = torch.stack([row_new, col_new], 0)
+    values_new = torch.cat([values[offset:], values[:offset]])
+    seq_new = torch.sparse_coo_tensor(
+        indices_new, values_new, size=seq.size(), dtype=seq.dtype, device=seq.device
+    )
+    return seq_new
+
+
+def permute_adjacency(adj: sparse.spmatrix, offset: int):
     row = adj.row - offset
     row = np.where(row < 0, adj.shape[0] + row, row)
     col = adj.col - offset

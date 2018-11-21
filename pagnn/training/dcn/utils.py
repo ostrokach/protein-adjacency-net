@@ -13,7 +13,12 @@ from pagnn.datapipe import set_buf_size
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
 from pagnn.types import DataSetGAN
-from pagnn.utils import basic_permuted_sequence_adder, negative_sequence_adder, remove_eye_sparse
+from pagnn.utils import (
+    basic_permuted_sequence_adder,
+    negative_sequence_adder,
+    pc_identity_to_structure_quality,
+    remove_eye_sparse,
+)
 
 from .args import Args
 
@@ -23,13 +28,22 @@ logger = logging.getLogger(__name__)
 #
 
 
-def prepare_dataset(positive_rowgen, negative_dsgen, args=None) -> DataSetGAN:
+def prepare_dataset(positive_rowgen, negative_dsgen, args=None, random_state=None) -> DataSetGAN:
     while True:
+        if args and args.permute_positives:
+            assert random_state is not None
         pos_row = next(positive_rowgen)
-        pos_ds = dataset_to_gan(row_to_dataset(pos_row, 1))
-        if args is not None and not dataset_matches_spec(pos_ds, args):
+        if args and args.predict_pc_identity:
+            pos_row = pos_row._replace(target=pc_identity_to_structure_quality(pos_row.target))
+        else:
+            pos_row = pos_row._replace(target=1)
+        pos_ds = row_to_dataset(
+            pos_row, permute=args and args.permute_positives, random_state=random_state
+        )
+        pos_dsg = dataset_to_gan(pos_ds)
+        if args and not dataset_matches_spec(pos_dsg, args):
             continue
-        ds = negative_dsgen.send(pos_ds)
+        ds = negative_dsgen.send(pos_dsg)
         if ds is None:
             continue
         return ds
@@ -179,6 +193,7 @@ def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
             "qseq": "sequence",
             "residue_idx_1_corrected": "adjacency_idx_1",
             "residue_idx_2_corrected": "adjacency_idx_2",
+            "pc_identity": "target",
         },
         random_state=random_state,
     )
@@ -192,7 +207,7 @@ def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
     next(negative_dsgen)
 
     while True:
-        ds = prepare_dataset(positive_rowgen, negative_dsgen, args)
+        ds = prepare_dataset(positive_rowgen, negative_dsgen, args, random_state=random_state)
         yield ds
 
 

@@ -52,7 +52,10 @@ def train(
     ds_weight = torch.tensor(
         [1.0] + [1.0 / args.num_negative_examples] * args.num_negative_examples
     )
-    loss = nn.BCELoss(weight=ds_weight).to(settings.device)
+    if args.predict_pc_identity:
+        loss = nn.L1Loss(reduction='none').to(settings.device)
+    else:
+        loss = nn.BCELoss(reduction='none').to(settings.device)
 
     optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
@@ -93,7 +96,7 @@ def train(
             dv = net.dataset_to_datavar(ds)
             pred = net(dv.seqs, [dv.adjs])
             pred = pred.sigmoid().mean(2).squeeze()
-            error = loss(pred, ds.targets)
+            error = (loss(pred, ds.targets) * ds_weight).sum()
             pred_list.append(pred)
             target_list.append(ds.targets)
             error_list.append(error)
