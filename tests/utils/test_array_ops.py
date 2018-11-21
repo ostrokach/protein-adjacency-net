@@ -17,7 +17,7 @@ from pagnn.utils.testing import random_sequence
 @pytest.fixture(
     scope="module",
     params=[False] + ([True] if torch.cuda.is_available() else []),
-    ids=lambda r: f"seq_cuda{int(r.cuda)}",
+    ids=lambda param: f"seq_cuda{int(param)}",
 )
 def seq(request):
     random_state = np.random.RandomState(42)

@@ -13,13 +13,7 @@ from torch.autograd import Variable
 from pagnn import settings
 from pagnn.dataset import extract_adjacency_from_middle, get_indices
 from pagnn.types import DataSetGAN, DataVarGAN
-from pagnn.utils import (
-    add_eye_sparse,
-    conv2d_shape,
-    expand_adjacency,
-    remove_eye_sparse,
-    to_sparse_tensor,
-)
+from pagnn.utils import add_eye_sparse, conv2d_shape, remove_eye_sparse, to_sparse_tensor
 
 logger = logging.getLogger(__name__)
 
@@ -126,16 +120,14 @@ def _pad_edges_longer(
 
 def push_seqs(seqs: List[torch.sparse.FloatTensor]) -> torch.FloatTensor:
     """Convert a list of `DataSetGAN` sequences into a `Variable`."""
-    seqs_ts = [seq.to(settings.device).coalesce().to_dense().unsqueeze(0) for seq in seqs]
+    seqs_ts = [seq.coalesce().to(settings.device).to_dense().unsqueeze(0) for seq in seqs]
     seq_t = torch.cat(seqs_ts)
     return seq_t
 
 
 def push_adjs(adjs: List[sparse.spmatrix]) -> torch.FloatTensor:
-    """Convert a `DataSetGAN` adjacency into a `Variable`."""
-    adjs_spt = [expand_adjacency(adj).to(settings.device) for adj in adjs]
-    adjs_t = [adj.coalesce().to_dense() for adj in adjs_spt]
-    return adjs_t
+    adjs = [to_sparse_tensor(adj).coalesce().to(settings.device) for adj in adjs]
+    return adjs
 
 
 def gen_adj_pool(
