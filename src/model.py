@@ -25,37 +25,69 @@ def sparse_sum(input):
 
 
 class PairwiseConv(nn.Module):
-    def __init__(self, in_channels, out_channels, *, bias, normalize, add_counts):
+    def __init__(self, in_channels, out_channels, *, bias, normalize, add_counts, wself=False):
         super().__init__()
         # Parameters
+        self.in_channels = in_channels
+        self.out_channels = out_channels
         self.normalize = normalize
         self.add_counts = add_counts
+        self.wself = wself
         self.takes_extra_args = True
         # Layers
         if add_counts:
             out_channels = out_channels - 1
         self.spatial_conv = nn.Conv1d(
-            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=bias
+            in_channels + int(wself), out_channels, kernel_size=2, stride=2, padding=0, bias=bias
         )
 
     def forward(self, x: torch.Tensor, adj: torch.sparse.FloatTensor):
-        adj_pw = expand_adjacency_tensor(adj)
-        adj = adj.to_dense()
-        adj_pw = adj_pw.to_dense()
-        x = self._conv(x, adj_pw)
+        if self.wself:
+            x = self._conv_wself(x, adj)
+        else:
+            x = self._conv(x, adj)
+        adj_sum = adj.to_dense().sum(dim=0)
         if self.normalize:
-            adj_sum = adj.sum(dim=0)
-            adj_sum[adj_sum == 0] = 1
-            x = x / adj_sum
+            adj_sum_clamped = adj_sum.clone()
+            adj_sum_clamped[adj_sum_clamped == 0] = 1
+            x = x / adj_sum_clamped
         if self.add_counts:
-            adj_sum = adj.sum(dim=0)
             x = torch.cat([x, adj_sum.expand(x.size(0), 1, -1)], dim=1)
         return x
 
-    def _conv(self, x, adj_pw):
+    def _conv(self, x, adj):
+        adj_pw = expand_adjacency_tensor(adj).to_dense()
         x = x @ adj_pw.transpose(0, 1)
         x = self.spatial_conv(x)
         x = x @ adj_pw[::2, :]
+        return x
+
+    def _conv_fancy(self, x, adj):
+        # Note: Can't store 0 distances inside sparse tensors.
+        # Maybe best strategy to add eye in the end on the fly.
+        distances = adj.data
+        adj_pw = expand_adjacency_tensor(adj).to_dense()
+        ...
+
+    def _conv_wself(self, x, adj):
+        adj_pw = expand_adjacency_tensor(adj).to_dense()
+
+        seq_length = x.size(2)
+
+        self_interactions = torch.sparse_coo_tensor(torch.stack([torch.arange(seq_length * 2, dtype=torch.long), torch.tensor([i for ii in [[i, i] for i in range(seq_length)] for i in ii],dtype=torch.long,),]),torch.ones(seq_length * 2, dtype=torch.float),size=(seq_length * 2, seq_length),dtype=torch.float,).to_dense()
+
+        adj_pw_wself = torch.cat([self_interactions, adj_pw], 0)
+
+        x = x @ adj_pw_wself.transpose(0, 1)
+
+        barcode = torch.tensor([1, 0] * seq_length + [0, 1] * (adj_pw.size(0) // 2), dtype=torch.float)
+
+        x = torch.cat([x, barcode.expand(x.size(0), 1, -1)], 1)
+
+        x = self.spatial_conv(x)
+
+        x = x @ adj_pw_wself[::2, :]
+
         return x
 
 
@@ -176,32 +208,51 @@ class Custom(nn.Module):
         self.passthrough_fraction = 1 / 3
 
         # *** Layers ***
-        self._configure_test_13()
+        self._configure_single_pairwise()
 
     def forward(self, seq, adjs):
-        return self._forward_test_13(seq, adjs)
+        return self._forward_single_pairwise(seq, adjs)
 
     # Network with a single pairwise layer
-
+    # || PairwiseConv
+    # || Conv1D
+    # || Final
     def _configure_single_pairwise(self):
+        # === Layer 1 ===
+        input_size = self.input_size
+        hidden_size = self.hidden_size
+        output_size = hidden_size
+
         self.layer_1 = SequentialMod(
-            PairwiseConv(self.input_size, self.hidden_size), nn.ReLU(inplace=True)
+            PairwiseConv(
+                input_size, output_size, normalize=True, add_counts=True, bias=False, wself=True
+            ),
+            nn.ReLU(),
         )
-        self.linear_n = nn.Sequential(
+
+        # === Layer N ===
+        input_size = output_size
+        hidden_size = int(input_size * 2)
+        output_size = 1
+
+        self.layer_n = nn.Sequential(
             nn.Conv1d(
-                self.hidden_size,
-                int(self.hidden_size * 2),
+                input_size,
+                hidden_size,
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
+                bias=True,
             ),
-            FinalLayer(int(self.hidden_size * 2), 1, bias=True),
+            FinalLayer(hidden_size, output_size, bias=True),
         )
 
     def _forward_single_pairwise(self, seq, adjs):
         x = seq
+        # Layer 1
         x = self.layer_1(x, adjs[0][0])
-        x = self.linear_n(x)
+        # Layer N
+        x = self.layer_n(x)
         return x
 
     # === Test 13 ===
