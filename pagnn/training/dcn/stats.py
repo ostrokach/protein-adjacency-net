@@ -123,7 +123,7 @@ class Stats(StatsBase):
             # Scores
             **self.scores,
             "training_pos-auc": metrics.roc_auc_score(
-                np.hstack([ar.reshape(-1) for ar in self.targets]),
+                np.hstack([(ar > 0.5).astype(np.int).reshape(-1) for ar in self.targets]),
                 np.hstack([ar.reshape(-1) for ar in self.preds]),
             ),
             # Aggregate statistics
