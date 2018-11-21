@@ -33,4 +33,8 @@ python -m pagnn.training.dcn \
   --num-negative-examples 63 \
   $@
 
+
+# Other options to consider:
+# --permute-positives
+# --predict-pc-identity
 # --training-data-cache "${DATAPKG_OUTPUT_DIR}/adjacency-net-v2/master/training_dataset/array_id_${SLURM_ARRAY_TASK_ID}"
