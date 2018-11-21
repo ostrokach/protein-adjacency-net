@@ -80,7 +80,7 @@ test-cedar-ssh:
 
 # === Conda environment ===
 
-create-conda-environment:
+create_conda_environment:
   stage: init
   <<: *cluster-tags
   script:
@@ -91,8 +91,8 @@ create-conda-environment:
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@93af9e0f3c914eedfc40b45cd296bb2e1a68102f
   only:
     variables:
-      - $JOBS_TO_RUN =~ /\A(.*,\s?)*create-conda-environment(,\s?.*)*\z/i
-      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*create-conda-environment(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*create_conda_environment(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*create_conda_environment(,\s?.*)*\]/i
     changes:
       # Not working together with variables ATM
       - environment-lock.yaml
