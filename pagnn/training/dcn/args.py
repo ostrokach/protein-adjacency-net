@@ -83,6 +83,13 @@ class Args(TrainingArgsBase):
 
     # === Training set arguments ===
 
+    #: Permute the sequence and adjacency matrix of positive training examples.
+    permute_positives: bool = attr.ib(False, validator=instance_of(bool))
+
+    #: Predict (adjusted) % identity of a multiple sequence alignment,
+    #: rather than 1 or 0 when the sequence matches or does not match the adjacency.
+    predict_pc_identity: bool = attr.ib(False, validator=instance_of(bool))
+
     training_methods: str = attr.ib("permute", validator=instance_of(str))
     training_min_seq_identity: int = attr.ib(0, validator=instance_of(int))
     training_permutations: str = attr.ib(

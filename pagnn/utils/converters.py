@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
 
+import numpy as np
 import yaml
 
 
@@ -80,3 +81,13 @@ def dump_yaml(data: Dict[str, Any], file: Union[str, Path]) -> Path:
     with open(file, "wt") as fout:
         yaml.dump(data, fout)
     return Path(file)
+
+
+def pc_identity_to_structure_quality(pc_identity, m=0.1):
+    assert pc_identity > 1
+    x = pc_identity / 100.0
+    x = np.clip(x, 0.000001, 1)
+    x = np.log(x)
+    x = m * x + 1
+    x = np.clip(x, 0, 1)
+    return x

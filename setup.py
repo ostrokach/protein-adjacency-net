@@ -8,7 +8,7 @@ def read_md(file):
 
 setup(
     name="pagnn",
-    version="0.1.13",
+    version="0.1.14",
     description="Protein Adjacency Graph Neural Network.",
     long_description=read_md("README.md"),
     author="Alexey Strokach",
