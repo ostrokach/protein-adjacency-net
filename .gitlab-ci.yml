@@ -301,6 +301,19 @@ validation_remote_homology_detection:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
 
+validation_decoy_discrimination:
+  extends: .notebook
+  stage: notebooks-04
+  variables:
+    NOTEBOOK_NAME: "04-validation_decoy_discrimination"
+    SBATCH_EXTRA_ARGS: "--time 3:00:00 "
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validation_decoy_discrimination(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validation_decoy_discrimination(,\s?.*)*\]/i
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*validate_network(,\s?.*)*\z/i
+      - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*validate_network(,\s?.*)*\]/i
+
 # validate_network_combined
 
 validation_training_stats_combined:
