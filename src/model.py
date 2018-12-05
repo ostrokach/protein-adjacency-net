@@ -196,7 +196,8 @@ class Custom(nn.Module):
 
         # *** Parameters ***
         self.n_layers = 3
-        self.n_convs = 3
+        #: Number of adjacency convolutions (keep as low as possible)
+        self.n_convs = 0
         self.input_size = 20
         self.hidden_size = 64
         self.bottleneck_size = 0
