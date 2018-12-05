@@ -40,15 +40,19 @@ def dataset_to_datavar(
     adj = ds.adjs[0]
     adj = remove_eye_sparse(adj, remove_diags)
     adj = add_eye_sparse(adj, add_diags)
-    adj_pool = gen_adj_pool(
-        adj,
-        n_convs=n_convs,
-        kernel_size=kernel_size,
-        stride=stride,
-        padding=padding,
-        remove_diags=remove_diags,
-        add_diags=add_diags,
-    )
+    if n_convs == 1:
+        adj_pool = [adj]
+    else:
+        raise Exception("We should not need this for basic networks")
+        # adj_pool = gen_adj_pool(
+        #     adj,
+        #     n_convs=n_convs,
+        #     kernel_size=kernel_size,
+        #     stride=stride,
+        #     padding=padding,
+        #     remove_diags=remove_diags,
+        #     add_diags=add_diags,
+        # )
     adjs = push_adjs(adj_pool)
     return DataVarGAN(seqs, adjs)
 

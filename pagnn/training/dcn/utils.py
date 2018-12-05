@@ -1,4 +1,5 @@
 import argparse
+import cProfile
 import logging
 import queue
 from contextlib import ExitStack, contextmanager
@@ -7,6 +8,7 @@ from typing import Dict, Iterator, List, Mapping
 import numpy as np
 import torch.multiprocessing as mp
 
+from pagnn import settings
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
 from pagnn.types import DataSetGAN
@@ -137,16 +139,26 @@ def get_data_pipe(args):
     ):
         logger.info("Reading training data from cache.")
         if settings.PROFILER is not None:
-            p = ctx.Process(target=read_ds_worker_profiled, args=(args, q))
+            p = ctx.Process(target=profiled_worker, args=("read_ds_worker(args, q)", args, q))
         else:
             p = ctx.Process(target=read_ds_worker, args=(args, q))
     else:
         logger.info("Generating training data as we go.")
         if settings.PROFILER is not None:
-            p = ctx.Process(target=generate_ds_worker_profiled, args=(args, q))
+            p = ctx.Process(target=profiled_worker, args=("generate_ds_worker(args, q)", args, q))
         else:
             p = ctx.Process(target=generate_ds_worker, args=(args, q))
     yield from _iter_to_completion(p, q)
+
+
+def profiled_worker(fn_call: str, args, q):
+    cProfile.runctx(fn_call, globals(), locals(), filename="child.prof")
+
+
+def read_ds_worker(args, q) -> None:
+    with open_cachefile(args.training_data_cache) as (index_fh, data_fh):
+        for ds in _read_ds_from_cache(index_fh, data_fh):
+            q.put(ds)
 
 
 def generate_ds_worker(args, q):
@@ -160,22 +172,8 @@ def generate_ds_worker(args, q):
             q.put(ds)
             if cache_file_stem is not None:
                 _write_ds_to_cache(index_fh, data_fh, [ds])
-            if args.num_sequences_to_process and i > args.num_sequences_to_process:
+            if args.num_sequences_to_process and (i + 1) >= args.num_sequences_to_process:
                 break
-
-
-def generate_ds_worker_profiled(args, q):
-    runctx("generate_ds_worker(args, q)"), globals(), locals(), filename="child.prof")
-
-
-def read_ds_worker(args, q) -> None:
-    with open_cachefile(args.training_data_cache) as (index_fh, data_fh):
-        for ds in _read_ds_from_cache(index_fh, data_fh):
-            q.put(ds)
-
-
-def read_ds_worker_profiled(args, q):
-    runctx("read_ds_worker(args, q)"), globals(), locals(), filename="child.prof")
 
 
 # Validation data (loaded into memory)
