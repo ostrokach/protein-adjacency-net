@@ -1,15 +1,12 @@
 import argparse
 import logging
-import os
-import sys
-from contextlib import ExitStack
-from pathlib import Path
-from typing import Dict, Iterator, List, Mapping, Optional
+import queue
+from contextlib import ExitStack, contextmanager
+from typing import Dict, Iterator, List, Mapping
 
 import numpy as np
-import torch
+import torch.multiprocessing as mp
 
-from pagnn.datapipe import set_buf_size
 from pagnn.dataset import dataset_to_gan, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
 from pagnn.types import DataSetGAN
@@ -17,15 +14,11 @@ from pagnn.utils import (
     basic_permuted_sequence_adder,
     negative_sequence_adder,
     pc_identity_to_structure_quality,
-    remove_eye_sparse,
 )
 
 from .args import Args
 
 logger = logging.getLogger(__name__)
-
-
-#
 
 
 def prepare_dataset(positive_rowgen, negative_dsgen, args=None, random_state=None) -> DataSetGAN:
@@ -50,138 +43,61 @@ def prepare_dataset(positive_rowgen, negative_dsgen, args=None, random_state=Non
 
 
 def dataset_matches_spec(ds: DataSetGAN, args: Args) -> bool:
-    n_aa = ds.seqs[0].shape[1]
+    n_aa = ds.seqs[0].n
     if not (args.min_seq_length <= n_aa < args.max_seq_length):
         logger.debug(f"Wrong sequence length: {n_aa}.")
         return False
-    adj_nodiag = remove_eye_sparse(ds.adjs[0], 3)
-    frac_interactions = adj_nodiag.nnz / adj_nodiag.shape[0]
+    row, col = ds.adjs[0].indices
+    frac_interactions = float(sum(abs(row - col) > 3)) / len(row)
     if frac_interactions < 0.05:
         logger.debug(f"Too few interactions: {frac_interactions}.")
         return False
     return True
 
 
-# Data Pipe
+# Cache file ops
 
 
-def check_for_deadlock():
-    indices = torch.LongTensor([[0, 1, 1], [2, 0, 2]])
-    values = torch.FloatTensor([3, 4, 5])
-    tensor = torch.sparse_coo_tensor(indices, values, torch.Size([2, 4]))
-    return tensor
-
-
-def get_data_pipe(args):
-    if (
-        args.training_data_cache is not None
-        and args.training_data_cache.with_suffix(".index").is_file()
-        and args.training_data_cache.with_suffix(".data").is_file()
-    ):
-        logger.info("Reading training data from cache.")
-        yield from _read_ds_from_cache(args.training_data_cache)
-    else:
-        logger.info("Generating training data as we go.")
-        yield from _generate_ds(args)
-
-
-def _generate_ds(args):
-    index_read, index_write = os.pipe()
-    data_read, data_write = os.pipe()
-    set_buf_size(data_write)
-    pid = os.fork()
-    if pid:
-        # This is the parent process
-        os.close(index_write)
-        os.close(data_write)
-        try:
-            yield from _gen_ds_reader(index_read, data_read)
-        except Exception:
-            os.close(index_read)
-            os.close(data_read)
-    else:
-        # This is the child process
-        os.close(index_read)
-        os.close(data_read)
-        logger.info("Before checking for deadlock.")
-        check_for_deadlock()
-        logger.info("After checking for deadlock.")
-        try:
-            ds_source = get_training_datasets(args)
-            _gen_ds_writer(index_write, data_write, ds_source, args.training_data_cache)
-        except BrokenPipeError:
-            # The receiving process terminated
-            pass
-        except Exception as e:
-            logger.error("Caught an exception %s: %s", type(e), e)
-        finally:
-            os.close(index_write)
-            os.close(data_write)
-            sys.stderr.close()
-            sys.exit(0)
-
-
-def _read_ds_from_cache(cache_file_stem: Path) -> Iterator[DataSetGAN]:
-    """Iterate over datasets found in cache defined by `index_file` and `data_file`."""
+@contextmanager
+def open_cachefile(cache_file_stem, mode="rb"):
     with ExitStack() as stack:
-        index_fh = stack.enter_context(cache_file_stem.with_suffix(".index").open("rb"))
-        data_fh = stack.enter_context(cache_file_stem.with_suffix(".data").open("rb"))
-        while True:
-            size_buf = index_fh.read(4)
-            size = int.from_bytes(size_buf, "little")
-            if size == 0:
-                return
-            data_buf = data_fh.read(size)
-            ds = DataSetGAN.from_buffer(data_buf)
-            yield ds
+        index_fh = stack.enter_context(cache_file_stem.with_suffix(".index").open(mode))
+        data_fh = stack.enter_context(cache_file_stem.with_suffix(".data").open(mode))
+        yield index_fh, data_fh
 
 
-def _gen_ds_reader(index_read: int, data_read: int) -> Iterator[DataSetGAN]:
+def _write_ds_to_cache(index_fh, data_fh, ds_source) -> None:
+    for ds in ds_source:
+        data_buf = ds.to_buffer()
+        size_buf = data_buf.size.to_bytes(4, "little")
+        index_fh.write(size_buf)
+        data_fh.write(data_buf)
+
+
+def _read_ds_from_cache(index_fh, data_fh) -> Iterator[DataSetGAN]:
     while True:
-        size_buf = os.read(index_read, 4)
+        size_buf = index_fh.read(4)
         size = int.from_bytes(size_buf, "little")
         if size == 0:
-            return
-        data_buf = os.read(data_read, size)
+            break
+        data_buf = data_fh.read(size)
         ds = DataSetGAN.from_buffer(data_buf)
         yield ds
 
 
-def _write_ds_to_cache(cache_file_stem: Path, ds_list: Iterator[DataSetGAN]) -> None:
-    with ExitStack() as stack:
-        index_fh = stack.enter_context(cache_file_stem.with_suffix(".index").open("wb"))
-        data_fh = stack.enter_context(cache_file_stem.with_suffix(".data").open("wb"))
-        for ds in ds_list:
-            data_buf = ds.to_buffer()
-            if data_buf.size == 0:
-                raise Exception
-            size_buf = data_buf.size.to_bytes(4, "little")
-            index_fh.write(size_buf)
-            data_fh.write(data_buf)
+def _iter_to_completion(p, q):
+    p.start()
+    while True:
+        try:
+            ds = q.get(timeout=120)
+        except queue.Empty:
+            p.join()
+            return
+        else:
+            yield ds
 
 
-def _gen_ds_writer(
-    index_write: int,
-    data_write: int,
-    ds_source: Iterator[DataSetGAN],
-    cache_file_stem: Optional[Path] = None,
-) -> None:
-    with ExitStack() as stack:
-        if cache_file_stem is not None:
-            logger.info("Writing generated training data to cache.")
-            index_cache_fh = stack.enter_context(cache_file_stem.with_suffix(".index").open("wb"))
-            data_cache_fh = stack.enter_context(cache_file_stem.with_suffix(".data").open("wb"))
-        for ds in ds_source:
-            data_buf = ds.to_buffer()
-            size_buf = data_buf.size.to_bytes(4, "little")
-            os.write(index_write, size_buf)
-            os.write(data_write, data_buf)
-            if cache_file_stem is not None:
-                index_cache_fh.write(size_buf)
-                data_cache_fh.write(data_buf)
-
-
-# === Training / Validation Batches ===
+# Training data (generated on the fly)
 
 
 def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
@@ -211,6 +127,60 @@ def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
         yield ds
 
 
+def get_data_pipe(args):
+    ctx = mp.get_context("spawn")
+    q = ctx.Queue(4096)
+    if (
+        args.training_data_cache is not None
+        and args.training_data_cache.with_suffix(".index").is_file()
+        and args.training_data_cache.with_suffix(".data").is_file()
+    ):
+        logger.info("Reading training data from cache.")
+        if settings.PROFILER is not None:
+            p = ctx.Process(target=read_ds_worker_profiled, args=(args, q))
+        else:
+            p = ctx.Process(target=read_ds_worker, args=(args, q))
+    else:
+        logger.info("Generating training data as we go.")
+        if settings.PROFILER is not None:
+            p = ctx.Process(target=generate_ds_worker_profiled, args=(args, q))
+        else:
+            p = ctx.Process(target=generate_ds_worker, args=(args, q))
+    yield from _iter_to_completion(p, q)
+
+
+def generate_ds_worker(args, q):
+    ds_source = get_training_datasets(args)
+    cache_file_stem = args.training_data_cache
+    with ExitStack() as stack:
+        if cache_file_stem is not None:
+            logger.info("Writing generated training data to cache.")
+            index_fh, data_fh = stack.enter_context(open_cachefile(cache_file_stem, "wb"))
+        for i, ds in enumerate(ds_source):
+            q.put(ds)
+            if cache_file_stem is not None:
+                _write_ds_to_cache(index_fh, data_fh, [ds])
+            if args.num_sequences_to_process and i > args.num_sequences_to_process:
+                break
+
+
+def generate_ds_worker_profiled(args, q):
+    runctx("generate_ds_worker(args, q)"), globals(), locals(), filename="child.prof")
+
+
+def read_ds_worker(args, q) -> None:
+    with open_cachefile(args.training_data_cache) as (index_fh, data_fh):
+        for ds in _read_ds_from_cache(index_fh, data_fh):
+            q.put(ds)
+
+
+def read_ds_worker_profiled(args, q):
+    runctx("read_ds_worker(args, q)"), globals(), locals(), filename="child.prof")
+
+
+# Validation data (loaded into memory)
+
+
 def get_internal_validation_datasets(args: Args) -> Mapping[str, List[DataSetGAN]]:
     logger.info("Setting up validation datapipe...")
     internal_validation_datasets: Dict[str, List[DataSetGAN]] = {}
@@ -219,10 +189,11 @@ def get_internal_validation_datasets(args: Args) -> Mapping[str, List[DataSetGAN
             f"validation_gan_{method}_{args.validation_min_seq_identity}"
             f"_{args.validation_num_sequences}"
         )
-        cache_file_prefix = args.validation_cache_path.joinpath(datagen_name)
+        cache_file_stem = args.validation_cache_path.joinpath(datagen_name)
         try:
-            ds_list = list(_read_ds_from_cache(cache_file_prefix))
-            logger.info("Loaded validation datagen from cache: '%s'.", cache_file_prefix)
+            with open_cachefile(cache_file_stem) as (index_fh, data_fh):
+                ds_list = list(_read_ds_from_cache(index_fh, data_fh))
+            logger.info("Loaded validation datagen from cache: '%s'.", cache_file_stem)
         except FileNotFoundError:
             logger.info("Generating validation datagen: '%s'.", datagen_name)
             if args.validation_data_path is None:
@@ -231,8 +202,9 @@ def get_internal_validation_datasets(args: Args) -> Mapping[str, List[DataSetGAN
                 )
             random_state = np.random.RandomState(sum(ord(c) for c in method))
             ds_list = _get_internal_validation_dataset(args, method, random_state)
-            cache_file_prefix.parent.mkdir(exist_ok=True)
-            _write_ds_to_cache(cache_file_prefix, ds_list)
+            cache_file_stem.parent.mkdir(exist_ok=True)
+            with open_cachefile(cache_file_stem, "wb") as (index_fh, data_fh):
+                _write_ds_to_cache(index_fh, data_fh, ds_list)
         assert len(ds_list) == args.validation_num_sequences
         internal_validation_datasets[datagen_name] = ds_list
     return internal_validation_datasets
@@ -245,6 +217,7 @@ def _get_internal_validation_dataset(
         "qseq": "sequence",
         "residue_idx_1_corrected": "adjacency_idx_1",
         "residue_idx_2_corrected": "adjacency_idx_2",
+        "pc_identity": "target",
     }
     positive_rowgen = iter_datarows_shuffled(
         sorted(args.training_data_path.glob("database_id=*/*.parquet")),
@@ -266,7 +239,7 @@ def _get_internal_validation_dataset(
 
     ds_list: List[DataSetGAN] = []
     while len(ds_list) < args.validation_num_sequences:
-        ds = prepare_dataset(positive_rowgen, negative_dsgen, args)
+        ds = prepare_dataset(positive_rowgen, negative_dsgen, args, random_state)
         ds_list.append(ds)
     assert len(ds_list) == args.validation_num_sequences
     return ds_list

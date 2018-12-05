@@ -1,6 +1,7 @@
 import itertools
 import json
 import logging
+import os
 import random
 import runpy
 import time
@@ -15,7 +16,7 @@ import torch.optim as optim
 
 import pagnn.models
 from pagnn import init_gpu, settings
-from pagnn.utils import eval_net
+from pagnn.utils import eval_net, kill_tree
 
 from .args import Args
 from .stats import Stats
@@ -53,9 +54,9 @@ def train(
         [1.0] + [1.0 / args.num_negative_examples] * args.num_negative_examples
     )
     if args.predict_pc_identity:
-        loss = nn.L1Loss(reduction='none').to(settings.device)
+        loss = nn.L1Loss(reduction="none").to(settings.device)
     else:
-        loss = nn.BCELoss(reduction='none').to(settings.device)
+        loss = nn.BCELoss(reduction="none").to(settings.device)
 
     optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, betas=(args.beta1, args.beta2))
 
@@ -188,11 +189,15 @@ def main(args: Optional[Args] = None):
     # === Train ===
     logger.debug("Training the network...")
     start_time = time.perf_counter()
+    pid = os.getpid()
     result: Dict[str, Union[str, float]] = {}
     try:
         train(args, stats, datapipe, internal_validation_datasets, current_performance=result)
     except (KeyboardInterrupt, RuntimeExceededError, DatasetFinishedError) as e:
         logger.error("Training terminated with error '%s': '%s'", type(e), e)
+    except Exception:
+        kill_tree(pid)
+        raise
 
     result["time_elapsed"] = time.perf_counter() - start_time
 

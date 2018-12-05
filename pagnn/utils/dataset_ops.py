@@ -6,6 +6,8 @@ import torch
 from numba import jit
 from scipy import sparse
 
+from pagnn.types import SparseMat
+
 logger = logging.getLogger(__name__)
 
 # Warning: Do not change the order of amino acids without chaning the order of
@@ -208,19 +210,19 @@ def get_seq_identity_bytes(seq: bytes, other_seq: bytes) -> float:
     return sum(a == b for a, b in zip(seq, other_seq)) / len(seq)
 
 
-def get_seq_identity(seq: torch.Tensor, other_seq: torch.Tensor) -> torch.Tensor:
+def get_seq_identity(seq: SparseMat, other_seq: SparseMat) -> float:
     """Return the fraction of amino acids that are the same in `seq` and `other_seq`.
 
     Examples:
         >>> get_seq_identity(b'AAGC', b'AACC')
         0.75
     """
-    num_equal = (seq._indices()[0, :] == other_seq._indices()[0, :]).sum().to(torch.float)
-    num_total = seq.size()[1]
+    num_equal = (seq.indices[0, :] == other_seq.indices[0, :]).sum().to(torch.float)
+    num_total = seq.n
     return (num_equal / num_total).item()
 
 
-def get_adj_identity(adj: sparse.spmatrix, other_adj: sparse.spmatrix, min_distance=3) -> float:
+def get_adj_identity(adj: SparseMat, other_adj: SparseMat, min_distance=3) -> float:
     """Return the fraction of (distant) contacts that are the same in the two adjacency matrices.
 
     Examples:
@@ -236,11 +238,15 @@ def get_adj_identity(adj: sparse.spmatrix, other_adj: sparse.spmatrix, min_dista
         >>> get_adj_identity(adj, other_adj, 2)
         0.5
     """
-    adj_contacts = {tuple(x) for x in zip(adj.row, adj.col) if abs(x[0] - x[1]) >= min_distance}
-    other_adj_contacts = {
-        tuple(x) for x in zip(other_adj.row, other_adj.col) if abs(x[0] - x[1]) >= min_distance
-    }
-    if len(adj_contacts) == 0 or len(other_adj_contacts) == 0:
+    row, col = adj.indices
+    mask = abs(row - col) >= min_distance
+    contacts = set(tuple(p) for p in adj.indices[:, mask].numpy().T)
+
+    other_row, other_col = other_adj.indices
+    other_mask = abs(other_row - other_col) >= min_distance
+    other_contacts = set(tuple(p) for p in other_adj.indices[:, other_mask].numpy().T)
+
+    if int(sum(mask)) == 0 or int(sum(other_mask)) == 0:
         return 0
 
-    return len(adj_contacts & other_adj_contacts) / len(adj_contacts | other_adj_contacts)
+    return len(contacts & other_contacts) / len(contacts | other_contacts)

@@ -12,7 +12,7 @@ from torch.autograd import Variable
 
 from pagnn import settings
 from pagnn.dataset import extract_adjacency_from_middle, get_indices
-from pagnn.types import DataSetGAN, DataVarGAN
+from pagnn.types import DataSetGAN, DataVarGAN, SparseMat
 from pagnn.utils import add_eye_sparse, conv2d_shape, remove_eye_sparse, to_sparse_tensor
 
 logger = logging.getLogger(__name__)
@@ -37,8 +37,11 @@ def dataset_to_datavar(
     """Convert a `DataSetGAN` into a `DataVarGAN`."""
     # ds = pad_edges(ds, offset=offset)
     seqs = push_seqs(ds.seqs)
+    adj = ds.adjs[0]
+    adj = remove_eye_sparse(adj, remove_diags)
+    adj = add_eye_sparse(adj, add_diags)
     adj_pool = gen_adj_pool(
-        ds.adjs[0],
+        adj,
         n_convs=n_convs,
         kernel_size=kernel_size,
         stride=stride,
@@ -118,48 +121,62 @@ def _pad_edges_longer(
     return new_seqs, new_adjs
 
 
-def push_seqs(seqs: List[torch.sparse.FloatTensor]) -> torch.FloatTensor:
-    """Convert a list of `DataSetGAN` sequences into a `Variable`."""
-    seqs_ts = [seq.coalesce().to(settings.device).to_dense().unsqueeze(0) for seq in seqs]
+def push_seqs(seqs: List[SparseMat]) -> torch.FloatTensor:
+    if any(not isinstance(seq, SparseMat) for seq in seqs):
+        import ipdb; ipdb.set_trace()
+    seqs_ts = [seq.to_sparse_tensor().to(settings.device).to_dense().unsqueeze(0) for seq in seqs]
     seq_t = torch.cat(seqs_ts)
     return seq_t
 
 
-def push_adjs(adjs: List[sparse.spmatrix]) -> torch.FloatTensor:
-    adjs = [to_sparse_tensor(adj).coalesce().to(settings.device) for adj in adjs]
+def push_adjs(adjs: List[SparseMat]) -> torch.FloatTensor:
+    if any(not isinstance(adj, SparseMat) for adj in adjs):
+        import ipdb; ipdb.set_trace()
+    adjs = [adj.to_sparse_tensor().to(settings.device) for adj in adjs]
     return adjs
 
 
 def gen_adj_pool(
-    adj: sparse.spmatrix,
+    adj: SparseMat,
     n_convs: int,
     kernel_size: int,
     stride: int,
     padding: int,
     remove_diags: int,
     add_diags: int,
-) -> List[sparse.spmatrix]:
-    adj = remove_eye_sparse(adj, remove_diags, copy=False)
-    adj = add_eye_sparse(adj, add_diags, copy=False)
+) -> List[SparseMat]:
     adjs = [adj]
     for i in range(n_convs):
         adj = pool_adjacency_mat(adjs[-1], kernel_size=kernel_size, stride=stride, padding=padding)
-        adj = remove_eye_sparse(adj, remove_diags, copy=False)
-        adj = add_eye_sparse(adj, add_diags, copy=False)
+        adj = remove_eye_sparse(adj, remove_diags)
+        adj = add_eye_sparse(adj, add_diags)
         adjs.append(adj)
     return adjs
 
 
 def pool_adjacency_mat(
-    adj: sparse.spmatrix, kernel_size=4, stride=2, padding=1, _mapping_cache={}
-) -> sparse.spmatrix:
-    if (adj.shape, kernel_size, stride, padding) in _mapping_cache:
-        mapping = _mapping_cache[(adj.shape, kernel_size, stride, padding)]
+    adj: SparseMat, kernel_size=4, stride=2, padding=1, _mapping_cache={}
+) -> SparseMat:
+    if (adj.n, kernel_size, stride, padding) in _mapping_cache:
+        mapping = _mapping_cache[(adj.n, kernel_size, stride, padding)]
     else:
-        mapping = conv2d_mapping(adj.shape[0], kernel_size, stride, padding)
-    conv_mat = conv2d_matrix(mapping, adj.row, adj.col, adj.shape, kernel_size, stride, padding)
-
-    return sparse.coo_matrix(conv_mat)
+        mapping = conv2d_mapping(adj.n, kernel_size, stride, padding)
+        _mapping_cache[(adj.n, kernel_size, stride, padding)] = mapping
+    conv_mat = conv2d_matrix(
+        mapping,
+        adj.indices[0, :].numpy(),
+        adj.indices[1, :].numpy(),
+        (adj.m, adj.n),
+        kernel_size,
+        stride,
+        padding,
+    )
+    sp = sparse.coo_matrix(conv_mat)
+    indices = torch.stack(
+        [torch.tensor(sp.row, dtype=torch.long), torch.tensor(sp.col, dtype=torch.long)]
+    )
+    values = torch.tensor(sp.data, dtype=torch.float)
+    return SparseMat(indices, values, sp.shape[0], sp.shape[1])
 
 
 @jit(nopython=True)

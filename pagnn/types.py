@@ -13,6 +13,26 @@ from scipy import sparse
 from torch.autograd import Variable
 
 
+class SparseMat(NamedTuple):
+    indices: torch.LongTensor
+    values: torch.FloatTensor
+    m: int
+    n: int
+
+    def __eq__(self, other):
+        equal = (
+            np.allclose(self.indices, other.indices)
+            and np.allclose(self.values, other.values)
+            and self.m == other.m
+            and self.n == other.n
+        )
+        return equal
+
+    def to_sparse_tensor(self):
+        tensor = torch.sparse_coo_tensor(self.indices, self.values, size=(self.m, self.n))
+        return tensor
+
+
 class DataRow(NamedTuple):
     """Tuple for storing rows of data from an input table.
 
@@ -55,9 +75,9 @@ class DataSetGAN(NamedTuple):
     """
 
     #: List of sequences that match a single adjacency.
-    seqs: List[torch.sparse.FloatTensor]
+    seqs: List[SparseMat]
     #: List of adjacencies, ranging from unpooled to 4x pooled.
-    adjs: List[sparse.spmatrix]
+    adjs: List[SparseMat]
     #: Expected value for every sequence in `seqs`.
     targets: torch.FloatTensor
     #: Optional metadata.
@@ -65,8 +85,9 @@ class DataSetGAN(NamedTuple):
 
     def to_buffer(self):
         data = {
-            "seqs": [seq._indices()[0, :].numpy().astype(np.uint8) for seq in self.seqs],
-            "adjs": [(adj.row.astype(np.uint16), adj.col.astype(np.uint16)) for adj in self.adjs],
+            "seqs": [spm.indices[0, :].numpy().astype(np.uint8) for spm in self.seqs],
+            "adj_indices": [spm.indices.numpy().astype(np.uint16) for spm in self.adjs],
+            "adj_values": [spm.values.numpy().astype(np.float32) for spm in self.adjs],
             "targets": self.targets.numpy(),
             "meta": self.meta,
         }
@@ -78,24 +99,21 @@ class DataSetGAN(NamedTuple):
         data = pa.deserialize(buf)
         seqs = []
         for seq_row in data["seqs"]:
-            index = torch.stack(
+            indices = torch.stack(
                 [
                     torch.as_tensor(seq_row, dtype=torch.long),
                     torch.arange(0, len(seq_row), dtype=torch.long),
                 ]
             )
             values = torch.ones(len(seq_row), dtype=torch.float)
-            size = (20, len(seq_row))
-            seq = torch.sparse_coo_tensor(index, values, size=size)
-            seqs.append(seq)
+            seq_length = len(seq_row)
+            seqs.append(SparseMat(indices, values, 20, seq_length))
         adjs = []
-        for row, col in data["adjs"]:
-            values = np.ones(len(col))
-            seq_size = len(data["seqs"][0])
-            adj = sparse.coo_matrix(
-                (values, (row.astype(np.long), col.astype(np.long))), shape=(seq_size, seq_size)
-            )
-            adjs.append(adj)
+        for adj_indices, adj_values in zip(data["adj_indices"], data["adj_values"]):
+            indices = torch.as_tensor(adj_indices.astype(np.int64), dtype=torch.long)
+            values = torch.as_tensor(adj_values, dtype=torch.float)
+            adjs.append(SparseMat(indices, values, seq_length, seq_length))
+            del seq_length
         targets = torch.from_numpy(data["targets"])
         meta = data["meta"]
         return cls(seqs, adjs, targets, meta)
@@ -103,34 +121,14 @@ class DataSetGAN(NamedTuple):
     def __eq__(self, other):
         if len(self.seqs) != len(other.seqs):
             return False
-        if not all(
-            [
-                np.allclose(self.seqs[i]._indices(), other.seqs[i]._indices())
-                for i in range(len(self.seqs))
-            ]
-        ):
-            return False
-        if not all(
-            [
-                np.allclose(self.seqs[i]._values(), other.seqs[i]._values())
-                for i in range(len(self.seqs))
-            ]
-        ):
+
+        if not all([sp1 == sp2 for sp1, sp2 in zip(self.seqs, other.seqs)]):
             return False
 
         if len(self.adjs) != len(other.adjs):
             return False
-        if not all(
-            [np.allclose(self.adjs[i].row, other.adjs[i].row) for i in range(len(self.adjs))]
-        ):
-            return False
-        if not all(
-            [np.allclose(self.adjs[i].col, other.adjs[i].col) for i in range(len(self.adjs))]
-        ):
-            return False
-        if not all(
-            [np.allclose(self.adjs[i].data, other.adjs[i].data) for i in range(len(self.adjs))]
-        ):
+
+        if not all([sp1 == sp2 for sp1, sp2 in zip(self.adjs, other.adjs)]):
             return False
 
         if not np.allclose(self.targets, other.targets):
@@ -155,8 +153,8 @@ class DataVar(NamedTuple):
 class DataVarGAN(NamedTuple):
     """Input variables for the Generative Adverserial Network."""
 
-    seqs: Variable
-    adjs: Variable
+    seqs: torch.FloatTensor
+    adjs: torch.sparse.FloatTensor
 
 
 DataSetCollection = Tuple[List[DataSet], List[DataSet]]

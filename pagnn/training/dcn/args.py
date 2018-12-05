@@ -70,7 +70,7 @@ class Args(TrainingArgsBase):
     #: (default = ``999d | ${SBATCH_TIMELIMIT} - 20min``).
     #: Note that we subtract ``20min`` to give the job some time for cleanup.
     runtime: float = attr.ib(
-        str_to_seconds(os.getenv("SBATCH_TIMELIMIT", "999d")) - 1200.0,
+        max(600.0, str_to_seconds(os.getenv("SBATCH_TIMELIMIT", "999d")) - 1200.0),
         converter=str_to_seconds,
         validator=instance_of(float),  # type: ignore
     )
@@ -110,7 +110,7 @@ class Args(TrainingArgsBase):
     #: Array id of array jobs. 0 means that this is NOT an array job.
     array_id: int = attr.ib(int(os.getenv("SLURM_ARRAY_TASK_ID", "0")), validator=instance_of(int))
 
-    num_aa_to_process: int = attr.ib(0, validator=instance_of(int))
+    num_sequences_to_process: int = attr.ib(0, validator=instance_of(int))
 
     #: Whether to show the progressbar when training.
     progressbar: bool = attr.ib(settings.SHOW_PROGRESSBAR, validator=instance_of(bool))

@@ -1,8 +1,11 @@
 import math
 
 import numpy as np
+import torch
 from numba import jit
 from scipy import sparse
+
+from pagnn.types import SparseMat
 
 
 @jit(nopython=True)
@@ -50,7 +53,7 @@ def remove_eye(x: np.ndarray, bandwidth: int, copy: bool = True) -> np.ndarray:
     return x
 
 
-def remove_eye_sparse(x: sparse.spmatrix, bandwidth: int, copy: bool = True) -> sparse.spmatrix:
+def remove_eye_sparse(sp: SparseMat, bandwidth: int) -> SparseMat:
     """Set diagonal (and offdiagonal) elements to zero.
 
     Args:
@@ -60,41 +63,33 @@ def remove_eye_sparse(x: sparse.spmatrix, bandwidth: int, copy: bool = True) -> 
             (ignored if `bandwidth` is falsy).
     """
     if not bandwidth:
-        return x
-    if copy:
-        x = x.copy()
-    # keep_mask = np.ones(len(x.data), dtype=bool)
-    # for i, (r, c) in enumerate(zip(x.row, x.col)):
-    #     if abs(r - c) <= (bandwidth - 1):
-    #         keep_mask[i] = 0
-    keep_mask = np.abs(x.row - x.col) >= bandwidth
-    x.data = x.data[keep_mask]
-    x.row = x.row[keep_mask]
-    x.col = x.col[keep_mask]
-    return x
+        return sp
+    keep_mask = abs(sp.indices[0, :] - sp.indices[1, :]) >= bandwidth
+    indices = sp.indices[:, keep_mask]
+    values = sp.values[keep_mask]
+    return sp._replace(indices=indices, values=values)
 
 
-def add_eye_sparse(x: sparse.spmatrix, bandwidth: int, copy: bool = True) -> sparse.spmatrix:
+def add_eye_sparse(sp: sparse.spmatrix, bandwidth: int) -> sparse.spmatrix:
     if not bandwidth:
-        return x
-    if copy:
-        x = x.copy()
-    data_list = [x.data]
-    row_list = [x.row]
-    col_list = [x.col]
+        return sp
+    row_list = [sp.indices[0, :]]
+    col_list = [sp.indices[1, :]]
+    data_list = [sp.values]
+    n = sp.n
     # Add diagonal
-    data_list.append(np.ones(x.shape[1]))
-    row_list.append(np.arange(x.shape[1]))
-    col_list.append(np.arange(x.shape[1]))
+    row_list.append(torch.arange(n, dtype=torch.long))
+    col_list.append(torch.arange(n, dtype=torch.long))
+    data_list.append(torch.ones(n, dtype=torch.float))
     # Add off-diagonals
     for k in range(1, bandwidth, 1):
-        data_list.extend([np.ones(x.shape[1] - k), np.ones(x.shape[1] - k)])
-        row_list.extend([np.arange(x.shape[1] - k), k + np.arange(x.shape[1] - k)])
-        col_list.extend([k + np.arange(x.shape[1] - k), np.arange(x.shape[1] - k)])
-    x.data = np.hstack(data_list)
-    x.row = np.hstack(row_list)
-    x.col = np.hstack(col_list)
-    return x
+        data_list.extend([np.ones(n - k), np.ones(n - k)])
+        row_list.extend([np.arange(n - k), k + np.arange(n - k)])
+        col_list.extend([k + np.arange(n - k), np.arange(n - k)])
+    row = np.hstack(row_list)
+    col = np.hstack(col_list)
+    values = np.hstack(data_list)
+    return sp._replace(indices=torch.stack([row, col]), values=values)
 
 
 def reshape_internal_dim(x, dim, size):

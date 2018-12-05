@@ -9,7 +9,7 @@ import torch
 from pagnn import exc
 from pagnn.dataset import get_negative_example, get_offset, row_to_dataset
 from pagnn.io import iter_datarows
-from pagnn.types import DataSet, DataSetGAN, RowGen, RowGenF
+from pagnn.types import DataSetGAN, RowGen, RowGenF, SparseMat
 
 logger = logging.getLogger(__name__)
 
@@ -54,16 +54,18 @@ def basic_permuted_sequence_adder(
         seq = dsg.seqs[0]
         negative_seqs = []
         for _ in range(num_sequences):
-            offset = get_offset(seq.shape[1], random_state)
-            negative_seq = torch.sparse_coo_tensor(
-                torch.cat([seq._indices()[:, offset:], seq._indices()[:, :offset]], 1),
-                seq._values(),
-                size=seq.size(),
+            offset = get_offset(seq.n, random_state)
+            negative_seq = SparseMat(
+                torch.cat([seq.indices[:, offset:], seq.indices[:, :offset]], 1),
+                seq.values,
+                seq.m,
+                seq.n,
             )
             assert (
-                seq.size() == negative_seq.size()
-                and seq._values().size() == negative_seq._values().size()
-                and seq._indices().size() == negative_seq._indices().size()
+                seq.indices.size() == negative_seq.indices.size()
+                and seq.values.size() == negative_seq.values.size()
+                and seq.m == negative_seq.m
+                and seq.n == negative_seq.n
             )
             negative_seqs.append(negative_seq)
         negative_targets = torch.zeros(num_sequences, dtype=torch.float)
@@ -131,18 +133,16 @@ def negative_sequence_adder(
     negative_dsg = None
     while True:
         dsg = yield negative_dsg
-        ds = DataSet(dsg.seqs[0], dsg.adjs[0], dsg.targets[0])
-        assert ds.seq.shape[1] == ds.seq._indices().shape[1] == ds.seq._values().shape[0]
-        negative_seqs: List[bytes] = []
+        negative_seqs: List[SparseMat] = []
         succeeded = True
         while len(negative_seqs) < num_sequences:
             try:
-                negative_ds = get_negative_example(ds, method, rowgen, random_state)
+                ndsg = get_negative_example(dsg, method, rowgen, random_state)
             except (exc.MaxNumberOfTriesExceededError, exc.SequenceTooLongError) as e:
-                logger.error("Encountered error '%s' for dataset '%s'", e, ds)
+                logger.error("Encountered error '%s' for dataset '%s'", e, dsg)
                 succeeded = False
                 break
-            negative_seqs.append(negative_ds.seq)
+            negative_seqs.extend(ndsg.seqs)
         if succeeded:
             negative_dsg = dsg._replace(
                 seqs=(dsg.seqs if keep_pos else []) + negative_seqs,

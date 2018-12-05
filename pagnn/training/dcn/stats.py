@@ -167,7 +167,7 @@ class Stats(StatsBase):
         # Validation accuracy
         for name, datasets in internal_validation_datasets.items():
             targets_valid, outputs_valid = evaluate_validation_dataset(net, datasets)
-            self.scores[name + "-auc"] = metrics.roc_auc_score(targets_valid, outputs_valid)
+            self.scores[name + "-auc"] = metrics.roc_auc_score(targets_valid > 0.5, outputs_valid)
 
     def dump_model_state(self, net) -> None:
         model_location = f"models/model_{self.step:012}.state"

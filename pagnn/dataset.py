@@ -1,5 +1,6 @@
 """Functions for generating and manipulating DataSets."""
 import enum
+import operator
 from typing import List, Optional, Union
 
 import numpy as np
@@ -8,7 +9,7 @@ from scipy import sparse
 
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
-from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF
+from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF, SparseMat
 from pagnn.utils import seq_to_array
 
 MAX_TRIES = 256
@@ -50,7 +51,16 @@ def row_to_dataset(
 
 def dataset_to_gan(ds: DataSet) -> DataSetGAN:
     """Convert a :any:`DataSet` into a :any:`DataSetGAN`."""
-    return DataSetGAN([ds.seq], [ds.adj], torch.tensor([ds.target], dtype=torch.float), ds.meta)
+    adj_indices = torch.stack(
+        [torch.tensor(ds.adj.row, dtype=torch.long), torch.tensor(ds.adj.col, dtype=torch.long)]
+    )
+    adj_values = torch.tensor(ds.adj.data, dtype=torch.float)
+    return DataSetGAN(
+        [SparseMat(ds.seq._indices(), ds.seq._values(), ds.seq.shape[0], ds.seq.shape[1])],
+        [SparseMat(adj_indices, adj_values, ds.adj.shape[0], ds.adj.shape[1])],
+        torch.tensor([ds.target], dtype=torch.float),
+        ds.meta,
+    )
 
 
 @enum.unique
@@ -66,11 +76,11 @@ class Method(enum.Enum):
 
 
 def get_negative_example(
-    ds: DataSet,
+    dsg: DataSetGAN,
     method: Union[str, Method],
     rowgen: RowGenF,
     random_state: Optional[np.random.RandomState] = None,
-) -> DataSet:
+) -> DataSetGAN:
     """Find a valid negative control for a given `ds`.
 
     Raises:
@@ -83,70 +93,64 @@ def get_negative_example(
     n_tries = 0
     seq_identity = 1.0
     adj_identity = 1.0
-    seq_length = ds.seq.shape[1]
-    if not ds.seq.shape[1] == ds.seq._indices().shape[1] == ds.seq._values().shape[0]:
-        raise AssertionError
+    seq_length = dsg.seqs[0].n
     while seq_identity > 0.2 or adj_identity > 0.3:
         n_tries += 1
         if n_tries > MAX_TRIES:
             raise MaxNumberOfTriesExceededError(n_tries)
         if method == Method.PERMUTE:
             offset = get_offset(seq_length, random_state)
-            negative_seq = torch.sparse_coo_tensor(
-                torch.cat([ds.seq._indices()[:, offset:], ds.seq._indices()[:, :offset]], 1),
-                ds.seq._values(),
-                size=ds.seq.size(),
+            negative_seq = SparseMat(
+                torch.cat([dsg.seqs[0].indices[:, offset:], dsg.seqs[0].indices[:, :offset]], 1),
+                dsg.seqs[0].values,
+                dsg.seqs[0].m,
+                dsg.seqs[0].n,
             )
             negative_adj = None
-            seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
+            seq_identity = utils.get_seq_identity(dsg.seqs[0], negative_seq)
             adj_identity = 0
-            break
-        elif method == Method.EXACT:
+        else:
             row = None
+            op = operator.eq if method == Method.EXACT else operator.ge
             while row is None and n_tries < MAX_TRIES:
                 n_tries += 1
                 row = rowgen.send(
-                    lambda df: df[df["sequence"].str.replace("-", "").str.len() == seq_length]
+                    lambda df: df[op(df["sequence"].str.replace("-", "").str.len(), seq_length)]
                 )
             if row is None:
                 raise SequenceTooLongError(
                     f"""Could not find a generator for target_seq_length: {seq_length}."""
                 )
-        else:
-            row = None
-            while row is None and n_tries < MAX_TRIES:
-                n_tries += 1
-                row = rowgen.send(
-                    lambda df: df[df["sequence"].str.replace("-", "").str.len() >= seq_length]
-                )
+            negative_seq, negative_adj = _row_to_seqadj(row, seq_length, method, random_state)
+            seq_identity = utils.get_seq_identity(dsg.seqs[0], negative_seq)
+            adj_identity = utils.get_adj_identity(dsg.adjs[0], negative_adj)
 
-            if row is None:
-                raise SequenceTooLongError(
-                    f"""Could not find a generator for target_seq_length: {seq_length}."""
-                )
-        negative_ds = row_to_dataset(row, target=0)
-        start, stop = get_indices(seq_length, negative_ds.seq.shape[1], method, random_state)
-        if method not in [Method.EDGES]:
-            negative_seq = torch.sparse_coo_tensor(
-                negative_ds.seq._indices()[:, start:stop],
-                negative_ds.seq._values()[start:stop],
-                size=(20, seq_length),
-            )
-            negative_adj = extract_adjacency_from_middle(start, stop, negative_ds.adj)
-        else:
-            negative_seq = torch.sparse_coo_tensor(
-                torch.cat(
-                    [negative_ds.seq._indices()[:, :start], negative_ds.seq._indices()[:, stop:]], 1
-                ),
-                torch.cat([negative_ds.seq._values()[:start], negative_ds.seq._values()[stop:]]),
-                size=(20, seq_length),
-            )
-            negative_adj = extract_adjacency_from_edges(start, stop, negative_ds.adj)
-        seq_identity = utils.get_seq_identity(ds.seq, negative_seq)
-        adj_identity = utils.get_adj_identity(ds.adj, negative_adj)
-
-    negative_dataset = DataSet(negative_seq, negative_adj, 0)
+    negative_dataset = DataSetGAN([negative_seq], [negative_adj], 0)
     return negative_dataset
+
+
+def _row_to_seqadj(row, seq_length, method, random_state):
+    negative_ds = row_to_dataset(row, target=0)
+    start, stop = get_indices(seq_length, negative_ds.seq.shape[1], method, random_state)
+    if method not in [Method.EDGES]:
+        negative_seq = SparseMat(
+            negative_ds.seq._indices()[:, start:stop],
+            negative_ds.seq._values()[start:stop],
+            20,
+            seq_length,
+        )
+        negative_adj = extract_adjacency_from_middle(start, stop, negative_ds.adj)
+    else:
+        negative_seq = SparseMat(
+            torch.cat(
+                [negative_ds.seq._indices()[:, :start], negative_ds.seq._indices()[:, stop:]], 1
+            ),
+            torch.cat([negative_ds.seq._values()[:start], negative_ds.seq._values()[stop:]]),
+            20,
+            seq_length,
+        )
+        negative_adj = extract_adjacency_from_edges(start, stop, negative_ds.adj)
+    return negative_seq, negative_adj
 
 
 def get_permuted_examples(
@@ -312,7 +316,7 @@ def permute_adjacency(adj: sparse.spmatrix, offset: int):
     return adj_permuted
 
 
-def extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
+def extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix) -> SparseMat:
     """Extract adjacency matrix from ``[start..stop)`` of `adj`.
 
     Examples:
@@ -340,15 +344,18 @@ def extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix):
     )
     new_row = adj.row[keep_idx] - start
     new_col = adj.col[keep_idx] - start
-    new_adj = sparse.coo_matrix(
-        (adj.data[keep_idx], (new_row, new_col)),
-        dtype=adj.dtype,
-        shape=((stop - start, stop - start)),
+    new_adj = SparseMat(
+        torch.stack(
+            [torch.tensor(new_row, dtype=torch.long), torch.tensor(new_col, dtype=torch.long)]
+        ),
+        torch.tensor(adj.data[keep_idx], dtype=torch.float),
+        stop - start,
+        stop - start,
     )
     return new_adj
 
 
-def extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
+def extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix) -> SparseMat:
     """Extract adjacency matrix from ``[0, start)`` and from ``[stop, end)`` of ``adj``.
 
     Examples:
@@ -372,9 +379,12 @@ def extract_adjacency_from_edges(start: int, stop: int, adj: sparse.spmatrix):
 
     new_col = adj.col[keep_idx]
     new_col = np.where(new_col < stop, new_col, new_col - (stop - start))
-    new_adj = sparse.coo_matrix(
-        (adj.data[keep_idx], (new_row, new_col)),
-        dtype=adj.dtype,
-        shape=((adj.shape[0] - (stop - start), adj.shape[1] - (stop - start))),
+    new_adj = SparseMat(
+        torch.stack(
+            [torch.tensor(new_row, dtype=torch.long), torch.tensor(new_col, dtype=torch.long)]
+        ),
+        torch.tensor(adj.data[keep_idx], dtype=torch.float),
+        adj.shape[0] - (stop - start),
+        adj.shape[1] - (stop - start),
     )
     return new_adj

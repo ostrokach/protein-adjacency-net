@@ -23,13 +23,6 @@ def evaluate_validation_dataset(net_d, datasets: List[DataSetGAN]):
     for i, dataset in enumerate(datasets):
         # This line needs to be here as it removes the eye from dataset.adjs
         datavar = net_d.dataset_to_datavar(dataset)
-        # TODO: Remove this code once we have regenerated validation datasets
-        adj = dataset.adjs[0]
-        frac_interactions = adj.nnz / adj.shape[0]
-        if frac_interactions < 0.1:
-            logger.info(f"Too few interactions: {frac_interactions}.")
-            continue
-        # TODO: End
         output = net_d(datavar[0], [datavar[1]])
         output = output.sigmoid().mean(2).squeeze().numpy()
         target = np.array(dataset.targets)

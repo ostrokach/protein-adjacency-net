@@ -24,6 +24,10 @@ GAP_LENGTH: int = 0
 #: Skip over sequences that are less then ``MIN_SEQUENCE_LENGTH`` amino acids long.
 MIN_SEQUENCE_LENGTH: int = 20
 
+#: Profiler to use.
+PROFILER = os.getenv("PROFILER")
+assert PROFILER in [None, "cProfile", "line_profiler"]
+
 
 def _is_array_job():
     array_job_id = (

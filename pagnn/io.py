@@ -90,7 +90,7 @@ def _read_random_row_group(
     df = df.rename(columns=column_renames)
     for fn in filters:
         df = fn(df)
-    df = df.reindex(random_state.permutation(df.index))
+    df = df.sample(frac=1, random_state=random_state)
     assert not set(DataRow._fields) - set(df.columns)
     return df
 
