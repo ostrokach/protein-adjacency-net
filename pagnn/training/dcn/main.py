@@ -191,15 +191,15 @@ def main(args: Optional[Args] = None):
     start_time = time.perf_counter()
     pid = os.getpid()
     result: Dict[str, Union[str, float]] = {}
+
     try:
         train(args, stats, datapipe, internal_validation_datasets, current_performance=result)
     except (KeyboardInterrupt, RuntimeExceededError, DatasetFinishedError) as e:
         logger.error("Training terminated with error '%s': '%s'", type(e), e)
-    except Exception:
+    except Exception as e:
         kill_tree(pid)
+        logger.error("Training terminated with error '%s': '%s'", type(e), e)
         raise
-
-    result["time_elapsed"] = time.perf_counter() - start_time
-
-    # === Output ===
-    print(json.dumps(result, sort_keys=True, indent=4))
+    finally:
+        result["time_elapsed"] = time.perf_counter() - start_time
+        print(json.dumps(result, sort_keys=True, indent=4))
