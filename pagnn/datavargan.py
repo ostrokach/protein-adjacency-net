@@ -126,16 +126,12 @@ def _pad_edges_longer(
 
 
 def push_seqs(seqs: List[SparseMat]) -> torch.FloatTensor:
-    if any(not isinstance(seq, SparseMat) for seq in seqs):
-        import ipdb; ipdb.set_trace()
     seqs_ts = [seq.to_sparse_tensor().to(settings.device).to_dense().unsqueeze(0) for seq in seqs]
     seq_t = torch.cat(seqs_ts)
     return seq_t
 
 
 def push_adjs(adjs: List[SparseMat]) -> torch.FloatTensor:
-    if any(not isinstance(adj, SparseMat) for adj in adjs):
-        import ipdb; ipdb.set_trace()
     adjs = [adj.to_sparse_tensor().to(settings.device) for adj in adjs]
     return adjs
 
