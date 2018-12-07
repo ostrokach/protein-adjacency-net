@@ -295,14 +295,19 @@ def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
 
 
 def permute_sequence(seq: torch.sparse.FloatTensor, offset: int):
+    # New indices
     row, col = seq._indices()
+    assert (col == torch.arange(len(col))).all()
+    row_new = torch.cat([row[offset:], row[:offset]])
+    new_indices = torch.stack([row_new, col], 0)
+    # New values
     values = seq._values()
-    row_new = torch.cat([row[3:], row[:3]])
-    col_new = col
-    indices_new = torch.stack([row_new, col_new], 0)
-    values_new = torch.cat([values[offset:], values[:offset]])
+    new_values = torch.cat([values[offset:], values[:offset]])
+    # Not necessarily true because we assing 0 to unknown residues:
+    # if not (values == 1).all()
+    # Result
     seq_new = torch.sparse_coo_tensor(
-        indices_new, values_new, size=seq.size(), dtype=seq.dtype, device=seq.device
+        new_indices, new_values, size=seq.size(), dtype=seq.dtype, device=seq.device
     )
     return seq_new
 
