@@ -40,7 +40,7 @@ def dataset_to_datavar(
     adj = ds.adjs[0]
     adj = remove_eye_sparse(adj, remove_diags)
     adj = add_eye_sparse(adj, add_diags)
-    if n_convs == 1:
+    if n_convs <= 1:
         adj_pool = [adj]
     else:
         adj_pool = gen_adj_pool(
