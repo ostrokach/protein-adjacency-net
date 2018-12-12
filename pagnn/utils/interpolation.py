@@ -12,11 +12,11 @@ def interpolate_sequences(
     """
     Examples:
         >>> interpolated_seqs, interpolated_targets = interpolate_sequences(
-        ...     b'AAAAA', b'BBBBB', 4,  np.random.RandomState(42))
-        >>> [round(f, 3) for f in interpolated_targets]
-        [0.8, 0.6, 0.4, 0.2]
+        ...     b'AAAAA', b'BBBBB', 4, np.random.RandomState(42))
         >>> interpolated_seqs
         [b'AAABA', b'BAAAB', b'AABBB', b'ABBBB']
+        >>> [round(f, 3) for f in interpolated_targets]
+        [0.8, 0.6, 0.4, 0.2]
     """
     if random_state is None:
         random_state = np.random.RandomState()
