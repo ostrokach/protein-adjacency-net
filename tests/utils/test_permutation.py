@@ -49,7 +49,9 @@ def test_permute_structure(pdb_id, offset):
     # Test permute_sequence
     seq = structure_tools.get_chain_sequence(next(structure.chains))
     seq_array = seq_to_array(seq.encode("ascii"))
-    seq_array_p = permute_sequence(seq_array, offset)
+    seq_array_p = torch.sparse_coo_tensor(
+        *permute_sequence(seq_array._indices(), seq_array._values(), offset), size=seq_array.size()
+    )
     seq_permutted = array_to_seq(seq_array_p.to_dense())
     seq_permutted_ = structure_tools.get_chain_sequence(next(structure_p.chains))
     assert seq_permutted == seq_permutted_
@@ -102,7 +104,9 @@ def test_permute_sequence(offset):
         size=(4, n_aa),
     )
 
-    seq_permutted_ = permute_sequence(seq, offset)
+    seq_permutted_ = torch.sparse_coo_tensor(
+        *permute_sequence(seq._indices(), seq._values(), offset)
+    )
     assert (seq_permutted.to_dense() == seq_permutted_.to_dense()).all()
 
 

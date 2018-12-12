@@ -10,6 +10,7 @@ from pagnn import exc
 from pagnn.dataset import get_negative_example, get_offset, row_to_dataset
 from pagnn.io import iter_datarows
 from pagnn.types import DataSetGAN, RowGen, RowGenF, SparseMat
+from pagnn.utils import permute_sequence
 
 logger = logging.getLogger(__name__)
 
@@ -56,10 +57,7 @@ def basic_permuted_sequence_adder(
         for _ in range(num_sequences):
             offset = get_offset(seq.n, random_state)
             negative_seq = SparseMat(
-                torch.cat([seq.indices[:, offset:], seq.indices[:, :offset]], 1),
-                seq.values,
-                seq.m,
-                seq.n,
+                *permute_sequence(seq.indices, seq.values, offset), seq.m, seq.n
             )
             assert (
                 seq.indices.size() == negative_seq.indices.size()

@@ -39,7 +39,9 @@ def row_to_dataset(
         assert random_state is not None
         seq_length = seq.size(1)
         offset = get_offset(seq_length, random_state)
-        seq = permute_sequence(seq, offset)
+        seq = torch.sparse_coo_tensor(
+            *permute_sequence(seq._indices(), seq._values(), offset), size=seq.size()
+        )
         adj = permute_adjacency(adj, offset)
     known_fields = {"Index", "sequence", "adjacency_idx_1", "adjacency_idx_2", "target"}
     if set(row._fields) - set(known_fields):
@@ -101,8 +103,7 @@ def get_negative_example(
         if method == Method.PERMUTE:
             offset = get_offset(seq_length, random_state)
             negative_seq = SparseMat(
-                torch.cat([dsg.seqs[0].indices[:, offset:], dsg.seqs[0].indices[:, :offset]], 1),
-                dsg.seqs[0].values,
+                *permute_sequence(dsg.seqs[0].indices, dsg.seqs[0].values, offset),
                 dsg.seqs[0].m,
                 dsg.seqs[0].n,
             )

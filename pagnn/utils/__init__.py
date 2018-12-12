@@ -46,6 +46,7 @@
     dump_yaml
 """
 # No interdependencies
+from .adjacency import *
 from .array_ops import (
     add_eye_sparse,
     conv1d_shape,
