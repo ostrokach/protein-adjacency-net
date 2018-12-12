@@ -1,3 +1,19 @@
+import logging
+import os
+import sys
+from contextlib import ExitStack
+from pathlib import Path
+from typing import Iterator, Optional
+
+import torch
+
+from pagnn.datapipe import set_buf_size
+from pagnn.training.dcn.utils import _read_ds_from_cache, get_training_datasets
+from pagnn.types import DataSetGAN
+
+logger = logging.getLogger(__name__)
+
+
 def check_for_deadlock():
     indices = torch.LongTensor([[0, 1, 1], [2, 0, 2]])
     values = torch.FloatTensor([3, 4, 5])
@@ -55,8 +71,6 @@ def _generate_ds(args):
             sys.exit(0)
 
 
-
-
 def _gen_ds_reader(index_read: int, data_read: int) -> Iterator[DataSetGAN]:
     while True:
         size_buf = os.read(index_read, 4)
@@ -100,5 +114,3 @@ def _gen_ds_writer(
             if cache_file_stem is not None:
                 index_cache_fh.write(size_buf)
                 data_cache_fh.write(data_buf)
-
-
