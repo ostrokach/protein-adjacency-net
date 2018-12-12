@@ -98,13 +98,13 @@ def train(
             pred = net(dv.seqs, [dv.adjs])
             pred = pred.sigmoid().mean(2).squeeze()
             error = (loss(pred, ds.targets) * ds_weight).sum()
-            pred_list.append(pred)
-            target_list.append(ds.targets)
-            error_list.append(error)
+            error.backward()
+            pred_list.append(pred.detach())
+            target_list.append(ds.targets.detach())
+            error_list.append(error.detach())
         preds = torch.cat(pred_list)
         targets = torch.cat(target_list)
         errors = torch.stack(error_list)
-        errors.sum().backward()
         optimizer.step()
 
         # === Calculate Statistics ===
@@ -122,9 +122,9 @@ def train(
         if calculate_basic_statistics:
             logger.debug("Calculating basic statistics...")
 
-            stats.preds.append(preds.detach().numpy())
-            stats.targets.append(targets.detach().numpy())
-            stats.losses.append(errors.detach().numpy())
+            stats.preds.append(preds.numpy())
+            stats.targets.append(targets.numpy())
+            stats.losses.append(errors.numpy())
 
             with torch.no_grad(), eval_net(net):
                 stats.calculate_statistics_basic()
