@@ -10,7 +10,7 @@ from scipy import sparse
 from pagnn import utils
 from pagnn.exc import MaxNumberOfTriesExceededError, SequenceTooLongError
 from pagnn.types import DataRow, DataSet, DataSetGAN, RowGenF, SparseMat
-from pagnn.utils import seq_to_array
+from pagnn.utils import permute_adjacency, permute_sequence, seq_to_array
 
 MAX_TRIES = 256
 
@@ -292,33 +292,6 @@ def _split_adjacency(adj: sparse.spmatrix, lengths: List[int]):
         start = stop
     assert start == adj.shape[-1], (start, adj.shape[-1])
     return adjs
-
-
-def permute_sequence(seq: torch.sparse.FloatTensor, offset: int):
-    # New indices
-    row, col = seq._indices()
-    assert (col == torch.arange(len(col))).all()
-    row_new = torch.cat([row[offset:], row[:offset]])
-    new_indices = torch.stack([row_new, col], 0)
-    # New values
-    values = seq._values()
-    new_values = torch.cat([values[offset:], values[:offset]])
-    # Not necessarily true because we assing 0 to unknown residues:
-    # if not (values == 1).all()
-    # Result
-    seq_new = torch.sparse_coo_tensor(
-        new_indices, new_values, size=seq.size(), dtype=seq.dtype, device=seq.device
-    )
-    return seq_new
-
-
-def permute_adjacency(adj: sparse.spmatrix, offset: int):
-    row = adj.row - offset
-    row = np.where(row < 0, adj.shape[0] + row, row)
-    col = adj.col - offset
-    col = np.where(col < 0, adj.shape[1] + col, col)
-    adj_permuted = sparse.coo_matrix((adj.data, (row, col)), dtype=adj.dtype, shape=adj.shape)
-    return adj_permuted
 
 
 def extract_adjacency_from_middle(start: int, stop: int, adj: sparse.spmatrix) -> SparseMat:

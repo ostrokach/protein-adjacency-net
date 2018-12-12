@@ -122,10 +122,6 @@ def get_adjacency(
     #     adjacency_idx_1 = adjacency_idx_1[~too_close_mask]
     #     adjacency_idx_2 = adjacency_idx_2[~too_close_mask]
 
-    # # Add eye (we remove it later if neccessary)
-    # adjacency_idx_1 = np.hstack([np.arange(seq_len), adjacency_idx_1])
-    # adjacency_idx_2 = np.hstack([np.arange(seq_len), adjacency_idx_2])
-
     assert adjacency_idx_1.shape == adjacency_idx_2.shape
 
     adj = sparse.coo_matrix(

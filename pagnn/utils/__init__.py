@@ -78,6 +78,7 @@ from .interpolation import interpolate_adjacencies, interpolate_sequences
 from .iter_ops import iter_forever, iter_submodules
 from .multiprocessing_ops import kill_tree
 from .network_ops import eval_net, freeze_adj_conv, freeze_net, unfreeze_adj_conv, unfreeze_net
+from .permutation import *
 from .testing import random_sequence, set_device
 
 # Other
