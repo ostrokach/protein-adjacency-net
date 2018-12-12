@@ -43,6 +43,7 @@ class DataRow(NamedTuple):
     sequence: str
     adjacency_idx_1: List[int]
     adjacency_idx_2: List[int]
+    target: float
     # ...other columns as neccessary
 
 
@@ -59,7 +60,7 @@ class DataSet(NamedTuple):
     """
 
     #: Sequence.
-    seq: bytes
+    seq: torch.sparse.FloatTensor
     adj: sparse.spmatrix
     target: float
     meta: Optional[dict] = None
@@ -70,8 +71,6 @@ class DataSetGAN(NamedTuple):
 
     Contains one or more sequences, the adjacency matric, and the label (target)
     of a protein domain.
-
-    TODO: seqs, adjs, and targets should all be tensors.
     """
 
     #: List of sequences that match a single adjacency.
