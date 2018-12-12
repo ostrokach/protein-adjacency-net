@@ -88,7 +88,7 @@ create_conda_environment:
     - source activate ${CONDA_ENVIRONMENT_NAME}
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-core.git@v0.1.6
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-modeller.git@v0.1.5
-    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@9760e4710af1eeea8d9814b44b2b1bd3574fea82
+    - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@dff1cd140c429c167497ac4a44f33da59b8c06ac
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*create_conda_environment(,\s?.*)*\z/i
