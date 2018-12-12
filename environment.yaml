@@ -41,7 +41,7 @@ dependencies:
   # Spark
   - findspark
   # Machine Learning
-  - pytorch::pytorch >=1.0.0
+  - pytorch::pytorch-cpu >=1.0.0
   # KimLab
   - kmbio >=2.0.12
   - kmtools
