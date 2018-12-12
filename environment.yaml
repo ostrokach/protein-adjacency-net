@@ -24,7 +24,7 @@ dependencies:
   - attrs
   - click
   - pyyaml
-  # Scientific Python
+  # Scientific
   - defaults::numpy
   - scipy
   - pandas
@@ -33,15 +33,16 @@ dependencies:
   - scikit-learn
   - sqlalchemy
   - modeller =9.20
+  - mdanalysis >=0.19.2
   # Plotting
   - matplotlib
   - matplotlib-venn
   - seaborn
   # Spark
   - findspark
-  # PyTorch
-  - pytorch::pytorch-nightly-cpu=1.0.0.dev20181108=py3.6_cpu_0
+  # Machine Learning
+  - pytorch::pytorch >=1.0.0
   # KimLab
-  - kmbio
+  - kmbio >=2.0.12
   - kmtools
   # - pagnn
