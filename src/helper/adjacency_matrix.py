@@ -1,5 +1,7 @@
 from kmtools import structure_tools
 
+from MDAnalysis.lib.distances import capped_distance
+
 
 def get_interaction_dataset(structure, bioassembly_id=False, r_cutoff=5):
     """Copied from "datapkg/pdb-analysis/notebooks/extract_pdb_interactions.ipynb"
