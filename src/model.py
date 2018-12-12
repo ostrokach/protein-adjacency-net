@@ -241,7 +241,7 @@ class Custom(nn.Module):
 
         self.layer_1 = SequentialMod(
             PairwiseConv(
-                input_size, output_size, normalize=True, add_counts=True, bias=False, wself=False
+                input_size, output_size, normalize=True, add_counts=True, bias=False, wself=True
             ),
             nn.ReLU(),
         )
