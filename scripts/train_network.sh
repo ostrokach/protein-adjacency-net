@@ -31,6 +31,8 @@ python -m pagnn.training.dcn \
   --network-name "DCN_${CI_COMMIT_SHA}" \
   --custom-module "${OUTPUT_DIR}/model.py" \
   --num-negative-examples 63 \
+  --permute-positives \
+  --predict-pc-identity \
   $@
 
 
