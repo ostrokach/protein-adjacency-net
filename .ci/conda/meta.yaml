@@ -25,6 +25,7 @@ requirements:
     - sqlalchemy
     - pyarrow >=0.11.*
     - numba
+    - pytorch >=1.0.0
     - kmbio >=2.0.12
 
 test:
