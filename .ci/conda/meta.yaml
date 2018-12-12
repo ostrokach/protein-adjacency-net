@@ -26,7 +26,11 @@ requirements:
     - pyarrow >=0.11.1
     - numba
     - pytorch >=1.0.0
+    # Computational biology
+    - mdanalysis
+    # Kimlab
     - kmbio >=2.0.12
+    - kmtools
 
 test:
   source_files:
