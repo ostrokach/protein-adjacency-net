@@ -74,13 +74,28 @@ class PairwiseConv(nn.Module):
 
         seq_length = x.size(2)
 
-        self_interactions = torch.sparse_coo_tensor(torch.stack([torch.arange(seq_length * 2, dtype=torch.long), torch.tensor([i for ii in [[i, i] for i in range(seq_length)] for i in ii],dtype=torch.long,),]),torch.ones(seq_length * 2, dtype=torch.float),size=(seq_length * 2, seq_length),dtype=torch.float,).to_dense()
+        self_interactions = torch.sparse_coo_tensor(
+            torch.stack(
+                [
+                    torch.arange(seq_length * 2, dtype=torch.long),
+                    torch.tensor(
+                        [i for ii in [[i, i] for i in range(seq_length)] for i in ii],
+                        dtype=torch.long,
+                    ),
+                ]
+            ),
+            torch.ones(seq_length * 2, dtype=torch.float),
+            size=(seq_length * 2, seq_length),
+            dtype=torch.float,
+        ).to_dense()
 
         adj_pw_wself = torch.cat([self_interactions, adj_pw], 0)
 
         x = x @ adj_pw_wself.transpose(0, 1)
 
-        barcode = torch.tensor([1, 0] * seq_length + [0, 1] * (adj_pw.size(0) // 2), dtype=torch.float)
+        barcode = torch.tensor(
+            [1, 0] * seq_length + [0, 1] * (adj_pw.size(0) // 2), dtype=torch.float
+        )
 
         x = torch.cat([x, barcode.expand(x.size(0), 1, -1)], 1)
 
@@ -121,7 +136,7 @@ class PairwiseSeqConv(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1. / np.sqrt(self.out_features)
+        stdv = 1.0 / np.sqrt(self.out_features)
         # self.conv.weight.data.uniform_(-stdv, stdv)
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
@@ -159,7 +174,7 @@ class GraphConv(nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        stdv = 1. / np.sqrt(self.conv.weight.size(1))
+        stdv = 1.0 / np.sqrt(self.conv.weight.size(1))
         self.conv.weight.data.uniform_(-stdv, stdv)
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
