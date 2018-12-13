@@ -131,7 +131,7 @@ def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
 
 def get_data_pipe(args):
     ctx = mp.get_context("spawn")
-    q = ctx.Queue(65536)
+    q = ctx.Queue(8192)
     if (
         args.training_data_cache is not None
         and args.training_data_cache.with_suffix(".index").is_file()
