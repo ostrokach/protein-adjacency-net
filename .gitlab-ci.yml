@@ -8,7 +8,6 @@ stages:
   - notebooks-05
   - deploy
 
-
 # === Variables ===
 
 variables:
@@ -16,8 +15,7 @@ variables:
   DOCS_SECRET_KEY: "SWKhaBJiG8O53MTcw97h1vRjVgimQCb4mzTIH4H8dD10vrb6NWOUantGWhqHMoY7"
   CONDA_ENVIRONMENT_NAME: ci-${CI_PROJECT_PATH_SLUG}-${CI_COMMIT_REF_SLUG}
 
-.niagara-envs: &niagara-envs
-  # Uses all memory on node by default
+.niagara-envs: &niagara-envs # Uses all memory on node by default
   SBATCH_ARGS: "--account=def-pmkim"
   # SBATCH_EXTRA_ARGS: "--time 12:00:00 --array=1-1"
 
@@ -40,7 +38,6 @@ variables:
 .cluster-envs: &cluster-envs
   SBATCH_SCRIPT: "./scripts/qsub.sh"
   <<: *cedar-envs
-
 
 # === Basic GitLab runner tests ===
 
@@ -77,7 +74,6 @@ test-cedar-ssh:
   tags:
     - cedar-ssh
 
-
 # === Conda environment ===
 
 create_conda_environment:
@@ -96,7 +92,6 @@ create_conda_environment:
     changes:
       # Not working together with variables ATM
       - environment-lock.yaml
-
 
 # === Batch jobs ===
 
@@ -232,6 +227,56 @@ decoy_discrimination_dataset_rosetta:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*decoy_discrimination_dataset_rosetta(,\s?.*)*\z/i
       - $CI_COMMIT_MESSAGE =~ /\[ci jobs?:\s*(.*,\s?)*decoy_discrimination_dataset_rosetta(,\s?.*)*\]/i
+
+# add_adjacency_distances
+
+add_adjacency_distances-training_dataset:
+  extends: .notebook
+  stage: notebooks-03
+  variables:
+    NOTEBOOK_NAME: "03-add_adjacency_distances"
+    SBATCH_EXTRA_ARGS: "--array=1-100 --time 24:00:00 "
+    ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/adjacency-net-v2/master/training_dataset/adjacency_matrix.parquet"
+    # ORIGINAL_ARRAY_TASK_COUNT: "100"
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*add_adjacency_distances-training_dataset(,\s?.*)*\z/i
+
+add_adjacency_distances-validation_dataset:
+  extends: .notebook
+  stage: notebooks-03
+  variables:
+    NOTEBOOK_NAME: "03-add_adjacency_distances"
+    SBATCH_EXTRA_ARGS: "--array=1-10 --time 24:00:00 "
+    ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/adjacency-net-v2/master/validation_dataset"
+    # ORIGINAL_ARRAY_TASK_COUNT: "10"
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*add_adjacency_distances-validation_dataset(,\s?.*)*\z/i
+
+add_adjacency_distances-test_dataset:
+  extends: .notebook
+  stage: notebooks-03
+  variables:
+    NOTEBOOK_NAME: "03-add_adjacency_distances"
+    SBATCH_EXTRA_ARGS: "--array=1-10 --time 24:00:00 "
+    ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/adjacency-net-v2/master/test_dataset"
+    # ORIGINAL_ARRAY_TASK_COUNT: "10"
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*add_adjacency_distances-test_dataset(,\s?.*)*\z/i
+
+add_adjacency_distances-adjacency_matrix_subset_sample:
+  extends: .notebook
+  stage: notebooks-03
+  variables:
+    NOTEBOOK_NAME: "03-add_adjacency_distances"
+    SBATCH_EXTRA_ARGS: "--array=1-1 --time 24:00:00 "
+    ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/hhsuite-wstructure/master/adjacency_matrix_subset_sample"
+    # ORIGINAL_ARRAY_TASK_COUNT: "10"
+  only:
+    variables:
+      - $JOBS_TO_RUN =~ /\A(.*,\s?)*add_adjacency_distances-adjacency_matrix_subset_sample(,\s?.*)*\z/i
 
 # train_network
 
