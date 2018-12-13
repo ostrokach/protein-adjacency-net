@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 from typing import Optional
@@ -20,6 +19,11 @@ class Args(TrainingArgsBase):
     n_layers: int = attr.ib(3, validator=instance_of(int))
 
     custom_module: Optional[Path] = attr.ib(
+        None, converter=str_to_path_opt, validator=instance_of((type(None), Path))
+    )
+
+    #: Specify the model to start with (useful for debugging only!)
+    model_path: Optional[Path] = attr.ib(
         None, converter=str_to_path_opt, validator=instance_of((type(None), Path))
     )
 
@@ -100,7 +104,7 @@ class Args(TrainingArgsBase):
 
     validation_methods: str = attr.ib("permute.exact", validator=instance_of(str))
     validation_min_seq_identity: int = attr.ib(80, validator=instance_of(int))
-    validation_num_sequences: int = attr.ib(1_000, validator=instance_of(int))
+    validation_num_sequences: int = attr.ib(1000, validator=instance_of(int))
 
     # === Other things to process ===
 

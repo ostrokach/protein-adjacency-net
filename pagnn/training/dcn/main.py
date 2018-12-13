@@ -63,6 +63,9 @@ def train(
     if args.array_id:
         net.load_state_dict(stats.load_model_state())
         write_graph = False
+    elif args.model_path is not None:
+        net.load_state_dict(torch.load(args.model_path))
+        write_graph = False
     else:
         write_graph = True
 
