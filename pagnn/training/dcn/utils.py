@@ -131,19 +131,20 @@ def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
 
 def get_data_pipe(args):
     ctx = mp.get_context("spawn")
-    q = ctx.Queue(8192)
     if (
         args.training_data_cache is not None
         and args.training_data_cache.with_suffix(".index").is_file()
         and args.training_data_cache.with_suffix(".data").is_file()
     ):
         logger.info("Reading training data from cache.")
+        q = ctx.Queue(32768)
         if settings.PROFILER is not None:
             p = ctx.Process(target=profiled_worker, args=("read_ds_worker(args, q)", args, q))
         else:
             p = ctx.Process(target=read_ds_worker, args=(args, q))
     else:
         logger.info("Generating training data as we go.")
+        q = ctx.Queue(8192)
         if settings.PROFILER is not None:
             p = ctx.Process(target=profiled_worker, args=("generate_ds_worker(args, q)", args, q))
         else:
