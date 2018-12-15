@@ -43,6 +43,6 @@ dependencies:
   # Machine Learning
   - pytorch::pytorch >=1.0.0
   # KimLab
-  - kmbio >=2.0.12
-  - kmtools
+  - kmbio >=2.0.13
+  - kmtools >=0.0.36
   # - pagnn
