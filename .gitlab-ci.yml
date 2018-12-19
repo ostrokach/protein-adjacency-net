@@ -235,9 +235,10 @@ add_adjacency_distances-training_dataset:
   stage: notebooks-03
   variables:
     NOTEBOOK_NAME: "03-add_adjacency_distances"
-    SBATCH_EXTRA_ARGS: "--array=1-100 --time 24:00:00 "
+    # SBATCH_EXTRA_ARGS: "--array=1-100 --time 24:00:00 "
+    SBATCH_EXTRA_ARGS: "--array=14,50,56,61,62,74,78,80,85,86,1,17,24,28,30,42,52,53,75,79,81,82,83,84,88 --time 72:00:00 "
+    ORIGINAL_ARRAY_TASK_COUNT: "100"
     ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/adjacency-net-v2/master/training_dataset/adjacency_matrix.parquet"
-    # ORIGINAL_ARRAY_TASK_COUNT: "100"
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*add_adjacency_distances-training_dataset(,\s?.*)*\z/i
