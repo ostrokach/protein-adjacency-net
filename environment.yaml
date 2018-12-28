@@ -13,7 +13,7 @@ dependencies:
   - fd-find
   - ostrokach-forge::parallel
   # Python
-  - python=3.6.6=h5001a0f_0
+  - python >=3.7
   - ipython
   # Jupyter
   - jupyter
