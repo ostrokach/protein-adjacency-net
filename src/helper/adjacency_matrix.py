@@ -19,9 +19,30 @@ def get_interaction_dataset(structure, bioassembly_id=False, r_cutoff=5):
     return interactions_core, interactions_core_aggbychain
 
 
+GET_ADJACENCY_WITH_DISTANCES_ROW_ATTRIBUTES = [
+    "structure_id",
+    "model_id",
+    "chain_id",
+    "sequence",
+    "s_start",
+    "s_end",
+    "q_start",
+    "q_end",
+    "sseq",
+    "a2b",
+    "b2a",
+    "residue_idx_1_corrected",
+    "residue_idx_2_corrected",
+]
+
+
 def get_adjacency_with_distances(
     row, max_cutoff=12, min_cutoff=None, structure_url_prefix="rcsb://"
 ):
+    missing_attributes = [
+        attr for attr in GET_ADJACENCY_WITH_DISTANCES_ROW_ATTRIBUTES if not hasattr(row, attr)
+    ]
+    assert not missing_attributes, missing_attributes
     # Load structure
     url = f"{structure_url_prefix}{row.structure_id.lower()}.cif.gz"
     structure = PDB.load(url)
@@ -36,7 +57,7 @@ def get_adjacency_with_distances(
     dd = structure_tools.DomainDef(row.model_id, row.chain_id, int(row.s_start), int(row.s_end))
     domain = structure_tools.extract_domain(structure, [dd])
     assert template_sequence == structure_tools.get_chain_sequence(domain)
-    assert template_sequence == row.sseq.replace('-', '')
+    assert template_sequence == row.sseq.replace("-", "")
     # Get interactions
     distances_core = structure_tools.get_distances(
         domain, max_cutoff, min_cutoff, groupby="residue"
