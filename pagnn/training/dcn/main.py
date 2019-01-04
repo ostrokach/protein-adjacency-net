@@ -198,6 +198,7 @@ def main(args: Optional[Args] = None):
     try:
         train(args, stats, datapipe, internal_validation_datasets, current_performance=result)
     except (KeyboardInterrupt, RuntimeExceededError, DatasetFinishedError) as e:
+        kill_tree(pid)
         logger.error("Training terminated with error '%s': '%s'", type(e), e)
     except Exception as e:
         kill_tree(pid)
