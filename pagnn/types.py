@@ -43,6 +43,7 @@ class DataRow(NamedTuple):
     sequence: str
     adjacency_idx_1: List[int]
     adjacency_idx_2: List[int]
+    distances: List[float]
     target: float
     # ...other columns as neccessary
 
@@ -104,13 +105,13 @@ class DataSetGAN(NamedTuple):
                     torch.arange(0, len(seq_row), dtype=torch.long),
                 ]
             )
-            values = torch.ones(len(seq_row), dtype=torch.float)
+            values = torch.ones(len(seq_row), dtype=torch.float32)
             seq_length = len(seq_row)
             seqs.append(SparseMat(indices, values, 20, seq_length))
         adjs = []
         for adj_indices, adj_values in zip(data["adj_indices"], data["adj_values"]):
             indices = torch.as_tensor(adj_indices.astype(np.int64), dtype=torch.long)
-            values = torch.as_tensor(adj_values, dtype=torch.float)
+            values = torch.as_tensor(adj_values, dtype=torch.float32)
             adjs.append(SparseMat(indices, values, seq_length, seq_length))
             del seq_length
         targets = torch.from_numpy(data["targets"])

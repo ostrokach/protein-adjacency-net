@@ -111,6 +111,7 @@ def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
             "qseq": "sequence",
             "residue_idx_1_corrected": "adjacency_idx_1",
             "residue_idx_2_corrected": "adjacency_idx_2",
+            "distances": None,
             "pc_identity": "target",
         },
         random_state=random_state,
@@ -216,6 +217,7 @@ def _get_internal_validation_dataset(
         "qseq": "sequence",
         "residue_idx_1_corrected": "adjacency_idx_1",
         "residue_idx_2_corrected": "adjacency_idx_2",
+        "distances": None,
         "pc_identity": "target",
     }
     positive_rowgen = iter_datarows_shuffled(

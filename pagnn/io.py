@@ -29,7 +29,7 @@ def iter_datarows(
     Args:
         file: Location where the domain-specific ``*.parquet`` file is stored.
         columns: Additional columns that should be present in the returned `row` NamedTuples.
-        filters:
+        filters: List of functions that can be used to filter rows in a DataFrame.
 
     Yields:
         NamedTuple containing domain rows.
@@ -40,7 +40,8 @@ def iter_datarows(
     while True:
         df = _read_random_row_group(parquet_file, columns, filters, random_state)
         for row in df.itertuples():
-            yield row
+            if row.adjacency_idx_1 is not None and row.adjacency_idx_2 is not None:
+                yield row
 
 
 def gen_datarows(
@@ -51,10 +52,15 @@ def gen_datarows(
 ) -> RowGenF:
     """Iterate over rows in `parquet_file` in pseudo-random order.
 
+    Warning:
+        This function is extremely slow, as it reads at least one Parquet row group
+        for every row that it outputs. Use only in cases where you need to apply
+        a different constraint to every generated row.
+
     Args:
         file: Location where the domain-specific ``*.parquet`` file is stored.
         columns: Additional columns that should be present in the returned `row` NamedTuples.
-        filters:
+        filters: List of functions that can be used to filter rows in a DataFrame.
 
     Yields:
         NamedTuple containing domain rows.
@@ -67,7 +73,10 @@ def gen_datarows(
         df = _read_random_row_group(parquet_file, columns, filters, random_state)
         if fn is not None:
             df = fn(df)
-        tup = next(df.itertuples()) if not df.empty else None
+        tup = None
+        for tup in df.itertuples():
+            if tup.adjacency_idx_1 is not None and tup.adjacency_idx_2 is not None:
+                break
         fn = yield tup
 
 

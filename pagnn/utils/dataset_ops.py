@@ -93,14 +93,15 @@ def _seq_to_array(seq: bytes) -> sparse.spmatrix:
 
 
 def get_adjacency(
-    seq_len: int, adjacency_idx_1: np.array, adjacency_idx_2: np.array
+    seq_len: int, adjacency_idx_1: np.ndarray, adjacency_idx_2: np.ndarray, distances: np.ndarray
 ) -> sparse.spmatrix:
     """Construct an adjacency matrix from the data available for each row in the DataFrame.
 
     Args:
         seq_len:
-        adjacency_idx_1: Indexes of the residues that are involved in intrachain interactions.
-        adjacency_idx_2: Indexes of the residues that are involved in intrachain interactions.
+        adjacency_idx_1: Indices of the residues involved in an interactions.
+        adjacency_idx_2: Indices of the residues involved in an interactions.
+        distances: Distances between interacting residues.
 
     Returns:
         An adjacency matrix for the given sequence `qseq`.
@@ -108,32 +109,28 @@ def get_adjacency(
     na_mask = np.isnan(adjacency_idx_1) | np.isnan(adjacency_idx_2)
     if na_mask.any():
         logger.debug("Removing %s null indices.", na_mask.sum())
-        adjacency_idx_1 = np.array(adjacency_idx_1[~na_mask], dtype=np.int_)
-        adjacency_idx_2 = np.array(adjacency_idx_2[~na_mask], dtype=np.int_)
+        adjacency_idx_1 = adjacency_idx_1[~na_mask]
+        adjacency_idx_2 = adjacency_idx_2[~na_mask]
+        distances = distances[~na_mask]
 
     # There are no nulls, so should be safe to convert to integers now
     adjacency_idx_1 = adjacency_idx_1.astype(np.int_)
     adjacency_idx_2 = adjacency_idx_2.astype(np.int_)
-
-    # TODO(AS): Make sure that this is still what we want!
-    # too_close_mask = (np.abs(adjacency_idx_1 - adjacency_idx_2) <= 1)
-    # if too_close_mask.any():
-    #     logger.debug("Removing %s too close indices.", too_close_mask.sum())
-    #     adjacency_idx_1 = adjacency_idx_1[~too_close_mask]
-    #     adjacency_idx_2 = adjacency_idx_2[~too_close_mask]
-
     assert adjacency_idx_1.shape == adjacency_idx_2.shape
 
-    adj = sparse.coo_matrix(
-        (np.ones(len(adjacency_idx_1)), (adjacency_idx_1, adjacency_idx_2)),
+    adj_upper = sparse.coo_matrix(
+        (distances, (adjacency_idx_1, adjacency_idx_2)),
         shape=(seq_len, seq_len),
-        dtype=np.int16,
+        dtype=np.float32,
     )
+    adj = (adj_upper + adj_upper.T).tocoo()
+    assert adj.nnz == adj_upper.nnz * 2
 
     # Make sure that the matrix is symetrical
-    idx1 = {(r, c) for r, c in zip(adj.row, adj.col)}
-    idx2 = {(c, r) for r, c in zip(adj.row, adj.col)}
-    assert not idx1 ^ idx2
+    # idx1 = {(r, c) for r, c in zip(adj.row, adj.col)}
+    # idx2 = {(c, r) for r, c in zip(adj.row, adj.col)}
+    # assert not idx1 ^ idx2
+    assert (adj != adj.T).nnz == 0
     return adj
 
 

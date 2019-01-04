@@ -35,6 +35,7 @@ def get_rowgen_mut(mutation_class: str, data_path: Path):
             "qseq": "sequence",
             "residue_idx_1_corrected": "adjacency_idx_1",
             "residue_idx_2_corrected": "adjacency_idx_2",
+            "distances": None,
             "qseq_mutation": "mutation",
             score_column: "score",
         },

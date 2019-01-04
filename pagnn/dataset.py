@@ -33,7 +33,7 @@ def row_to_dataset(
         A DataSet containing the provided data.
     """
     seq = seq_to_array(row.sequence.replace("-", "").encode("ascii"))
-    adj = utils.get_adjacency(seq.shape[1], row.adjacency_idx_1, row.adjacency_idx_2)
+    adj = utils.get_adjacency(seq.shape[1], row.adjacency_idx_1, row.adjacency_idx_2, row.distances)
     target = target if target is not None else row.target
     if permute:
         assert random_state is not None
@@ -43,7 +43,14 @@ def row_to_dataset(
             *permute_sequence(seq._indices(), seq._values(), offset), size=seq.size()
         )
         adj = permute_adjacency(adj, offset)
-    known_fields = {"Index", "sequence", "adjacency_idx_1", "adjacency_idx_2", "target"}
+    known_fields = {
+        "Index",
+        "sequence",
+        "adjacency_idx_1",
+        "adjacency_idx_2",
+        "distances",
+        "target",
+    }
     if set(row._fields) - set(known_fields):
         meta = {k: v for k, v in row._asdict().items() if k not in known_fields}
     else:
