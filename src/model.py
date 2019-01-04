@@ -24,8 +24,24 @@ def sparse_sum(input):
     return input
 
 
+def cut_to_max_distance(adj, max_distance):
+    indices = adj._indices()
+    values = adj._values()
+    mask = values <= max_distance
+    new_indices = indices[:, mask]
+    new_values = values[mask]
+    new_adj = torch.sparse_coo_tensor(
+        new_indices, new_values, size=adj.size(), dtype=adj.dtype, device=adj.device
+    )
+    return new_adj
+
+
 class PairwiseConv(nn.Module):
-    def __init__(self, in_channels, out_channels, *, bias, normalize, add_counts, wself=False):
+    takes_extra_args = True
+
+    def __init__(
+        self, in_channels, out_channels, *, bias, normalize, add_counts, wself=False, max_distance=5
+    ):
         super().__init__()
         # Parameters
         self.in_channels = in_channels
@@ -33,7 +49,7 @@ class PairwiseConv(nn.Module):
         self.normalize = normalize
         self.add_counts = add_counts
         self.wself = wself
-        self.takes_extra_args = True
+        self.max_distance = max_distance
         # Layers
         if add_counts:
             out_channels = out_channels - 1
@@ -42,6 +58,9 @@ class PairwiseConv(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, adj: torch.sparse.FloatTensor):
+        if self.max_distance:
+            adj = cut_to_max_distance(adj, self.max_distance)
+
         if self.wself:
             x = self._conv_wself(x, adj)
         else:
