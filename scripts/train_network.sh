@@ -33,6 +33,7 @@ python -m pagnn.training.dcn \
   --num-negative-examples 63 \
   --permute-positives \
   --predict-pc-identity \
+  --subsample-training-data 0.05 \
   $@
 
 
