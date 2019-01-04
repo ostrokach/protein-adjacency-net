@@ -105,8 +105,15 @@ def _iter_to_completion(p, q):
 def get_training_datasets(args: argparse.Namespace) -> Iterator[DataSetGAN]:
     random_state = np.random.RandomState(args.array_id)
 
+    parquet_files = sorted(args.training_data_path.glob("database_id=*/*.parquet"))
+    random_state.shuffle(parquet_files)
+    if args.subsample_training_data < 1:
+        num_files = max(1, int(len(parquet_files) * args.subsample_training_data))
+        parquet_files = parquet_files[:num_files]
+        logger.warning("Using %s Parquet files for training the network.", len(parquet_files))
+
     positive_rowgen = iter_datarows_shuffled(
-        sorted(args.training_data_path.glob("database_id=*/*.parquet")),
+        parquet_files,
         columns={
             "qseq": "sequence",
             "residue_idx_1_corrected": "adjacency_idx_1",
@@ -147,6 +154,7 @@ def get_data_pipe(args):
         logger.info("Generating training data as we go.")
         q = ctx.Queue(8192)
         if settings.PROFILER is not None:
+            logger.info("Profiling...")
             p = ctx.Process(target=profiled_worker, args=("generate_ds_worker(args, q)", args, q))
         else:
             p = ctx.Process(target=generate_ds_worker, args=(args, q))

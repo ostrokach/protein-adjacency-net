@@ -87,6 +87,10 @@ class Args(TrainingArgsBase):
 
     # === Training set arguments ===
 
+    #: Fraction of available training data (measured as the number of Parquet files)
+    #: to use for training the network.
+    subsample_training_data: float = attr.ib(1, validator=instance_of(float))
+
     #: Permute the sequence and adjacency matrix of positive training examples.
     permute_positives: bool = attr.ib(False, validator=instance_of(bool))
 
