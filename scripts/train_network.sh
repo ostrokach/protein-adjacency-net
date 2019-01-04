@@ -25,7 +25,7 @@ sed "s|class Custom(nn.Module):|class DCN_${CI_COMMIT_SHA}(nn.Module):|" ./src/m
 
 python -m pagnn.training.dcn \
   --root-path "${OUTPUT_DIR}" \
-  --training-data-path "${DATAPKG_OUTPUT_DIR}/adjacency-net-v2/master/training_dataset/adjacency_matrix.parquet" \
+  --training-data-path "${DATAPKG_OUTPUT_DIR}/adjacency-net-v2/master/training_dataset_wdistances/adjacency_matrix.parquet" \
   --gpu -1 \
   --verbosity 1 \
   --network-name "DCN_${CI_COMMIT_SHA}" \
