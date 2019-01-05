@@ -19,6 +19,17 @@ def get_interaction_dataset(structure, bioassembly_id=False, r_cutoff=5):
     return interactions_core, interactions_core_aggbychain
 
 
+def get_interaction_dataset_wdistances(structure_file, model_id, chain_id, r_cutoff=12):
+    structure = PDB.load(structure_file)
+    chain = structure[0][chain_id]
+    num_residues = len(list(chain.residues))
+    dd = structure_tools.DomainDef(model_id, chain_id, 1, num_residues)
+    domain = structure_tools.extract_domain(structure, [dd])
+    distances_core = structure_tools.get_distances(domain, r_cutoff, 0, groupby="residue")
+    assert (distances_core["residue_idx_1"] <= distances_core["residue_idx_2"]).all()
+    return distances_core
+
+
 GET_ADJACENCY_WITH_DISTANCES_ROW_ATTRIBUTES = [
     "structure_id",
     "model_id",
