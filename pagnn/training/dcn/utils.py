@@ -221,6 +221,8 @@ def get_internal_validation_datasets(args: Args) -> Mapping[str, List[DataSetGAN
 def _get_internal_validation_dataset(
     args: Args, method: str, random_state: np.random.RandomState
 ) -> List[DataSetGAN]:
+    assert args.validation_data_path is not None
+
     columns = {
         "qseq": "sequence",
         "residue_idx_1_corrected": "adjacency_idx_1",
@@ -228,8 +230,9 @@ def _get_internal_validation_dataset(
         "distances": None,
         "pc_identity": "target",
     }
+
     positive_rowgen = iter_datarows_shuffled(
-        sorted(args.training_data_path.glob("database_id=*/*.parquet")),
+        sorted(args.validation_data_path.glob("database_id=*/*.parquet")),
         columns=columns,
         random_state=random_state,
     )
