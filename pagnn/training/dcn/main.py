@@ -178,16 +178,16 @@ def main(args: Optional[Args] = None):
     torch.manual_seed(stats.step)
     torch.cuda.manual_seed(stats.step)
 
+    # === Internal Validation Dataset ===
+    logger.debug("Initializing validation dataset...")
+    internal_validation_datasets = get_internal_validation_datasets(args)
+
     # === Training Dataset ===
     logger.debug("Initializing training dataset...")
     if True:
         datapipe = get_data_pipe(args)
     else:
         datapipe = get_training_datasets(args)
-
-    # === Internal Validation Dataset ===
-    logger.debug("Initializing validation dataset...")
-    internal_validation_datasets = get_internal_validation_datasets(args)
 
     # === Train ===
     logger.debug("Training the network...")
