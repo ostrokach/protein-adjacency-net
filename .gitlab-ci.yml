@@ -235,10 +235,10 @@ add_adjacency_distances-training_dataset:
   stage: notebooks-03
   variables:
     NOTEBOOK_NAME: "03-add_adjacency_distances"
-    SBATCH_EXTRA_ARGS: "--array=1-100 --time 72:00:00 "
+    SBATCH_EXTRA_ARGS: "--array=15-100 --time 24:00:00 "
     # SBATCH_EXTRA_ARGS: "--array=78,80 --time 72:00:00 "
     SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem 257000M"
-    # ORIGINAL_ARRAY_TASK_COUNT: "100"
+    ORIGINAL_ARRAY_TASK_COUNT: "100"
     ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/adjacency-net-v2/master/training_dataset/adjacency_matrix.parquet"
   only:
     variables:
