@@ -232,7 +232,7 @@ class PairwiseConv(nn.Module):
             barcode = torch.cat([seq_barcode, cart_barcode], 1)
         elif "combined" in self.barcode_method:
             seq_conv_distances_tensor = torch.cat([seq_distances_tensor, cart_distances_tensor], 1)
-            barcode = self.seq_conv_distance_model(seq_conv_distances_tensor)
+            barcode = self.seq_cart_barcode_model(seq_conv_distances_tensor)
         else:
             raise Exception
 
