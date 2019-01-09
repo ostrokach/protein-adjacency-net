@@ -403,7 +403,7 @@ class Custom(nn.Module):
                 add_counts=True,
                 bias=False,
                 wself=True,
-                barcode_method="separate",
+                barcode_method="combined",
             ),
             nn.ReLU(),
         )
