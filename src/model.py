@@ -3,11 +3,13 @@ This is a basic ``seq+adj - conv - seq+adj`` network.
 
 """
 import logging
+from pathlib import Path
 
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from numba import njit, prange
 
 import pagnn.models.dcn
 from pagnn.datavargan import dataset_to_datavar
@@ -15,6 +17,9 @@ from pagnn.models.common import AdjacencyConv, SequenceConv, SequentialMod
 from pagnn.utils import expand_adjacency_tensor, padding_amount, reshape_internal_dim
 
 logger = logging.getLogger(__name__)
+
+
+MODEL_DATA_PATH = Path(__file__).resolve(strict=True).parent.joinpath("model_data")
 
 
 def sparse_sum(input):
@@ -36,35 +41,150 @@ def cut_to_max_distance(adj, max_distance):
     return new_adj
 
 
+@njit(parallel=True)
+def gen_barcode(distances, bins):
+    barcode = np.zeros((len(distances), len(bins)), dtype=np.int32)
+    for i in prange(len(distances)):
+        a = distances[i]
+        for j in range(len(bins)):
+            if a < bins[j]:
+                barcode[i, j] = 1
+                break
+    return barcode
+
+
+def normalize_seq_distances(aa_distances):
+    aa_distances_log_mean = 3.556_787_581_510_490_3
+    aa_distances_log_std = 1.706_582_276_341_166_9
+
+    aa_distances_log = torch.where(
+        aa_distances > 0,
+        torch.log(aa_distances) + 1,
+        torch.zeros(len(aa_distances), dtype=aa_distances.dtype),
+    )
+
+    aa_distances_corrected = (aa_distances_log - aa_distances_log_mean) / aa_distances_log_std
+    return aa_distances_corrected
+
+
+def normalize_cart_distances(cart_distances):
+    cart_distances_mean = 6.993_689_202_887_396_5
+    cart_distances_std = 3.528_368_101_492_991
+
+    cart_distances_corrected = (cart_distances - cart_distances_mean) / cart_distances_std
+    return cart_distances_corrected
+
+
+def get_self_interactions(seq_length):
+    self_interactions = torch.sparse_coo_tensor(
+        torch.stack(
+            [
+                torch.arange(seq_length * 2, dtype=torch.long),
+                torch.tensor(
+                    [i for ii in [[i, i] for i in range(seq_length)] for i in ii], dtype=torch.long
+                ),
+            ]
+        ),
+        torch.ones(seq_length * 2, dtype=torch.float),
+        size=(seq_length * 2, seq_length),
+        dtype=torch.float,
+    ).to_dense()
+    return self_interactions
+
+
+class DistanceNet(nn.Module):
+    def __init__(self, input_size, hidden_layer_size, barcode_size):
+        super().__init__()
+
+        self.input_size = input_size
+        self.barcode_size = barcode_size
+        self.hidden_layer_size = hidden_layer_size
+
+        self.linear1 = nn.Linear(self.input_size, self.hidden_layer_size)
+        self.linear2 = nn.Linear(self.hidden_layer_size, self.barcode_size)
+
+        # self.reset_parameters()
+
+    def reset_parameters(self):
+        stdv = np.sqrt(self.hidden_layer_size)
+        self.linear1.weight.data.normal_(0, stdv)
+        self.linear1.bias.data.normal_(0, stdv)
+
+    def forward(self, x):
+        x = self.linear1(x)
+        x = F.leaky_relu(x)
+        x = self.linear2(x)
+        x = F.leaky_relu(x)
+        return x
+
+
 class PairwiseConv(nn.Module):
     takes_extra_args = True
 
     def __init__(
-        self, in_channels, out_channels, *, bias, normalize, add_counts, wself=False, max_distance=5
+        self,
+        in_channels,
+        out_channels,
+        *,
+        bias,
+        normalize,
+        add_counts,
+        wself=False,
+        max_distance=5,
+        barcode_method=None,
+        barcode_size=12,
     ):
         super().__init__()
-        # Parameters
+        # Validity checks
+        assert barcode_method in [
+            None,
+            "separate",
+            "separate.pretrained",
+            "combined",
+            "combined.pretrained",
+        ]
+        # Layers
+        if barcode_method is not None:
+            assert barcode_size % 2 == 0
+            in_channels += barcode_size // 2
+            if "separate" in barcode_method:
+                self.seq_barcode_model = DistanceNet(1, 32, barcode_size // 2)
+                self.cart_barcode_model = DistanceNet(1, 32, barcode_size // 2)
+            elif "combined" in barcode_method:
+                self.seq_cart_barcode_model = DistanceNet(2, 64, barcode_size)
+            else:
+                raise Exception
+        elif wself:
+            in_channels += int(wself)
+
+        if add_counts:
+            out_channels = out_channels - 1
+
+        self.spatial_conv = nn.Conv1d(
+            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=bias
+        )
+
+        # Save parameters
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.normalize = normalize
         self.add_counts = add_counts
         self.wself = wself
         self.max_distance = max_distance
-        # Layers
-        if add_counts:
-            out_channels = out_channels - 1
-        self.spatial_conv = nn.Conv1d(
-            in_channels + int(wself), out_channels, kernel_size=2, stride=2, padding=0, bias=bias
-        )
+        self.barcode_method = barcode_method
+        self.barcode_size = barcode_size
 
     def forward(self, x: torch.Tensor, adj: torch.sparse.FloatTensor):
         if self.max_distance:
             adj = cut_to_max_distance(adj, self.max_distance)
 
-        if self.wself:
+        if self.barcode_method is not None:
+            x = self._conv_wbarcode(x, adj)
+        elif self.wself:
             x = self._conv_wself(x, adj)
         else:
             x = self._conv(x, adj)
+
         adj_sum = adj.to_dense().sum(dim=0)
         if self.normalize:
             adj_sum_clamped = adj_sum.clone()
@@ -81,47 +201,64 @@ class PairwiseConv(nn.Module):
         x = x @ adj_pw[::2, :]
         return x
 
-    def _conv_fancy(self, x, adj):
-        # Note: Can't store 0 distances inside sparse tensors.
-        # Maybe best strategy to add eye in the end on the fly.
-        distances = adj.data
+    def _conv_wbarcode(self, x, adj):
         adj_pw = expand_adjacency_tensor(adj).to_dense()
-        ...
+        seq_length = x.size(2)
+        self_interactions = get_self_interactions(seq_length)
+        adj_pw_wself = torch.cat([self_interactions, adj_pw], 0)
+        x = x @ adj_pw_wself.transpose(0, 1)
+
+        # Seq distances
+        seq_distances = torch.cat(
+            [
+                torch.tensor([0] * seq_length, dtype=torch.float64),
+                (adj._indices()[0, :] - adj._indices()[1, :]).abs().to(torch.float64),
+            ]
+        )
+        seq_distances_norm = normalize_seq_distances(seq_distances)
+        seq_distances_tensor = seq_distances_norm.to(torch.float32).unsqueeze(1)
+
+        # Cart distances
+        cart_distances = torch.cat(
+            [torch.tensor([0.0] * seq_length, dtype=torch.float32), adj._values().to(torch.float32)]
+        )
+        cart_distances_norm = normalize_cart_distances(cart_distances)
+        cart_distances_tensor = cart_distances_norm.to(torch.float32).unsqueeze(1)
+
+        # Barcode
+        if "separate" in self.barcode_method:
+            seq_barcode = self.seq_barcode_model(seq_distances_tensor)
+            cart_barcode = self.cart_barcode_model(cart_distances_tensor)
+            barcode = torch.cat([seq_barcode, cart_barcode], 1)
+        elif "combined" in self.barcode_method:
+            seq_conv_distances_tensor = torch.cat([seq_distances_tensor, cart_distances_tensor], 1)
+            barcode = self.seq_conv_distance_model(seq_conv_distances_tensor)
+        else:
+            raise Exception
+
+        # Add barcode to pairwise interaction tensor
+        barcode = barcode.reshape(-1, self.barcode_size // 2)
+        barcode_expanded = barcode.transpose(0, 1).expand(x.size(0), 6, -1)
+        x = torch.cat([barcode_expanded, x], 1)
+
+        # Create pairwise contact map
+        x = self.spatial_conv(x)
+        x = x @ adj_pw_wself[::2, :]
+
+        return x
 
     def _conv_wself(self, x, adj):
         adj_pw = expand_adjacency_tensor(adj).to_dense()
-
         seq_length = x.size(2)
-
-        self_interactions = torch.sparse_coo_tensor(
-            torch.stack(
-                [
-                    torch.arange(seq_length * 2, dtype=torch.long),
-                    torch.tensor(
-                        [i for ii in [[i, i] for i in range(seq_length)] for i in ii],
-                        dtype=torch.long,
-                    ),
-                ]
-            ),
-            torch.ones(seq_length * 2, dtype=torch.float),
-            size=(seq_length * 2, seq_length),
-            dtype=torch.float,
-        ).to_dense()
-
+        self_interactions = get_self_interactions(seq_length)
         adj_pw_wself = torch.cat([self_interactions, adj_pw], 0)
-
         x = x @ adj_pw_wself.transpose(0, 1)
-
         barcode = torch.tensor(
             [1, 0] * seq_length + [0, 1] * (adj_pw.size(0) // 2), dtype=torch.float
         )
-
-        x = torch.cat([x, barcode.expand(x.size(0), 1, -1)], 1)
-
+        x = torch.cat([barcode.expand(x.size(0), 1, -1), x], 1)
         x = self.spatial_conv(x)
-
         x = x @ adj_pw_wself[::2, :]
-
         return x
 
 
@@ -260,7 +397,13 @@ class Custom(nn.Module):
 
         self.layer_1 = SequentialMod(
             PairwiseConv(
-                input_size, output_size, normalize=True, add_counts=True, bias=False, wself=True
+                input_size,
+                output_size,
+                normalize=True,
+                add_counts=True,
+                bias=False,
+                wself=True,
+                barcode_method="separate",
             ),
             nn.ReLU(),
         )
