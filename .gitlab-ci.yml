@@ -249,9 +249,9 @@ add_adjacency_distances-validation_dataset:
   stage: notebooks-03
   variables:
     NOTEBOOK_NAME: "03-add_adjacency_distances"
-    SBATCH_EXTRA_ARGS: "--array=1-10 --time 24:00:00 "
+    SBATCH_EXTRA_ARGS: "--array=4-4 --time 24:00:00 "
     ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/adjacency-net-v2/master/validation_dataset"
-    # ORIGINAL_ARRAY_TASK_COUNT: "10"
+    ORIGINAL_ARRAY_TASK_COUNT: "10"
   only:
     variables:
       - $JOBS_TO_RUN =~ /\A(.*,\s?)*add_adjacency_distances-validation_dataset(,\s?.*)*\z/i
