@@ -416,7 +416,7 @@ class Custom(nn.Module):
                 add_counts=True,
                 bias=False,
                 wself=True,
-                barcode_method="separate.pretrained",
+                barcode_method="combined.pretrained",
             ),
             nn.ReLU(),
         )
