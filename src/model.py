@@ -150,8 +150,21 @@ class PairwiseConv(nn.Module):
             if "separate" in barcode_method:
                 self.seq_barcode_model = DistanceNet(1, 32, barcode_size // 2)
                 self.cart_barcode_model = DistanceNet(1, 32, barcode_size // 2)
+                if "pretrained" in barcode_method:
+                    logger.info("Loading pretrained separate barcode model...")
+                    self.seq_barcode_model.load_state_dict(
+                        torch.load(MODEL_DATA_PATH.joinpath("seq_barcode_model.state"))
+                    )
+                    self.cart_barcode_model.load_state_dict(
+                        torch.load(MODEL_DATA_PATH.joinpath("cart_barcode_model.state"))
+                    )
             elif "combined" in barcode_method:
                 self.seq_cart_barcode_model = DistanceNet(2, 64, barcode_size)
+                if "pretrained" in barcode_method:
+                    logger.info("Loading pretrained combined barcode model...")
+                    self.seq_cart_barcode_model.load_state_dict(
+                        torch.load(MODEL_DATA_PATH.joinpath("seq_cart_barcode_model.state"))
+                    )
             else:
                 raise Exception
         elif wself:
@@ -403,7 +416,7 @@ class Custom(nn.Module):
                 add_counts=True,
                 bias=False,
                 wself=True,
-                barcode_method="combined",
+                barcode_method="separate.pretrained",
             ),
             nn.ReLU(),
         )
