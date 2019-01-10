@@ -271,6 +271,7 @@ class PairwiseConv(nn.Module):
         )
         x = torch.cat([barcode.expand(x.size(0), 1, -1), x], 1)
         x = self.spatial_conv(x)
+        # TODO: Replace this with maxpooling equivalent
         x = x @ adj_pw_wself[::2, :]
         return x
 
@@ -373,6 +374,20 @@ class FinalLayer(nn.Module):
         return x
 
 
+class RepeatPad(nn.Module):
+    def __init__(self, padding):
+        super().__init__()
+        self.padding = padding
+
+    def forward(self, x):
+        if self.padding == 0:
+            return x
+        else:
+            x_pad = x[:, :, : self.padding]
+            x = torch.cat([x, x_pad], 2)
+            return x
+
+
 class Custom(nn.Module):
     def __init__(self) -> None:
         super().__init__()
@@ -439,6 +454,7 @@ class Custom(nn.Module):
         #     FinalLayer(hidden_size, output_size, bias=True),
         # )
         self.layer_n = nn.Sequential(
+            RepeatPad(self.max_pool_kernel_size - 1),
             nn.MaxPool1d(self.max_pool_kernel_size),
             nn.Conv1d(input_size, output_size, kernel_size=1, bias=True),
         )
