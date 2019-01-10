@@ -391,7 +391,7 @@ class Custom(nn.Module):
         self.bias = False
         self.dropout_probability = 0.5
         self.passthrough_fraction = 1 / 3
-        self.max_pool_kernel_size = 6
+        self.max_pool_kernel_size = 12
 
         # *** Layers ***
         self._configure_single_pairwise()
