@@ -22,6 +22,9 @@ sed "s|class Custom(nn.Module):|class DCN_${CI_COMMIT_SHA}(nn.Module):|" ./src/m
   sed "s|pagnn.models.dcn.Custom = Custom|pagnn.models.dcn.DCN_${CI_COMMIT_SHA} = DCN_${CI_COMMIT_SHA}|" > \
   "${OUTPUT_DIR}/model.py"
 
+mkdir -p "${OUTPUT_DIR}/model_data"
+rsync -av "./src/model_data/" "${OUTPUT_DIR}/model_data/"
+
 
 python -m pagnn.training.dcn \
   --root-path "${OUTPUT_DIR}" \
