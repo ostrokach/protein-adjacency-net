@@ -454,9 +454,17 @@ class Custom(nn.Module):
         #     FinalLayer(hidden_size, output_size, bias=True),
         # )
         self.layer_n = nn.Sequential(
+            nn.Conv1d(
+                input_size,
+                hidden_size,
+                kernel_size=self.kernel_size,
+                stride=self.stride,
+                padding=self.padding,
+                bias=True,
+            ),
             RepeatPad(self.max_pool_kernel_size - 1),
             nn.MaxPool1d(self.max_pool_kernel_size),
-            nn.Conv1d(input_size, output_size, kernel_size=1, bias=True),
+            nn.Conv1d(hidden_size, output_size, kernel_size=1, bias=True),
         )
 
     def _forward_single_pairwise(self, seq, adjs):
