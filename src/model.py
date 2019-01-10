@@ -391,6 +391,7 @@ class Custom(nn.Module):
         self.bias = False
         self.dropout_probability = 0.5
         self.passthrough_fraction = 1 / 3
+        self.max_pool_kernel_size = 1
 
         # *** Layers ***
         self._configure_single_pairwise()
@@ -426,16 +427,20 @@ class Custom(nn.Module):
         hidden_size = int(input_size * 2)
         output_size = 1
 
+        # self.layer_n = nn.Sequential(
+        #     nn.Conv1d(
+        #         input_size,
+        #         hidden_size,
+        #         kernel_size=self.kernel_size,
+        #         stride=self.stride,
+        #         padding=self.padding,
+        #         bias=True,
+        #     ),
+        #     FinalLayer(hidden_size, output_size, bias=True),
+        # )
         self.layer_n = nn.Sequential(
-            nn.Conv1d(
-                input_size,
-                hidden_size,
-                kernel_size=self.kernel_size,
-                stride=self.stride,
-                padding=self.padding,
-                bias=True,
-            ),
-            FinalLayer(hidden_size, output_size, bias=True),
+            nn.MaxPool1d(self.max_pool_kernel_size),
+            nn.Conv1d(input_size, output_size, kernel_size=1, bias=True),
         )
 
     def _forward_single_pairwise(self, seq, adjs):
