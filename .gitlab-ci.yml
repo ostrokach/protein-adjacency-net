@@ -33,11 +33,11 @@ variables:
 
 .cluster-tags: &cluster-tags
   tags:
-    - niagara-ssh
+    - cedar-ssh
 
 .cluster-envs: &cluster-envs
   SBATCH_SCRIPT: "./scripts/qsub.sh"
-  <<: *niagara-envs
+  <<: *cedar-envs
 
 # === Basic GitLab runner tests ===
 
