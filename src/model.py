@@ -257,8 +257,9 @@ class PairwiseConv(nn.Module):
         # Create pairwise contact map
         x = self.spatial_conv(x)
         reverse_map = adj_pw_wself[0::2, :] + adj_pw_wself[1::2, :]
-        x = x @ reverse_map
-
+        # x = x @ reverse_map
+        x = torch.sum(x[:, :, :, None] * reverse_map[None, :, :], dim=2)
+        # assert torch.isclose(x_out_1, x_out_2, rtol=1e-5, atol=1e-6).all().item()
         return x
 
     def _conv_wself(self, x, adj):
