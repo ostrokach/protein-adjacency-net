@@ -256,7 +256,8 @@ class PairwiseConv(nn.Module):
 
         # Create pairwise contact map
         x = self.spatial_conv(x)
-        x = x @ adj_pw_wself[::2, :]
+        reverse_map = adj_pw_wself[0::2, :] + adj_pw_wself[1::2, :]
+        x = x @ reverse_map
 
         return x
 
