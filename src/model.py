@@ -129,8 +129,8 @@ class PairwiseConv(nn.Module):
         bias,
         normalize,
         add_counts,
+        max_distance,
         wself=False,
-        max_distance=5,
         barcode_method=None,
         barcode_size=12,
     ):
@@ -437,6 +437,7 @@ class Custom(nn.Module):
                 bias=False,
                 wself=True,
                 barcode_method="combined.pretrained",
+                max_distance=None,
             ),
             nn.ReLU(),
         )
