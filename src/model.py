@@ -433,7 +433,7 @@ class Custom(nn.Module):
                 input_size,
                 output_size,
                 normalize=False,
-                add_counts=True,
+                add_counts=False,
                 bias=False,
                 wself=True,
                 barcode_method="combined.pretrained",
