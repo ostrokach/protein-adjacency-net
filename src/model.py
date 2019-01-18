@@ -432,7 +432,7 @@ class Custom(nn.Module):
             PairwiseConv(
                 input_size,
                 output_size,
-                normalize=True,
+                normalize=False,
                 add_counts=True,
                 bias=False,
                 wself=True,
