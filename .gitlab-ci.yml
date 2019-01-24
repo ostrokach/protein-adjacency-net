@@ -237,7 +237,7 @@ add_adjacency_distances-training_dataset:
     NOTEBOOK_NAME: "03-add_adjacency_distances"
     # SBATCH_EXTRA_ARGS: "--array=15-100 --time 24:00:00 "
     SBATCH_EXTRA_ARGS: "--array=28,30,42,51,53,81,82,84,88 --time 72:00:00 "
-    SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem 257000M"
+    SBATCH_ARGS: "--account=rrg-pmkim --exclusive --mem 250000M"
     ORIGINAL_ARRAY_TASK_COUNT: "100"
     ADJACENCY_MATRIX_PARQUET_PATH: "~/datapkg_output_dir/adjacency-net-v2/master/training_dataset/adjacency_matrix.parquet"
   only:
