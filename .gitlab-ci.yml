@@ -82,6 +82,7 @@ create_conda_environment:
   script:
     - conda env update -q -n ${CONDA_ENVIRONMENT_NAME} -f environment-lock.yaml
     - source activate ${CONDA_ENVIRONMENT_NAME}
+    - jupyter labextension install @jupyterlab/toc
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-core.git@v0.1.6
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/tkpod/tkpod-modeller.git@v0.1.5
     - pip install -U git+https://gitlab-ci-token:${CI_JOB_TOKEN}@gitlab.com/kimlab/pagnn.git@f5545393f82d098dd8652a65baec467b62e3d696
