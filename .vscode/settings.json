@@ -8,5 +8,10 @@
         "**/.git/subtree-cache/**": true,
         "**/node_modules/*/**": true,
         "**/notebooks/*/**": true
+    },
+    "files.associations": {
+        "environment.txt": "gitignore",
+        "environment.lock": "gitignore",
+        "requirements.txt": "gitignore"
     }
 }
