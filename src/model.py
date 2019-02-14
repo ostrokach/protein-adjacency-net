@@ -437,7 +437,7 @@ class Custom(nn.Module):
                 bias=False,
                 wself=True,
                 barcode_method="combined.pretrained",
-                max_distance=5,
+                max_distance=4,
             ),
             nn.ReLU(),
         )
