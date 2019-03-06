@@ -80,8 +80,7 @@ create_conda_environment:
   stage: init
   <<: *cluster-tags
   script:
-    - conda create -y -q -n ${CONDA_ENVIRONMENT_NAME} --file environment.lock ||
-      conda install -y -q -n ${CONDA_ENVIRONMENT_NAME} --file environment.lock
+    - conda create -y -q -n ${CONDA_ENVIRONMENT_NAME} --file environment.lock
     - source activate ${CONDA_ENVIRONMENT_NAME}
     - pip install -U -r requirements.txt
     - jupyter labextension install @jupyterlab/toc
