@@ -36,6 +36,7 @@ seaborn
 findspark
 # Machine Learning
 pytorch::pytorch >=1.0.0
+pytorch::torchvision
 # KimLab
 kmbio >=2.0.13
 kmtools >=0.0.36
