@@ -38,8 +38,8 @@ def dataset_to_datavar(
     # ds = pad_edges(ds, offset=offset)
     seqs = push_seqs(ds.seqs)
     adj = ds.adjs[0]
-    adj = remove_eye_sparse(adj, remove_diags)
-    adj = add_eye_sparse(adj, add_diags)
+    # adj = remove_eye_sparse(adj, remove_diags)
+    # adj = add_eye_sparse(adj, add_diags)
     if n_convs <= 1:
         adj_pool = [adj]
     else:
