@@ -80,12 +80,12 @@ def expand_adjacency_tensor(adj: torch.sparse.FloatTensor) -> torch.sparse.Float
 
     row_new = torch.cat(
         [
-            torch.arange(0, num_interactions, 2, dtype=torch.long),
-            torch.arange(1, max(1, num_interactions), 2, dtype=torch.long),
+            torch.arange(0, num_interactions, 2, dtype=torch.long, device=settings.device),
+            torch.arange(1, max(1, num_interactions), 2, dtype=torch.long, device=settings.device),
         ]
     )
     col_new = torch.cat([row, col])
-    data_new = torch.ones(num_interactions, dtype=torch.float)
+    data_new = torch.ones(num_interactions, dtype=torch.float, device=settings.device)
     size_new = (num_interactions, adj.shape[0])  # number of interactions x sequence length
     adj_new = torch.sparse_coo_tensor(torch.stack([row_new, col_new]), data_new, size=size_new)
     return adj_new
