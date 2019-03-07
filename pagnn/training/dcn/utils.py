@@ -9,7 +9,7 @@ import numpy as np
 import torch.multiprocessing as mp
 
 from pagnn import settings
-from pagnn.dataset import dataset_to_gan, row_to_dataset
+from pagnn.dataset import dataset_to_gan, get_offset, row_to_dataset
 from pagnn.io import gen_datarows_shuffled, iter_datarows_shuffled
 from pagnn.types import DataSetGAN
 from pagnn.utils import (
@@ -32,9 +32,13 @@ def prepare_dataset(positive_rowgen, negative_dsgen, args=None, random_state=Non
             pos_row = pos_row._replace(target=pc_identity_to_structure_quality(pos_row.target))
         else:
             pos_row = pos_row._replace(target=1)
-        pos_ds = row_to_dataset(
-            pos_row, permute=args and args.permute_positives, random_state=random_state
-        )
+        if args and args.permute_positives:
+            seq_length = len(pos_row.sequence.replace("-", ""))
+            assert random_state is not None
+            permute_amount = get_offset(seq_length, random_state)
+            pos_ds = row_to_dataset(pos_row, permute_amount=permute_amount)
+        else:
+            pos_ds = row_to_dataset(pos_row)
         pos_dsg = dataset_to_gan(pos_ds)
         if args and not dataset_matches_spec(pos_dsg, args):
             continue

@@ -15,19 +15,13 @@ from pagnn.utils import permute_adjacency, permute_sequence, seq_to_array
 MAX_TRIES = 256
 
 
-def row_to_dataset(
-    row: DataRow,
-    target: Optional[float] = None,
-    permute=False,
-    random_state: Optional[np.random.RandomState] = None,
-) -> DataSet:
+def row_to_dataset(row: DataRow, target: Optional[float] = None, *, permute_offset=None) -> DataSet:
     """Convert a :any:`DataRow` into a :any:`DataSet`.
 
     Args:
         row: A row of data.
         target: The target associated with the row of data.
-        permute: Whether or not the sequence and adjacency should be permutted by a random amount.
-        random_state: RandomState for generating permutations.
+        permute_offset: Amount by which to permute the protein sequence and adjacency matrix.
 
     Returns:
         A DataSet containing the provided data.
@@ -35,14 +29,11 @@ def row_to_dataset(
     seq = seq_to_array(row.sequence.replace("-", "").encode("ascii"))
     adj = utils.get_adjacency(seq.shape[1], row.adjacency_idx_1, row.adjacency_idx_2, row.distances)
     target = target if target is not None else row.target
-    if permute:
-        assert random_state is not None
-        seq_length = seq.size(1)
-        offset = get_offset(seq_length, random_state)
+    if permute_offset is not None:
         seq = torch.sparse_coo_tensor(
-            *permute_sequence(seq._indices(), seq._values(), offset), size=seq.size()
+            *permute_sequence(seq._indices(), seq._values(), permute_offset), size=seq.size()
         )
-        adj = permute_adjacency(adj, offset)
+        adj = permute_adjacency(adj, permute_offset)
     known_fields = {
         "Index",
         "sequence",
