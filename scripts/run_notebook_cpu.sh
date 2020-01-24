@@ -14,9 +14,7 @@
 unset XDG_RUNTIME_DIR
 
 mkdir ${SLURM_TMPDIR}/env
-pushd ~/datapkg_input_dir/conda-envs/
-tar -xzf defaults-v008.tar.gz -C ${SLURM_TMPDIR}/env
-popd
+tar -xzf ~/datapkg_data_dir/conda-envs/defaults/defaults-v22.tar.gz -C ${SLURM_TMPDIR}/env
 
 pushd /dev/shm
 ln -s ${SLURM_TMPDIR}/env
@@ -25,6 +23,10 @@ popd
 source /dev/shm/env/bin/activate
 conda-unpack
 # source /dev/shm/env/bin/deactivate
+
+pushd ~/workspace/proteinsolver
+python -m pip install -e . --no-deps --no-index --no-cache-dir --disable-pip-version-check --no-use-pep517
+popd
 
 # conda activate base
 # jupyter lab --ip 0.0.0.0 --no-browser
