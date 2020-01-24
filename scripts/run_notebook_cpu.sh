@@ -1,5 +1,4 @@
 #!/bin/bash
-#SBATCH --array=1-100
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=40
@@ -9,7 +8,7 @@
 #SBATCH --export=ALL
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-user=alexey.strokach@kimlab.org
-#SBATCH --output=/lustre04/scratch/strokach/run-notebook-cpu-%N-%j.log
+#SBATCH --output=/scratch/p/pmkim/strokach/tmp/log/run-notebook-cpu-%N-%j.log
 
 unset XDG_RUNTIME_DIR
 
@@ -24,9 +23,9 @@ source /dev/shm/env/bin/activate
 conda-unpack
 # source /dev/shm/env/bin/deactivate
 
-pushd ~/workspace/proteinsolver
-python -m pip install -e . --no-deps --no-index --no-cache-dir --disable-pip-version-check --no-use-pep517
-popd
+# pushd ~/workspace/proteinsolver
+# python -m pip install -e . --no-deps --no-index --no-cache-dir --disable-pip-version-check --no-use-pep517
+# popd
 
 # conda activate base
 # jupyter lab --ip 0.0.0.0 --no-browser
