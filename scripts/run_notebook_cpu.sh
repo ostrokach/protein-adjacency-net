@@ -35,7 +35,7 @@ NOTEBOOK_STEM=$(basename ${NOTEBOOK_PATH%%.ipynb})
 NOTEBOOK_DIR=$(dirname ${NOTEBOOK_PATH})
 OUTPUT_TAG="${SLURM_JOB_NODELIST}-${SLURM_JOB_ID}-${SLURM_ARRAY_JOB_ID}-${SLURM_ARRAY_TASK_ID}"
 
-mkdir -p "${NOTEBOOK_DIR}/${NOTEBOOK_STEM}"
-papermill --no-progress-bar --log-output --kernel python3 "${NOTEBOOK_PATH}" "${NOTEBOOK_DIR}/${NOTEBOOK_STEM}-${OUTPUT_TAG}.ipynb"
+mkdir -p "${NOTEBOOK_DIR}/${NOTEBOOK_STEM}/logs"
+papermill --no-progress-bar --log-output --kernel python3 "${NOTEBOOK_PATH}" "${NOTEBOOK_DIR}/${NOTEBOOK_STEM}/logs/${NOTEBOOK_STEM}-${OUTPUT_TAG}.ipynb"
 
 # sleep 72h
