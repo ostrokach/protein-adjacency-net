@@ -15,7 +15,7 @@ from .distances_and_orientations import (
 )
 
 
-def get_interaction_dataset(structure, bioassembly_id=False, r_cutoff=5):
+def get_interaction_dataset(structure, r_cutoff=5):
     """Copied from "datapkg/pdb-analysis/notebooks/extract_pdb_interactions.ipynb"
     """
     interactions = structure_tools.get_interactions(structure, r_cutoff=r_cutoff, interchain=False)
