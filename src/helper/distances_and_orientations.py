@@ -155,9 +155,9 @@ def residue_df_to_row(residue_df):
         if isinstance(values.dtype, pd.Int64Dtype):
             ar = values._data.astype(object)
             ar[values._mask] = None
-            row_data[c] = pa.array([ar.tolist()])
+            row_data[c] = [pa.array(ar.tolist())]
         else:
-            row_data[c] = pa.array([values.tolist()])
+            row_data[c] = [pa.array(values.tolist())]
     return row_data
 
 
@@ -166,11 +166,11 @@ def residue_pairs_df_to_row(residue_pairs_df):
     for c in residue_pairs_df.columns:
         values = residue_pairs_df[c].values
         if isinstance(values[0], list):
-            row_data[c] = pa.array([[l for lst in values for l in lst]])
+            row_data[c] = [pa.array([l for lst in values for l in lst])]
         elif isinstance(values.dtype, pd.Int64Dtype):
             ar = values._data.astype(object)
             ar[values._mask] = None
-            row_data[c] = pa.array([ar.tolist()])
+            row_data[c] = [pa.array(ar.tolist())]
         else:
-            row_data[c] = pa.array([values.tolist()])
+            row_data[c] = [pa.array(values.tolist())]
     return row_data
