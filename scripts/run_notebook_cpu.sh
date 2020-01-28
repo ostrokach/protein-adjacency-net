@@ -13,7 +13,7 @@
 unset XDG_RUNTIME_DIR
 
 mkdir ${SLURM_TMPDIR}/env
-tar -xzf ~/datapkg_data_dir/conda-envs/defaults/defaults-v22.tar.gz -C ${SLURM_TMPDIR}/env
+tar -xzf ~/datapkg_data_dir/conda-envs/defaults/defaults-v23.tar.gz -C ${SLURM_TMPDIR}/env
 
 pushd /dev/shm
 ln -s ${SLURM_TMPDIR}/env
