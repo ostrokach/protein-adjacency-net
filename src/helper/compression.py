@@ -1,32 +1,42 @@
 import io
-from pathlib import Path
+from typing import Any, List, Mapping, Union
 
 import brotli
 import pyarrow as pa
 
 
-def downcast_and_compress(data):
+def downcast_and_compress(
+    data: Mapping[str, List[Any]]
+) -> Mapping[str, List[Union[int, str, float, bytes]]]:
     data_new = {}
     for key, value in data.items():
         assert len(value) == 1
-        if isinstance(value, pa.Array):
-            value = value.to_pylist()
+        value_new: Union[int, str, float, bytes]
         if isinstance(value[0], (int, str, float)):
             value_new = value[0]
         else:
-            assert isinstance(value[0], (list, tuple))
-            array = pa.array(value[0])
-            if array.type in (pa.float64(),):
-                array = array.cast(pa.float32())
-            elif array.type in (pa.int64(),):
-                array = array.cast(pa.uint16())
-            elif array.type in (pa.string(), pa.bool_()):
-                pass
+            if isinstance(value[0], pa.Array):
+                array = value[0]
+            elif isinstance(value[0], (list, tuple)):
+                array = pa.array(value[0])
             else:
-                raise Exception(f"Did not convert column '{key}'.")
+                raise Exception(f"Unsupported data type: '{type(value[0])}'.")
+            array = _downcast_array(array)
             value_new = compress(array)
         data_new[key] = [value_new]
     return data_new
+
+
+def _downcast_array(array: pa.Array) -> pa.Array:
+    if array.type in (pa.float64(),):
+        array = array.cast(pa.float32())
+    elif array.type in (pa.int64(),):
+        array = array.cast(pa.uint16())
+    elif array.type in (pa.string(), pa.bool_()):
+        pass
+    else:
+        raise Exception(f"Did not downcast array with type '{array.type}'.")
+    return array
 
 
 def compress(array: pa.Array) -> bytes:
