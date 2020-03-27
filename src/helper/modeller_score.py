@@ -17,7 +17,9 @@ def get_modeller_scores(row):
     parser = kmbio.PDB.PDBParser()
     structure = parser.get_structure(fh, bioassembly_id=False)
     chain = structure[0][row.chain_id]
-    sequence = structure_tools.get_chain_sequence(chain)
+    sequence = structure_tools.get_chain_sequence(
+        chain, if_unknown="replace", unknown_residue_marker=""
+    )
 
     target = structure_tools.DomainTarget(0, row.chain_id, sequence, 1, len(sequence), sequence)
     modeller_data = Modeller.build(structure, bioassembly_id=False, use_strict_alignment=True)
@@ -35,7 +37,9 @@ def get_pdb_interactions(row, pdb_ffindex_path: Path):
         fin.seek(0)
         structure_dict = kmbio.PDB.mmcif2dict(fin)
 
-    chain_sequence = structure_tools.get_chain_sequence(structure[0][chain_id])
+    chain_sequence = structure_tools.get_chain_sequence(
+        structure[0][chain_id], if_unknown="replace", unknown_residue_marker=""
+    )
 
     if isinstance(structure_dict["_entity_poly.pdbx_strand_id"], str):
         construct_sequence = structure_dict["_entity_poly.pdbx_seq_one_letter_code_can"]

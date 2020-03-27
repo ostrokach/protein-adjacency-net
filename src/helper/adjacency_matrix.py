@@ -74,7 +74,9 @@ def get_adjacency_with_distances_and_orientations(
     url = f"{structure_url_prefix}{row.structure_id.lower()}.cif.gz"
     structure = PDB.load(url)
     # Template sequence
-    chain_sequence = structure_tools.get_chain_sequence(structure[row.model_id][row.chain_id])
+    chain_sequence = structure_tools.get_chain_sequence(
+        structure[row.model_id][row.chain_id], if_unknown="replace"
+    )
     template_sequence = chain_sequence[int(row.s_start - 1) : int(row.s_end)]
     assert len(template_sequence) == len(row.a2b)
     # Target sequence
@@ -83,7 +85,7 @@ def get_adjacency_with_distances_and_orientations(
     # Extract domain
     dd = structure_tools.DomainDef(row.model_id, row.chain_id, int(row.s_start), int(row.s_end))
     domain = structure_tools.extract_domain(structure, [dd])
-    assert template_sequence == structure_tools.get_chain_sequence(domain)
+    assert template_sequence == structure_tools.get_chain_sequence(domain, if_unknown="replace")
     assert template_sequence == row.sseq.replace("-", "")
 
     # === Generate mdtraj trajectory ===
@@ -151,7 +153,9 @@ def get_adjacency_with_distances(
     url = f"{structure_url_prefix}{row.structure_id.lower()}.cif.gz"
     structure = PDB.load(url)
     # Template sequence
-    chain_sequence = structure_tools.get_chain_sequence(structure[row.model_id][row.chain_id])
+    chain_sequence = structure_tools.get_chain_sequence(
+        structure[row.model_id][row.chain_id], if_unknown="replace"
+    )
     template_sequence = chain_sequence[int(row.s_start - 1) : int(row.s_end)]
     assert len(template_sequence) == len(row.a2b)
     # Target sequence
@@ -160,7 +164,7 @@ def get_adjacency_with_distances(
     # Extract domain
     dd = structure_tools.DomainDef(row.model_id, row.chain_id, int(row.s_start), int(row.s_end))
     domain = structure_tools.extract_domain(structure, [dd])
-    assert template_sequence == structure_tools.get_chain_sequence(domain)
+    assert template_sequence == structure_tools.get_chain_sequence(domain, if_unknown="replace")
     assert template_sequence == row.sseq.replace("-", "")
     # Get interactions
     distances_core = structure_tools.get_distances(
