@@ -68,17 +68,14 @@ def construct_residue_pairs_df(traj, r_cutoff=12.0):
     structure_df = structure_tools.mdtraj_to_dataframe(traj)
 
     distances_all_df = structure_tools.get_distances(structure_df, r_cutoff, groupby="residue")
-    distances_all_df["distance"] = distances_all_df["distance"] * 10
     distances_all_df = structure_tools.complete_distances(distances_all_df)
 
     distances_backbone_df = structure_tools.get_distances(
         structure_df, r_cutoff, groupby="residue-backbone"
     )
-    distances_backbone_df["distance"] = distances_backbone_df["distance"] * 10
     distances_backbone_df = structure_tools.complete_distances(distances_backbone_df)
 
     distances_ca_df = structure_tools.get_distances(structure_df, r_cutoff, groupby="residue-ca")
-    distances_ca_df["distance"] = distances_ca_df["distance"] * 10
     distances_ca_df = structure_tools.complete_distances(distances_ca_df)
 
     hydrogen_bonds_df = structure_tools.protein_structure_analysis.calculate_hydrogen_bonds(
