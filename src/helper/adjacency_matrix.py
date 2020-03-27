@@ -36,7 +36,9 @@ def get_interaction_dataset_wdistances(structure_file, model_id, chain_id, r_cut
     num_residues = len(list(chain.residues))
     dd = structure_tools.DomainDef(model_id, chain_id, 1, num_residues)
     domain = structure_tools.extract_domain(structure, [dd])
-    distances_core = structure_tools.get_distances(domain, r_cutoff, 0, groupby="residue")
+    distances_core = structure_tools.get_distances(
+        domain.to_dataframe(), r_cutoff, groupby="residue"
+    )
     assert (distances_core["residue_idx_1"] <= distances_core["residue_idx_2"]).all()
     return domain, distances_core
 
