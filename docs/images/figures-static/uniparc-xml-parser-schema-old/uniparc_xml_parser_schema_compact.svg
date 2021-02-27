@@ -1,0 +1,461 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" id="v-5"><rect id="svg-background" width="100%" height="100%" fill="#F5F6F6"></rect><g id="v-6" class="viewport" transform="translate(-37 -135) scale(1 1)"><g id="j_42" model-id="e66e943d-64d8-4589-a354-97b528e1d03e" class="link joint-theme-default"><path class="connection" stroke="#d2d2dc" d="M 332 222 290 222" id="v-728" stroke-width="1" fill="none"></path><path class="marker-source" fill="white" stroke="#d2d2dc" d="M -5 0 L 5 5 M -5 5 L 5 5 M -5 10 L 5 5 M 5 5" id="v-729" stroke-width="1" transform="translate(336.99999999999994,227) scale(1,1) rotate(-180)"></path><path class="marker-target" fill="white" stroke="#d2d2dc" d="M 6 0 L 6 10 M 6 5 L 0 5 z" id="v-730" stroke-width="1" transform="translate(284.00000000000006,217) scale(1,1) rotate(0)"></path><g class="labels" id="v-732"></g></g><g id="j_43" model-id="6fa08c3f-9334-4812-bff9-a4f6a5f36032" class="link joint-theme-default"><path class="connection" stroke="#d2d2dc" d="M 800 247 685 247 S 675 247 675 247 L 675 247 S 675 246 665 246 L 546 246" id="v-742" stroke-width="1" fill="none"></path><path class="marker-source" fill="white" stroke="#d2d2dc" d="M -5 0 L 5 5 M -5 5 L 5 5 M -5 10 L 5 5 M 5 5" id="v-743" stroke-width="1" transform="translate(804.9999999999999,252) scale(1,1) rotate(-180)"></path><path class="marker-target" fill="white" stroke="#d2d2dc" d="M 6 0 L 6 10 M 6 5 L 0 5 z" id="v-744" stroke-width="1" transform="translate(540,241) scale(1,1) rotate(0)"></path><g class="labels" id="v-746"></g></g><g id="j_44" model-id="bfddbc4d-778e-4864-9255-e7d8c0113774" class="link joint-theme-default"><path class="connection" stroke="#d2d2dc" d="M 576 297 828 297 S 838 297 838 290 L 838 282" id="v-756" stroke-width="1" fill="none"></path><path class="marker-source" fill="white" stroke="#d2d2dc" d="M -5 0 L 5 5 M -5 5 L 5 5 M -5 10 L 5 5 M 5 5" id="v-757" stroke-width="1" transform="translate(571,292) scale(1,1) rotate(0)"></path><path class="marker-target" fill="white" stroke="#d2d2dc" d="M 6 0 L 6 10 M 6 5 L 0 5 z" id="v-758" stroke-width="1" transform="translate(843,276.00000000000006) scale(1,1) rotate(-270)"></path><g class="labels" id="v-760"></g></g><g id="j_45" model-id="49f951c3-9255-47e0-aff5-c4f727cd3b54" class="link joint-theme-default"><path class="connection" stroke="#d2d2dc" d="M 62 410 56 410 S 50 410 50 400 L 50 230 S 50 220 56 220 L 62 220" id="v-770" stroke-width="1" fill="none"></path><path class="marker-source" fill="white" stroke="#d2d2dc" d="M -5 0 L 5 5 M -5 5 L 5 5 M -5 10 L 5 5 M 5 5" id="v-771" stroke-width="1" transform="translate(66.99999999999994,415) scale(1,1) rotate(-180)"></path><path class="marker-target" fill="white" stroke="#d2d2dc" d="M 6 0 L 6 10 M 6 5 L 0 5 z" id="v-772" stroke-width="1" transform="translate(67.99999999999994,225) scale(1,1) rotate(-180)"></path><g class="labels" id="v-774"></g></g><g id="j_37" model-id="8a2f5f91-c9be-486e-a47e-29c99ee3d5fe" class="element basic newt joint-theme-default" magnet="false" fill="#ffffff" stroke="none" transform="translate(68,166)" font-family="Roboto,'Helvetica Neue', sans-serif"><g class="joint-table" onmousedown="QdbdJS.onTableMouseDown(this)" onmouseup="QdbdJS.onTableMouseUp(this)" id="v-629">
+          <rect x="0" y="0" width="216" height="38" class="joint-table-title" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(5)" fill="#005aa0" stroke="#005aa0"></rect>
+          <text x="14" y="24" text-anchor="start" class="joint-table-title-text" id="v-638" pointer-events="none" font-size="14px">Uniparc</text>
+          <g class="joint-table-rows">
+            
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(7)">
+          <rect x="0" y="38" class="joint-table-row" width="216" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="60" class="joint-field-text" id="v-639" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="60" text-anchor="start" class="joint-field-name pk" fill="#005aa0" font-weight="bold">
+              id
+            </tspan>
+            <tspan x="202" y="60" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          <path class="pk-key" transform="matrix(0.7, 0, 0, 0.7, 138, 47)" d="M7,14A2,2 0 0,1 5,12A2,2 0 0,1 7,10A2,2 0 0,1 9,12A2,2 0 0,1 7,14M12.65,10C11.83,7.67 9.61,6 7,6A6,6 0 0,0 1,12A6,6 0 0,0 7,18C9.61,18 11.83,16.33 12.65,14H17V18H21V14H23V10H12.65Z" fill="rgba(173,177,181,0.7)"></path>
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(8)">
+          <rect x="0" y="63" class="joint-table-row" width="216" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="85" class="joint-field-text" id="v-640" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="85" text-anchor="start" class="joint-field-name ">
+              sequence
+            </tspan>
+            <tspan x="202" y="85" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(9)">
+          <rect x="0" y="88" class="joint-table-row" width="216" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="110" class="joint-field-text" id="v-641" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="110" text-anchor="start" class="joint-field-name ">
+              sequence_length
+            </tspan>
+            <tspan x="202" y="110" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              u32
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(10)">
+          <rect x="0" y="113" class="joint-table-row" width="216" height="31" stroke="none"></rect>
+          
+          
+          <text x="0" y="135" class="joint-field-text" id="v-642" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="135" text-anchor="start" class="joint-field-name ">
+              sequence_checksum
+            </tspan>
+            <tspan x="202" y="135" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        <rect x="0" y="144" class="joint-table-row" width="216" height="6" stroke="none"></rect>
+        
+        </g>
+          </g>
+        </g></g><g id="j_38" model-id="b79fd301-c234-4314-af87-40e93de2ddd0" class="element basic newt joint-theme-default" magnet="false" fill="#ffffff" stroke="none" transform="translate(342,165)" font-family="Roboto,'Helvetica Neue', sans-serif"><g class="joint-table" onmousedown="QdbdJS.onTableMouseDown(this)" onmouseup="QdbdJS.onTableMouseUp(this)" id="v-644">
+          <rect x="0" y="0" width="198" height="38" class="joint-table-title" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(13)" fill="#005aa0" stroke="#005aa0"></rect>
+          <text x="14" y="24" text-anchor="start" class="joint-table-title-text" id="v-663" pointer-events="none" font-size="14px">UniparcXRef</text>
+          <g class="joint-table-rows">
+            
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(15)">
+          <rect x="0" y="38" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="60" class="joint-field-text" id="v-664" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="60" text-anchor="start" class="joint-field-name pk" fill="#005aa0" font-weight="bold">
+              uniparc_id
+            </tspan>
+            <tspan x="184" y="60" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          <path class="pk-key" transform="matrix(0.7, 0, 0, 0.7, 120, 47)" d="M7,14A2,2 0 0,1 5,12A2,2 0 0,1 7,10A2,2 0 0,1 9,12A2,2 0 0,1 7,14M12.65,10C11.83,7.67 9.61,6 7,6A6,6 0 0,0 1,12A6,6 0 0,0 7,18C9.61,18 11.83,16.33 12.65,14H17V18H21V14H23V10H12.65Z" fill="rgba(173,177,181,0.7)"></path>
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(16)">
+          <rect x="0" y="63" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="85" class="joint-field-text" id="v-665" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="85" text-anchor="start" class="joint-field-name pk" fill="#005aa0" font-weight="bold">
+              idx
+            </tspan>
+            <tspan x="184" y="85" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              u64
+            </tspan>
+          </text>
+          <path class="pk-key" transform="matrix(0.7, 0, 0, 0.7, 147, 72)" d="M7,14A2,2 0 0,1 5,12A2,2 0 0,1 7,10A2,2 0 0,1 9,12A2,2 0 0,1 7,14M12.65,10C11.83,7.67 9.61,6 7,6A6,6 0 0,0 1,12A6,6 0 0,0 7,18C9.61,18 11.83,16.33 12.65,14H17V18H21V14H23V10H12.65Z" fill="rgba(173,177,181,0.7)"></path>
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(17)">
+          <rect x="0" y="88" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="110" class="joint-field-text" id="v-666" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="110" text-anchor="start" class="joint-field-name ">
+              db_type
+            </tspan>
+            <tspan x="184" y="110" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(18)">
+          <rect x="0" y="113" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="135" class="joint-field-text" id="v-667" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="135" text-anchor="start" class="joint-field-name ">
+              db_id
+            </tspan>
+            <tspan x="184" y="135" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(19)">
+          <rect x="0" y="138" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="160" class="joint-field-text" id="v-668" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="160" text-anchor="start" class="joint-field-name ">
+              version_i
+            </tspan>
+            <tspan x="184" y="160" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(20)">
+          <rect x="0" y="163" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="185" class="joint-field-text" id="v-669" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="185" text-anchor="start" class="joint-field-name ">
+              active
+            </tspan>
+            <tspan x="184" y="185" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(21)">
+          <rect x="0" y="188" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="210" class="joint-field-text" id="v-670" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="210" text-anchor="start" class="joint-field-name ">
+              version
+            </tspan>
+            <tspan x="184" y="210" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(22)">
+          <rect x="0" y="213" class="joint-table-row" width="198" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="235" class="joint-field-text" id="v-671" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="235" text-anchor="start" class="joint-field-name ">
+              created
+            </tspan>
+            <tspan x="184" y="235" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(23)">
+          <rect x="0" y="238" class="joint-table-row" width="198" height="31" stroke="none"></rect>
+          
+          
+          <text x="0" y="260" class="joint-field-text" id="v-672" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="260" text-anchor="start" class="joint-field-name ">
+              last
+            </tspan>
+            <tspan x="184" y="260" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        <rect x="0" y="269" class="joint-table-row" width="198" height="6" stroke="none"></rect>
+        
+        </g>
+          </g>
+        </g></g><g id="j_39" model-id="bbf51441-60e9-4bbe-a5d7-18c6f619c1fa" class="element basic newt joint-theme-default" magnet="false" fill="#ffffff" stroke="none" transform="translate(558,166)" font-family="Roboto,'Helvetica Neue', sans-serif"><g class="joint-table" onmousedown="QdbdJS.onTableMouseDown(this)" onmouseup="QdbdJS.onTableMouseUp(this)" id="v-674">
+          <rect x="0" y="0" width="260" height="38" class="joint-table-title" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(26)" fill="#005aa0" stroke="#005aa0"></rect>
+          <text x="14" y="24" text-anchor="start" class="joint-table-title-text" id="v-683" pointer-events="none" font-size="14px">UniparcXRef2Property</text>
+          <g class="joint-table-rows">
+            
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(28)">
+          <rect x="0" y="38" class="joint-table-row" width="260" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="60" class="joint-field-text" id="v-684" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="60" text-anchor="start" class="joint-field-name ">
+              uniparc_id
+            </tspan>
+            <tspan x="246" y="60" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(29)">
+          <rect x="0" y="63" class="joint-table-row" width="260" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="85" class="joint-field-text" id="v-685" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="85" text-anchor="start" class="joint-field-name fk" fill="#222" font-weight="bold">
+              uniparc_xref_idx
+            </tspan>
+            <tspan x="246" y="85" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              u64
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(30)">
+          <rect x="0" y="88" class="joint-table-row" width="260" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="110" class="joint-field-text" id="v-686" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="110" text-anchor="start" class="joint-field-name ">
+              property_name
+            </tspan>
+            <tspan x="246" y="110" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(31)">
+          <rect x="0" y="113" class="joint-table-row" width="260" height="31" stroke="none"></rect>
+          
+          
+          <text x="0" y="135" class="joint-field-text" id="v-687" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="135" text-anchor="start" class="joint-field-name fk" fill="#222" font-weight="bold">
+              property_idx
+            </tspan>
+            <tspan x="246" y="135" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              u64
+            </tspan>
+          </text>
+          
+          
+        <rect x="0" y="144" class="joint-table-row" width="260" height="6" stroke="none"></rect>
+        
+        </g>
+          </g>
+        </g></g><g id="j_40" model-id="9d3b637a-843f-4da1-a946-1819c7ff0592" class="element basic newt joint-theme-default" magnet="false" fill="#ffffff" stroke="none" transform="translate(834,166)" font-family="Roboto,'Helvetica Neue', sans-serif"><g class="joint-table" onmousedown="QdbdJS.onTableMouseDown(this)" onmouseup="QdbdJS.onTableMouseUp(this)" id="v-689">
+          <rect x="0" y="0" width="195" height="38" class="joint-table-title" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(34)" fill="#005aa0" stroke="#005aa0"></rect>
+          <text x="14" y="24" text-anchor="start" class="joint-table-title-text" id="v-698" pointer-events="none" font-size="14px">UniparcProperty</text>
+          <g class="joint-table-rows">
+            
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(36)">
+          <rect x="0" y="38" class="joint-table-row" width="195" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="60" class="joint-field-text" id="v-699" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="60" text-anchor="start" class="joint-field-name ">
+              uniparc_id
+            </tspan>
+            <tspan x="181" y="60" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(37)">
+          <rect x="0" y="63" class="joint-table-row" width="195" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="85" class="joint-field-text" id="v-700" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="85" text-anchor="start" class="joint-field-name ">
+              name
+            </tspan>
+            <tspan x="181" y="85" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(38)">
+          <rect x="0" y="88" class="joint-table-row" width="195" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="110" class="joint-field-text" id="v-701" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="110" text-anchor="start" class="joint-field-name fk" fill="#222" font-weight="bold">
+              idx
+            </tspan>
+            <tspan x="181" y="110" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              u64
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(39)">
+          <rect x="0" y="113" class="joint-table-row" width="195" height="31" stroke="none"></rect>
+          
+          
+          <text x="0" y="135" class="joint-field-text" id="v-702" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="135" text-anchor="start" class="joint-field-name ">
+              value
+            </tspan>
+            <tspan x="181" y="135" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        <rect x="0" y="144" class="joint-table-row" width="195" height="6" stroke="none"></rect>
+        
+        </g>
+          </g>
+        </g></g><g id="j_41" model-id="13d28a45-94cb-47b3-acdc-bcb91ce1c7eb" class="element basic newt joint-theme-default" magnet="false" fill="#ffffff" stroke="none" transform="translate(72,354)" font-family="Roboto,'Helvetica Neue', sans-serif"><g class="joint-table" onmousedown="QdbdJS.onTableMouseDown(this)" onmouseup="QdbdJS.onTableMouseUp(this)" id="v-704">
+          <rect x="0" y="0" width="180" height="38" class="joint-table-title" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(42)" fill="#005aa0" stroke="#005aa0"></rect>
+          <text x="14" y="24" text-anchor="start" class="joint-table-title-text" id="v-719" pointer-events="none" font-size="14px">UniparcDomain</text>
+          <g class="joint-table-rows">
+            
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(44)">
+          <rect x="0" y="38" class="joint-table-row" width="180" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="60" class="joint-field-text" id="v-720" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="60" text-anchor="start" class="joint-field-name fk" fill="#222" font-weight="bold">
+              uniparc_id
+            </tspan>
+            <tspan x="166" y="60" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(45)">
+          <rect x="0" y="63" class="joint-table-row" width="180" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="85" class="joint-field-text" id="v-721" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="85" text-anchor="start" class="joint-field-name ">
+              database
+            </tspan>
+            <tspan x="166" y="85" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(46)">
+          <rect x="0" y="88" class="joint-table-row" width="180" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="110" class="joint-field-text" id="v-722" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="110" text-anchor="start" class="joint-field-name ">
+              database_id
+            </tspan>
+            <tspan x="166" y="110" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(47)">
+          <rect x="0" y="113" class="joint-table-row" width="180" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="135" class="joint-field-text" id="v-723" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="135" text-anchor="start" class="joint-field-name ">
+              interpro_name
+            </tspan>
+            <tspan x="166" y="135" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(48)">
+          <rect x="0" y="138" class="joint-table-row" width="180" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="160" class="joint-field-text" id="v-724" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="160" text-anchor="start" class="joint-field-name ">
+              interpro_id
+            </tspan>
+            <tspan x="166" y="160" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              String
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(49)">
+          <rect x="0" y="163" class="joint-table-row" width="180" height="25" stroke="none"></rect>
+          
+          
+          <text x="0" y="185" class="joint-field-text" id="v-725" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="185" text-anchor="start" class="joint-field-name ">
+              domain_start
+            </tspan>
+            <tspan x="166" y="185" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              u32
+            </tspan>
+          </text>
+          
+          
+        </g>
+        <g class="joint-table-row-group" onmousedown="QdbdJS.onRowMouseDown()" onmousemove="QdbdJS.onRowMouseMove()" onmouseup="QdbdJS.onRowMouseUp(50)">
+          <rect x="0" y="188" class="joint-table-row" width="180" height="31" stroke="none"></rect>
+          
+          
+          <text x="0" y="210" class="joint-field-text" id="v-726" pointer-events="none" fill="#333" font-size="12px">
+            <tspan x="14" y="210" text-anchor="start" class="joint-field-name ">
+              domain_end
+            </tspan>
+            <tspan x="166" y="210" text-anchor="end" class="joint-field-type" fill="#adb1b5">
+              u32
+            </tspan>
+          </text>
+          
+          
+        <rect x="0" y="219" class="joint-table-row" width="180" height="6" stroke="none"></rect>
+        
+        </g>
+          </g>
+        </g></g></g><defs id="v-7"></defs><text class="qdbd-link" x="10" y="20" font-family="Roboto,'Helvetica Neue', sans-serif">www.quickdatabasediagrams.com</text></svg>

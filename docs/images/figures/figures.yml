@@ -1,0 +1,15 @@
+/home/kimlab1/strokach/datapkg/adjacency-net/notebooks/figures_for_qualifying_exam:
+  - dcn_training_curves.pdf
+/home/kimlab1/strokach/datapkg_output_dir/adjacency-net-v2/master/validation_remote_homology_detection:
+  - dcn_old_0,9c5a963_sl1.pdf
+  - dcn_old_0,9c5a963_sl2.pdf
+  - dcn_old_0,9c5a963_sl3.pdf
+  - dcn_old_0,9c5a963_sl4.pdf
+/home/kimlab1/strokach/datapkg_output_dir/adjacency-net-v2/master/validation_protherm_dataset:
+  - dcn_old_0,9c5a963_protherm_correlations.pdf
+/home/kimlab1/strokach/datapkg_output_dir/adjacency-net-v2/master/validation_training_stats:
+  - 9c5a963_training_validation_auc.pdf
+  - 9c5a963_training_pos_neg_preds.pdf
+/home/kimlab1/strokach/datapkg_output_dir/adjacency-net-v2/master/validation_homology_models:
+  - dcn_old_0,9c5a963_corr_all.pdf
+  - dcn_old_0,9c5a963_corr_gby_query.pdf
