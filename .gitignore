@@ -81,6 +81,11 @@ notebooks/*
 !notebooks/*.py
 !notebooks/*/*.py
 
+notebooks2/*
+!notebooks2/*.ipynb
+!notebooks2/*.py
+!notebooks2/*/*.py
+
 # Keep output
 output/*
 # !output/*.parquet
