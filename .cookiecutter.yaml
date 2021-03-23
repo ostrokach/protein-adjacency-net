@@ -2,9 +2,9 @@ default_context:
     full_name: Alexey Strokach
     email: alex.strokach@utoronto.ca
     git_url: https://gitlab.com
-    git_username: kimlab
-    anaconda_username: kimlab
-    pypi_username: kimlab
+    git_username: ostrokach
+    anaconda_username: ostrokach-forge
+    pypi_username: ostrokach
     project_name: pagnn
     project_slug: pagnn
     project_import: pagnn

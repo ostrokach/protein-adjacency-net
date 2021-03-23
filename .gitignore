@@ -79,3 +79,22 @@ target/
 pagnn/training/data/*_10.data
 pagnn/training/data/*_10.index
 
+# Keep (some) downloads
+downloads/*
+!downloads/*.gz
+!downloads/*.zip
+
+# Keep notebooks and scripts
+notebooks/*
+!notebooks/*.ipynb
+!notebooks/*.py
+!notebooks/*/*.py
+
+notebooks2/*
+!notebooks2/*.ipynb
+!notebooks2/*.py
+!notebooks2/*/*.py
+
+# Keep (some) outputs
+output/*
+!output/*.parquet
