@@ -1,6 +1,7 @@
 image: registry.gitlab.com/ostrokach-docker/conda:centos7
 
 stages:
+  - custom
   - lint
   - build
   - test
