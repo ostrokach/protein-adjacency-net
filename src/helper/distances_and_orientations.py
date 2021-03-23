@@ -64,8 +64,11 @@ def complete_hydrogen_bonds(hydrogen_bonds_df):
     return hydrogen_bonds_completed_df
 
 
-def construct_residue_pairs_df(traj, r_cutoff=12.0):
+def construct_residue_pairs_df(traj, r_cutoff=None):
     structure_df = structure_tools.mdtraj_to_dataframe(traj)
+
+    # Do not include hydrogen atoms when calculating distances.
+    structure_df = structure_df[~structure_df["atom_name"].str.startswith("H")]
 
     distances_all_df = structure_tools.get_distances(structure_df, r_cutoff, groupby="residue")
     distances_all_df = structure_tools.complete_distances(distances_all_df)
@@ -79,18 +82,24 @@ def construct_residue_pairs_df(traj, r_cutoff=12.0):
     distances_ca_df = structure_tools.complete_distances(distances_ca_df)
 
     hydrogen_bonds_df = structure_tools.protein_structure_analysis.calculate_hydrogen_bonds(
-        mdtraj_protonate(traj)
+        mdtraj_protonate(traj)  # keeps hydrogens from input structure
     )
     hydrogen_bonds_df = complete_hydrogen_bonds(hydrogen_bonds_df)
 
     internal_coords = structure_tools.protein_structure_analysis.get_internal_coords(structure_df)
 
     translations = structure_tools.protein_structure_analysis.get_translations(structure_df)
-    translations_internal = structure_tools.protein_structure_analysis.map_translations_to_internal_coords(
+    translations_internal = structure_tools.protein_structure_analysis.map_translations_to_internal_coords(  # noqa
         translations, internal_coords
     )
 
     rotations = structure_tools.protein_structure_analysis.get_rotations(internal_coords)
+
+    # structure_wcb_df = structure_tools.protein_structure_analysis.add_cbetas(structure_df, internal_coords)
+    # distances_cb_df = structure_tools.get_distances(
+    #     structure_wcb_df, r_cutoff, groupby="residue-cb"
+    # )
+    # distances_cb_df = structure_tools.complete_distances(distances_cb_df)
 
     # Bring everything together
     residue_pairs_df = (
@@ -99,13 +108,18 @@ def construct_residue_pairs_df(traj, r_cutoff=12.0):
             on=["residue_idx_1", "residue_idx_2"],
             how="outer",
             validate="1:1",
-        )
-        .merge(
+        ).merge(
             distances_ca_df.rename(columns={"distance": "distance_ca"}),
             on=["residue_idx_1", "residue_idx_2"],
             how="outer",
             validate="1:1",
         )
+        # .merge(
+        #     distances_cb_df.rename(columns={"distance": "distance_cb"}),
+        #     on=["residue_idx_1", "residue_idx_2"],
+        #     how="outer",
+        #     validate="1:1",
+        # )
         .merge(
             hydrogen_bonds_df.assign(hbond=True),
             on=["residue_idx_1", "residue_idx_2"],
