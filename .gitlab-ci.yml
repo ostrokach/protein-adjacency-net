@@ -245,7 +245,7 @@ mirror-to-github:
     - *install-ssh-client
   script:
     - git fetch --all
-    - git remote add mirror git@github.com:elaspic/elaspic2.git
+    - git remote add mirror git@github.com:ostrokach/protein-adjacency-net.git
     - git checkout master
     - git push mirror master --no-verify --force
     - git push mirror master --no-verify --tags --force
