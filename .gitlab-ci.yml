@@ -228,8 +228,8 @@ mirror-to-github:
     - git fetch --all
     - git remote add mirror git@github.com:elaspic/elaspic2.git
     - git checkout master
-    - git push mirror master --force
-    - git push mirror master --tags --force
+    - git push mirror master --no-verify --force
+    - git push mirror master --no-verify --tags --force
   needs: []
   # only:
   #   variables:
