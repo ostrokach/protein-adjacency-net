@@ -10,5 +10,5 @@ recursive-exclude * *.py[co]
 
 recursive-include docs *.md conf.py Makefile make.bat *.jpg *.png *.gif
 
-recursive-include pagnn/prediction/data *
-recursive-include pagnn/training/data *
+recursive-include src/pagnn/prediction/data *
+recursive-include src/pagnn/training/data *
