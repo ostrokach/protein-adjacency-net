@@ -143,17 +143,17 @@ docs:
     - for i in $CI_PROJECT_DIR/conda-bld/linux-64/*.whl ; do
       echo $i ;
       if [[ $i = *"-linux_x86_64.whl" ]]; then
-        mv "${i}" "${i%%-linux_x86_64.whl}-manylinux1_x86_64.whl" ;
+      mv "${i}" "${i%%-linux_x86_64.whl}-manylinux1_x86_64.whl" ;
       fi ;
       done
     # Development releases go to the Anaconda dev channel
     - if [[ ${PACKAGE_VERSION} = *"dev"* ]] ; then
-        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --label dev --force --no-progress ;
-       fi
+      anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --label dev --force --no-progress ;
+      fi
     # Tagged releases go to the Anaconda and PyPI main channels
     - if [[ -n ${CI_COMMIT_TAG} ]] ; then
-        anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --no-progress ;
-        twine upload $CI_PROJECT_DIR/conda-bld/linux-64/*.whl || true ;
+      anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --no-progress ;
+      twine upload $CI_PROJECT_DIR/conda-bld/linux-64/*.whl || true ;
       fi
 
 deploy-py36:
@@ -182,10 +182,10 @@ pages:
       echo ${tag} ;
       curl -L --header "JOB-TOKEN: $CI_JOB_TOKEN"
       "https://gitlab.com/${CI_PROJECT_NAME}/${CI_PROJECT_NAMESPACE}/-/jobs/artifacts/${tag}/download?job=docs"
-          -o artifact-${tag}.zip || continue ;
+      -o artifact-${tag}.zip || continue ;
       unzip artifact-${tag}.zip -d public || continue ;
-        rm -rf public/${tag} ;
-        mv public/public public/${tag} ;
+      rm -rf public/${tag} ;
+      mv public/public public/${tag} ;
       done'
     # Create index file
     # TODO:
