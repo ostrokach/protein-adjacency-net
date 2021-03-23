@@ -1,7 +1,7 @@
-image: registry.gitlab.com/ostrokach-docker/conda:centos7
+default:
+  image: condaforge/linux-anvil-cos7-x86_64:latest
 
 stages:
-  - custom
   - lint
   - build
   - test
@@ -212,7 +212,7 @@ pages:
     - echo "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
 
 mirror-to-github:
-  stage: custom
+  stage: deploy
   image:
     name: ubuntu:20.04
   before_script:
@@ -230,6 +230,7 @@ mirror-to-github:
     - git checkout master
     - git push mirror master --force
     - git push mirror master --tags --force
-  only:
-    variables:
-      - $MIRROR_TO_GITHUB
+  needs: []
+  # only:
+  #   variables:
+  #     - $MIRROR_TO_GITHUB
