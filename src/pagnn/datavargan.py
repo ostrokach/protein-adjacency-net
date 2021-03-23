@@ -216,7 +216,8 @@ def pool_adjacency_mat_reference(adj: Variable, kernel_size=4, stride=2, padding
 def pool_adjacency_mat_reference_wrapper(
     adj: sparse.spmatrix, kernel_size=4, stride=2, padding=1
 ) -> sparse.spmatrix:
-    """Wrapper over `pool_adjacency_mat_reference` to provide the same API as `pool_adjacency_mat`."""
+    """Wrapper over `pool_adjacency_mat_reference` to provide the same API as `pool_adjacency_mat`.
+    """
     adj = Variable(to_sparse_tensor(adj).to_dense())
     adj_conv = pool_adjacency_mat_reference(adj, kernel_size, stride, padding)
     return sparse.coo_matrix(adj_conv.data.numpy(), dtype=np.int16)
