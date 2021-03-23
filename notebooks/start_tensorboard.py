@@ -3,6 +3,7 @@ from pathlib import Path
 
 from tensorboard.main import run_main
 
+
 def get_logdir(basedir: str):
     log_dirs = []
     for path in Path(basedir).absolute().glob('*/tensorboard/'):

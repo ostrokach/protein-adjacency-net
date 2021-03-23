@@ -7,11 +7,11 @@ from kmtools import sequence_tools, structure_tools
 
 from .distances_and_orientations import (
     construct_residue_df,
-    validate_residue_df,
     construct_residue_pairs_df,
-    validate_residue_pairs_df,
     residue_df_to_row,
     residue_pairs_df_to_row,
+    validate_residue_df,
+    validate_residue_pairs_df,
 )
 
 

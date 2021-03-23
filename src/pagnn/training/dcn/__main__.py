@@ -12,7 +12,6 @@ elif settings.PROFILER == "line_profiler":
 
     from pagnn.datavargan import dataset_to_datavar, gen_adj_pool, push_adjs, push_seqs
     from pagnn.io import _read_random_row_group, iter_datarows
-
     from pagnn.training.dcn.main import train
     from pagnn.training.dcn.utils import basic_permuted_sequence_adder, generate_batch
 
