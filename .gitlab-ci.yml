@@ -230,7 +230,7 @@ pages:
     - chmod 700 ~/.ssh
     - echo "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
 
-mirror-to-github:
+.mirror-to-github:
   stage: deploy
   image:
     name: ubuntu:20.04
