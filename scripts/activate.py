@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -19,38 +18,36 @@ if __name__ == "__main__":
     else:
         if stage not in ci_data:
             raise Exception(f"No stage with name '{stage}'!")
-        variables = {
-            **ci_data.get("variables", {}),
-            **ci_data[sys.argv[1]].get("variables", {}),
-        }
+        variables = {**ci_data.get("variables", {}), **ci_data[sys.argv[1]].get("variables", {})}
 
-    # Get a collection of environment variables for a given stage
-
-    if os.getenv("CI"):
-        variables["CONDA_ENV_NAME"] = variables["PROJECT_NAME"] + "-ci"
-    else:
-        variables["CONDA_ENV_NAME"] = variables["PROJECT_NAME"]
+    variables = {
+        k: (
+            v
+            if "$" not in v
+            else subprocess.check_output(["bash", "-c", f'echo "{v}"']).decode().strip()
+        )
+        for k, v in variables.items()
+    }
 
     # Get a list of current environments
 
     proc = subprocess.run(
-        ["conda", "env", "list"],
-        stdout=subprocess.PIPE,
-        universal_newlines=True,
-        check=True,
+        ["conda", "env", "list"], stdout=subprocess.PIPE, universal_newlines=True, check=True
     )
     envs = [line.split()[0] for line in proc.stdout.strip().split("\n")]
 
     # Print output for sourcing a bash script
+
+    print("set -ev")
 
     print("# Export environment variables")
     for key, value in variables.items():
         print(f"export {key}='{value}'")
     print()
 
-    if variables["CONDA_ENV_NAME"] not in envs:
+    if variables["CONDA_ENVIRONMENT_NAME"] not in envs:
         print("# Create conda environment")
-        print(f"conda env create -n {variables['CONDA_ENV_NAME']} -f environment.yaml")
+        print(f"conda env create -n {variables['CONDA_ENVIRONMENT_NAME']} -f environment-lock.yaml")
         for nbextension in [
             "collapsible_headings/main",
             "runtools/main",
@@ -62,4 +59,4 @@ if __name__ == "__main__":
     print()
 
     print("# Activate conda environment")
-    print(f"source activate {variables['CONDA_ENV_NAME']}\n")
+    print(f"source activate {variables['CONDA_ENVIRONMENT_NAME']}\n")
