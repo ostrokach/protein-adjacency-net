@@ -3,7 +3,6 @@ from torch.autograd import Function
 
 
 class SparseMM(Function):
-
     @staticmethod
     def forward(ctx, matrix1, matrix2):
         ctx.save_for_backward(matrix1, matrix2)

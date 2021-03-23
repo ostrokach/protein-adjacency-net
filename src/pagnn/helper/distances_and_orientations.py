@@ -89,13 +89,16 @@ def construct_residue_pairs_df(traj, r_cutoff=None):
     internal_coords = structure_tools.protein_structure_analysis.get_internal_coords(structure_df)
 
     translations = structure_tools.protein_structure_analysis.get_translations(structure_df)
-    translations_internal = structure_tools.protein_structure_analysis.map_translations_to_internal_coords(  # noqa
-        translations, internal_coords
+    translations_internal = (
+        structure_tools.protein_structure_analysis.map_translations_to_internal_coords(  # noqa
+            translations, internal_coords
+        )
     )
 
     rotations = structure_tools.protein_structure_analysis.get_rotations(internal_coords)
 
-    # structure_wcb_df = structure_tools.protein_structure_analysis.add_cbetas(structure_df, internal_coords)
+    # structure_wcb_df = structure_tools.protein_structure_analysis.add_cbetas(
+    #     structure_df, internal_coords)
     # distances_cb_df = structure_tools.get_distances(
     #     structure_wcb_df, r_cutoff, groupby="residue-cb"
     # )

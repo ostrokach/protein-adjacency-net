@@ -40,7 +40,7 @@ def count_matches(data: np.array, conv_filter: np.array) -> int:
     """
     convs = []
     for i in np.arange(0, data.shape[0], 2):
-        conv = (data[i:i + 2, :] * conv_filter).sum()
+        conv = (data[i : i + 2, :] * conv_filter).sum()
         convs.append(conv)
     return convs.count(2)
 

@@ -1,4 +1,3 @@
-
 import attr
 from attr.validators import instance_of
 

@@ -16,8 +16,7 @@ from .distances_and_orientations import (
 
 
 def get_interaction_dataset(structure, r_cutoff=5):
-    """Copied from "datapkg/pdb-analysis/notebooks/extract_pdb_interactions.ipynb"
-    """
+    """Copied from "datapkg/pdb-analysis/notebooks/extract_pdb_interactions.ipynb" """
     interactions = structure_tools.get_interactions(structure, r_cutoff=r_cutoff, interchain=False)
     interactions_core, interactions_interface = structure_tools.process_interactions(interactions)
     interactions_core_aggbychain = structure_tools.process_interactions_core(
@@ -63,8 +62,7 @@ GET_ADJACENCY_WITH_DISTANCES_ROW_ATTRIBUTES = [
 def get_adjacency_with_distances_and_orientations(
     row, max_cutoff=12, min_cutoff=None, structure_url_prefix="rcsb://"
 ):
-    """
-    """
+    """"""
     missing_attributes = [
         attr for attr in GET_ADJACENCY_WITH_DISTANCES_ROW_ATTRIBUTES if not hasattr(row, attr)
     ]
@@ -98,8 +96,8 @@ def get_adjacency_with_distances_and_orientations(
     # Residue info
     residue_df = construct_residue_df(traj)
     validate_residue_df(residue_df)
-    residue_df[f"residue_idx_corrected"] = pd.array(
-        residue_df[f"residue_idx"].apply(
+    residue_df["residue_idx_corrected"] = pd.array(
+        residue_df["residue_idx"].apply(
             lambda idx: sequence_tools.convert_residue_index_a2b(idx, row.b2a)
         ),
         dtype=pd.Int64Dtype(),

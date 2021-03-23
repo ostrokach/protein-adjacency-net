@@ -24,7 +24,7 @@ def main(input_file, output_file):
 
     try:
         nb, _ = ep.preprocess(nb, {"metadata": {"path": notebook_path}})
-    except CellExecutionError as e:
+    except CellExecutionError:
         print(f"Error executing notebook '{input_file}'; see '{output_file}' for traceback.")
         raise
     finally:

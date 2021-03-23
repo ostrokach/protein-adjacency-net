@@ -5,10 +5,11 @@ from scipy import sparse
 
 
 def interpolate_sequences(
-        positive_seq: bytes,
-        negative_seq: bytes,
-        interpolate: int = 0,
-        random_state: Optional[np.random.RandomState] = None) -> Tuple[List[bytes], List[float]]:
+    positive_seq: bytes,
+    negative_seq: bytes,
+    interpolate: int = 0,
+    random_state: Optional[np.random.RandomState] = None,
+) -> Tuple[List[bytes], List[float]]:
     """
     Examples:
         >>> interpolated_seqs, interpolated_targets = interpolate_sequences(
@@ -26,7 +27,8 @@ def interpolate_sequences(
         for i in range(interpolate):
             fp = fraction_positive[i]
             idx = random_state.choice(
-                np.arange(len(positive_seq)), int(round(fp * len(positive_seq))), replace=False)
+                np.arange(len(positive_seq)), int(round(fp * len(positive_seq))), replace=False
+            )
             seq = bytearray(negative_seq)
             for i in idx:
                 seq[i] = positive_seq[i]
@@ -34,11 +36,12 @@ def interpolate_sequences(
     return interpolated_seqs, fraction_positive.tolist()
 
 
-def interpolate_adjacencies(positive_adj: sparse.spmatrix,
-                            negative_adj: sparse.spmatrix,
-                            interpolate: int = 0,
-                            random_state: Optional[np.random.RandomState] = None
-                           ) -> Tuple[List[sparse.spmatrix], List[float]]:
+def interpolate_adjacencies(
+    positive_adj: sparse.spmatrix,
+    negative_adj: sparse.spmatrix,
+    interpolate: int = 0,
+    random_state: Optional[np.random.RandomState] = None,
+) -> Tuple[List[sparse.spmatrix], List[float]]:
     """
 
     Examples:
@@ -70,7 +73,8 @@ def interpolate_adjacencies(positive_adj: sparse.spmatrix,
         for i in range(interpolate):
             fp = fraction_positive[i]
             idxs = random_state.choice(
-                np.arange(mismatches.shape[0]), int(round(mismatches.shape[0] * fp)), replace=False)
+                np.arange(mismatches.shape[0]), int(round(mismatches.shape[0] * fp)), replace=False
+            )
             adj = negative_adj.tocsr()
             idx_1, idx_2 = mismatches[:, idxs]
             adj[idx_1, idx_2] = positive_adj[idx_1, idx_2]

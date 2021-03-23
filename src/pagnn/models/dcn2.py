@@ -39,7 +39,7 @@ class DCN2(nn.Module):
         stride: int = 2,
         padding: int = 1,
         bias: bool = False,
-        encoder_network: Optional["DCN"] = None,
+        encoder_network: Optional["DCN2"] = None,
     ) -> None:
         super().__init__()
 

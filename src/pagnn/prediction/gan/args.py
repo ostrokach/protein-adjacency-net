@@ -14,19 +14,13 @@ def str_to_path(file):
 class Args(ArgsBase):
 
     #: File from which we should read input (either *.pdb or *.parquet).
-    input_file: Path = attr.ib(
-        converter=lambda p: Path(p).resolve(), validator=instance_of(Path)
-    )
+    input_file: Path = attr.ib(converter=lambda p: Path(p).resolve(), validator=instance_of(Path))
 
     #: File to which we should save the output.
-    output_file: Path = attr.ib(
-        converter=lambda p: Path(p), validator=instance_of(Path)
-    )
+    output_file: Path = attr.ib(converter=lambda p: Path(p), validator=instance_of(Path))
 
     #: Work path that was used for training (``args_training.work_path``).
-    work_path: Path = attr.ib(
-        converter=lambda p: Path(p).resolve(), validator=instance_of(Path)
-    )
+    work_path: Path = attr.ib(converter=lambda p: Path(p).resolve(), validator=instance_of(Path))
 
     #: Step for which to import the model.
     step: int = attr.ib(validator=instance_of(int))

@@ -7,6 +7,7 @@ class SequenceTooShortError(Exception):
 
 class SequenceTooLongError(Exception):
     """This exception is raised when the sequence is too long to find a negative sequence."""
+
     pass
 
 

@@ -166,7 +166,7 @@ class MultiDomainNetNew(nn.Module):
         for adj in adjs:
             end = start + adj.size()[1]
             aa_domain = aa[:, :, start:end]
-            aa_domain = (aa_domain / adj.sum(dim=0))
+            aa_domain = aa_domain / adj.sum(dim=0)
 
             print(f"aa_domain: {count_nans(aa_domain)}")
             aa_in_domain = aa_in[:, :, start:end]
@@ -185,4 +185,5 @@ class MultiDomainNetNew(nn.Module):
 
 def count_nans(x):
     import numpy as np
+
     return np.isnan(x.data.numpy()).sum()

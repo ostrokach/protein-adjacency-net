@@ -5,11 +5,11 @@ import torch.nn.functional as F
 
 
 class AdjacencyConv(nn.Module):
-
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.spatial_conv = nn.Conv1d(
-            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False)
+            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False
+        )
         self.normalize = True
         self.takes_extra_args = True
 
@@ -42,7 +42,6 @@ class AdjacencyConv(nn.Module):
 
 
 class AdjacencyConvTranspose(nn.Module):
-
     def __init__(self, spatial_conv):
         super().__init__()
         self.spatial_conv = spatial_conv

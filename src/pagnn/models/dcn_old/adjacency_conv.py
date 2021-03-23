@@ -17,11 +17,11 @@ def adjacency_conv(seq, adj, weight, bias=None):
 
 
 class AdjacencyConv(nn.Module):
-
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.spatial_conv = nn.Conv1d(
-            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False)
+            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False
+        )
 
     def forward(self, seq, adj):
         x = seq @ adj.transpose(0, 1)
@@ -32,12 +32,12 @@ class AdjacencyConv(nn.Module):
 
 
 class AdjacencyConvSparse(nn.Module):
-
     def __init__(self, in_channels, out_channels, normalize=False):
         super().__init__()
         self.mm1 = SparseMM()
         self.spatial_conv = nn.Conv1d(
-            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False)
+            in_channels, out_channels, kernel_size=2, stride=2, padding=0, bias=False
+        )
         self.mm2 = SparseMM()
 
     def forward(self, seq, adj):

@@ -17,7 +17,7 @@
    pagnn.training
 """
 __author__ = """Alexey Strokach"""
-__email__ = 'alex.strokach@utoronto.ca'
+__email__ = "alex.strokach@utoronto.ca"
 __version__ = '__version__ = "0.1.14"'
 
 # See: https://github.com/apache/arrow/issues/2637
@@ -28,6 +28,11 @@ from .types import *
 from .gpu import init_gpu
 from .utils import *
 from .io import iter_datarows_shuffled, iter_datarows
-from .dataset import (row_to_dataset, get_negative_example, get_permuted_examples, get_offset,
-                      get_indices)
+from .dataset import (
+    row_to_dataset,
+    get_negative_example,
+    get_permuted_examples,
+    get_offset,
+    get_indices,
+)
 from . import datapipe, datavardcn, datavargan, models, training

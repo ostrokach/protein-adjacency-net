@@ -46,7 +46,6 @@ class GANParams:
 
 
 class DiscriminatorNet(nn.Module, GANParams):
-
     def __init__(self):
         # isize=512, nz=100, nc=20, ndf=32
         """
@@ -66,51 +65,55 @@ class DiscriminatorNet(nn.Module, GANParams):
 
         # 20 x 64+
         for i in range(1):
-            model[f'adjacency_conv_{i}'] = AdjacencyConv(self.x_in, self.x_hidden)
-            model[f'conv_{i}'] = nn.Conv1d(
+            model[f"adjacency_conv_{i}"] = AdjacencyConv(self.x_in, self.x_hidden)
+            model[f"conv_{i}"] = nn.Conv1d(
                 self.x_hidden,
                 self.x_out,
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=False)
-            model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
+                bias=False,
+            )
+            model[f"leaky_relu_{i}"] = nn.LeakyReLU(0.2)
             in_feat = self.x_out
 
         for i in range(1, 4):
             out_feat = in_feat * 2
-            model[f'adjacency_conv_{i}'] = AdjacencyConv(in_feat, in_feat)
-            model[f'conv_{i}'] = nn.Conv1d(
+            model[f"adjacency_conv_{i}"] = AdjacencyConv(in_feat, in_feat)
+            model[f"conv_{i}"] = nn.Conv1d(
                 in_feat,
                 out_feat,
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=False)
-            model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=True)
-            model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
+                bias=False,
+            )
+            model[f"instance_norm_{i}"] = nn.InstanceNorm1d(out_feat, affine=True)
+            model[f"leaky_relu_{i}"] = nn.LeakyReLU(0.2)
             in_feat = out_feat
 
         for i in range(4, 6):
             out_feat = in_feat * 2
-            model[f'conv_{i}'] = nn.Conv1d(
+            model[f"conv_{i}"] = nn.Conv1d(
                 in_feat,
                 out_feat,
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=False)
-            model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=True)
-            model[f'leaky_relu_{i}'] = nn.LeakyReLU(0.2)
+                bias=False,
+            )
+            model[f"instance_norm_{i}"] = nn.InstanceNorm1d(out_feat, affine=True)
+            model[f"leaky_relu_{i}"] = nn.LeakyReLU(0.2)
             in_feat = out_feat
 
         assert in_feat == self.z_out, in_feat
 
         for i in range(6, 7):
             out_feat = 1
-            model[f'conv_{i}'] = nn.Conv1d(
-                in_feat, out_feat, kernel_size=1, stride=1, padding=0, bias=False)
-            model[f'sigmoid_{i}'] = nn.Sigmoid()
+            model[f"conv_{i}"] = nn.Conv1d(
+                in_feat, out_feat, kernel_size=1, stride=1, padding=0, bias=False
+            )
+            model[f"sigmoid_{i}"] = nn.Sigmoid()
 
         assert (i + 1) == self.n_layers
 
@@ -139,7 +142,7 @@ class DiscriminatorNet(nn.Module, GANParams):
                     stop = start + adj[i].shape[1]
                     assert stop <= x.shape[2], (i, start, stop, x.shape, len(adjs))
                     seq_slice = x[:, :, start:stop]
-                    seq_slice = self.model[f'adjacency_conv_{i}'](seq_slice, adj[i])
+                    seq_slice = self.model[f"adjacency_conv_{i}"](seq_slice, adj[i])
                     seq_slices.append(seq_slice)
                     if i == 0 or adj[i - 1].shape[1] % 2 == 0:
                         start = stop
@@ -153,22 +156,21 @@ class DiscriminatorNet(nn.Module, GANParams):
                 x = torch.cat(seq_slices, 2)
             # Regular convolutions
             x = torch.cat([x[:, :, -1:], x, x[:, :, :1]])
-            x = self.model[f'conv_{i}'](x)
+            x = self.model[f"conv_{i}"](x)
             # Batch normalization
             if i in range(1, 999):
-                x = self.model[f'instance_norm_{i}'](x)
+                x = self.model[f"instance_norm_{i}"](x)
             # Non-linearity
-            x = self.model[f'leaky_relu_{i}'](x)
+            x = self.model[f"leaky_relu_{i}"](x)
 
         for i in range(6, 7):
-            x = self.model[f'conv_{i}'](x)
-            x = self.model[f'sigmoid_{i}'](x)
+            x = self.model[f"conv_{i}"](x)
+            x = self.model[f"sigmoid_{i}"](x)
 
         return x.view(-1, 1)
 
 
 class GeneratorNet(nn.Module, GANParams):
-
     def __init__(self):
         """
         Args:
@@ -189,35 +191,37 @@ class GeneratorNet(nn.Module, GANParams):
 
         # ? x 1
         for i in range(6, 5, -1):
-            model[f'linear_{i}'] = nn.Linear(self.z_in, self.z_out, bias=False)
-            model[f'instance_norm_{i}'] = nn.InstanceNorm1d(self.z_out, affine=True)
-            model[f'relu_{i}'] = nn.ReLU()
+            model[f"linear_{i}"] = nn.Linear(self.z_in, self.z_out, bias=False)
+            model[f"instance_norm_{i}"] = nn.InstanceNorm1d(self.z_out, affine=True)
+            model[f"relu_{i}"] = nn.ReLU()
             in_feat = self.z_out
 
         # 2048 x 4
         for i in range(5, 0, -1):
             out_feat = in_feat // 2
-            model[f'convt_{i}'] = nn.ConvTranspose1d(
+            model[f"convt_{i}"] = nn.ConvTranspose1d(
                 in_feat,
                 out_feat,
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=False)
-            model[f'instance_norm_{i}'] = nn.InstanceNorm1d(out_feat, affine=True)
-            model[f'relu_{i}'] = nn.ReLU()
+                bias=False,
+            )
+            model[f"instance_norm_{i}"] = nn.InstanceNorm1d(out_feat, affine=True)
+            model[f"relu_{i}"] = nn.ReLU()
             in_feat = out_feat
 
         assert in_feat == self.x_out, in_feat
 
         for i in range(0, -1, -1):
-            model[f'convt_{i}'] = nn.ConvTranspose1d(
+            model[f"convt_{i}"] = nn.ConvTranspose1d(
                 self.x_out,
                 self.x_hidden,
                 kernel_size=self.kernel_size,
                 stride=self.stride,
                 padding=self.padding,
-                bias=False)
+                bias=False,
+            )
 
         assert i == 0
 
@@ -227,23 +231,23 @@ class GeneratorNet(nn.Module, GANParams):
 
     def forward(self, z: Variable, adjs: List[Variable], net_d):
         i = 6
-        x = self._expand_z(z, adjs, self.model[f'linear_{i}'])
-        x = self.model[f'relu_{i}'](x)
+        x = self._expand_z(z, adjs, self.model[f"linear_{i}"])
+        x = self.model[f"relu_{i}"](x)
 
         # 2048 x 4
         for i in range(5, -1, -1):
             print("gen i:", i)
             # Regular convolutions
-            x = self.model[f'convt_{i}'](x)
+            x = self.model[f"convt_{i}"](x)
             # Adjacency convolutions
             if i in range(0, 4):
                 x = self._adjacency_conv(i, x, net_d, adjs)
             # Batch normalization
             if i in range(1, 999):
-                x = self.model[f'instance_norm_{i}'](x)
+                x = self.model[f"instance_norm_{i}"](x)
             # Non-linearity
             if i in range(1, 999):
-                x = self.model[f'relu_{i}'](x)
+                x = self.model[f"relu_{i}"](x)
 
         return F.softmax(x, 1)
 
@@ -255,7 +259,8 @@ class GeneratorNet(nn.Module, GANParams):
             kernel_size=self.kernel_size,
             stride=self.stride,
             padding=self.padding,
-            dilation=1)
+            dilation=1,
+        )
         return num_preds
 
     def _expand_z(self, z, adjs, linear):
@@ -273,7 +278,7 @@ class GeneratorNet(nn.Module, GANParams):
         return x
 
     def _adjacency_conv(self, i, x, net_d, adjs):
-        adjacency_conv_weight = getattr(net_d, f'adjacency_conv_{i}').spatial_conv.weight
+        adjacency_conv_weight = getattr(net_d, f"adjacency_conv_{i}").spatial_conv.weight
 
         start = 0
         num_odd = 0

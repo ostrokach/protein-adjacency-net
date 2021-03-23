@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def test_cuda():
-    os.environ['CUDA_HOME'] = '/usr/local/cuda'
+    os.environ["CUDA_HOME"] = "/usr/local/cuda"
     numba.cuda.api.detect()
     # The following requires the 'cudatoolkit' package
     numba.cuda.cudadrv.libs.test()
@@ -46,8 +46,16 @@ def get_available_gpus(max_load: float = 0.5, max_memory: float = 0.5) -> List[i
     assert 0 <= max_memory <= 1
 
     columns = [
-        'index', 'utilization.gpu', 'memory.total', 'memory.used', 'memory.free', 'driver_version',
-        'name', 'gpu_serial', 'display_active', 'display_mode'
+        "index",
+        "utilization.gpu",
+        "memory.total",
+        "memory.used",
+        "memory.free",
+        "driver_version",
+        "name",
+        "gpu_serial",
+        "display_active",
+        "display_mode",
     ]
 
     system_command = f"nvidia-smi --query-gpu={','.join(columns)} --format=csv,noheader,nounits"
@@ -56,16 +64,17 @@ def get_available_gpus(max_load: float = 0.5, max_memory: float = 0.5) -> List[i
         shlex.split(system_command),
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        universal_newlines=True)
+        universal_newlines=True,
+    )
 
     buf = io.StringIO()
     buf.write(proc.stdout)
     buf.seek(0)
 
     df = pd.read_csv(buf, names=columns)
-    df['memory_utilization'] = df['memory.used'] / df['memory.total']
-    df = df \
-        .sort_values(['memory.free'], ascending=False) \
-        .sort_values(['utilization.gpu'], ascending=True)
-    df = df[((df['utilization.gpu'] / 100) <= max_load) & (df['memory_utilization'] <= max_memory)]
-    return df['index'].tolist()
+    df["memory_utilization"] = df["memory.used"] / df["memory.total"]
+    df = df.sort_values(["memory.free"], ascending=False).sort_values(
+        ["utilization.gpu"], ascending=True
+    )
+    df = df[((df["utilization.gpu"] / 100) <= max_load) & (df["memory_utilization"] <= max_memory)]
+    return df["index"].tolist()
