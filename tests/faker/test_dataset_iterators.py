@@ -5,27 +5,54 @@ from pagnn import faker
 
 COUNT_MATCHES_TEST_DATA = [
     # (matrix, conv_filter, match_count)
-    (np.array([
-        [1, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0],
-    ], dtype=np.float32), np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32), 1),
-    (np.array([
-        [1, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0],
-        [1, 0, 0, 0, 0],
-    ], dtype=np.float32), np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32), 1),
-    (np.array([
-        [1, 0, 0, 0, 0],
-        [1, 0, 0, 0, 0],
-        [0, 1, 0, 0, 0],
-    ], dtype=np.float32), np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32), 0),
-    (np.array(
-        [
-            [1, 0, 0, 0, 0],
-            [0, 0, 1, 0, 0],
-            [1, 0, 0, 0, 0],
-            [0, 1, 0, 0, 0],
-        ], dtype=np.float32), np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32), 1),
+    (
+        np.array(
+            [
+                [1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0],
+            ],
+            dtype=np.float32,
+        ),
+        np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32),
+        1,
+    ),
+    (
+        np.array(
+            [
+                [1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0],
+                [1, 0, 0, 0, 0],
+            ],
+            dtype=np.float32,
+        ),
+        np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32),
+        1,
+    ),
+    (
+        np.array(
+            [
+                [1, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0],
+            ],
+            dtype=np.float32,
+        ),
+        np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32),
+        0,
+    ),
+    (
+        np.array(
+            [
+                [1, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0],
+                [1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0],
+            ],
+            dtype=np.float32,
+        ),
+        np.array([[1, 0, 0, 0, 0], [0, 1, 0, 0, 0]], dtype=np.float32),
+        1,
+    ),
 ]
 
 

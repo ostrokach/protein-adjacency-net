@@ -19,17 +19,17 @@ def copy_files(src, dest):
 
 
 def main():
-    with PROJECT_ROOT.joinpath('.gitlab-ci.yml').open() as fin:
+    with PROJECT_ROOT.joinpath(".gitlab-ci.yml").open() as fin:
         data = yaml.load(fin)
     name = PROJECT_ROOT.name
-    version = data['variables']['PACKAGE_VERSION']
-    paths = data['deploy']['artifacts']['paths']
+    version = data["variables"]["PACKAGE_VERSION"]
+    paths = data["deploy"]["artifacts"]["paths"]
     for path in paths:
         src = PROJECT_ROOT.joinpath(path)
         dest = f"{os.environ['DATABIN_DIR']}/{name}/{version}/{src.name}"
         copy_files(src, dest)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     main()

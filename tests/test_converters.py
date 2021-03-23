@@ -1,4 +1,3 @@
-
 import pytest
 
 from pagnn.utils.converters import str_to_seconds
