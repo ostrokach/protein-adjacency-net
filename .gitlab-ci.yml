@@ -2,30 +2,26 @@ default:
   image: condaforge/linux-anvil-cos7-x86_64:latest
 
 stages:
+  - custom
   - lint
   - build
   - test
-  - documentation
+  - doc
   - deploy
 
 # === Variables ===
 
 variables:
   PACKAGE_VERSION: "0.1.14"
-  GIT_LFS_SKIP_SMUDGE: 1
-
-.py36: &py36
-  PYTHON_VERSION: "3.6"
-
-.py37: &py37
-  PYTHON_VERSION: "3.7"
 
 # === Configurations ===
 
-.configure: &configure
-  before_script:
-    - conda config --append channels kimlab --append channels pytorch
-    - conda install -n root -y -q --no-channel-priority conda conda-build conda-verify
+.skip-custom-pipelines:
+  except:
+    variables:
+      - $UPDATE_PAGES
+      - $BUILD_IMAGE
+      - $MIRROR_TO_GITHUB
 
 .configure-conda:
   # Set conda envs and pkgs dirs
@@ -48,178 +44,173 @@ variables:
 
 lint:
   stage: lint
+  extends:
+    - .skip-custom-pipelines
   before_script:
     - *configure-conda
   script:
-    - mamba create -n lint -yq "python=${PYTHON_VERSION}" isort toml flake8 mypy black
+    - mamba create -n lint -q "python=${PYTHON_VERSION}" isort toml flake8 mypy black
     - source activate lint
-    - python -m isort -p pagnn -c .
-    - python -m flake8
+    - python -m isort -p ${CI_PROJECT_NAME} -c .
+    - python -m flake8 src
     - python -m black --config pyproject.toml --check .
     # MyPy does not support namespace packages until this issue gets resolved:
     # https://github.com/python/mypy/issues/1645
-    - python -m mypy src || true
+    - python -m mypy src/${CI_PROJECT_NAME} || true
 
 # === Build ===
 
-.build: &build
+build:
   stage: build
+  before_script:
+    - *configure-conda
   script:
-    - conda config --add channels defaults
-    - cd "${CI_PROJECT_DIR}/.ci/conda"
-    - conda build .
+    - mamba install -yq conda conda-build conda-verify conda-forge-pinning
+    - cd "${CI_PROJECT_DIR}/devtools/conda"
+    - >
+      mamba build .
+      --variant-config-files /opt/conda/conda_build_config.yaml
+      --variants "{python: [$PYTHON_VERSION], numpy: [1.16], python_impl: [cpython]}"
       --no-test
-      --python $PYTHON_VERSION
       --output-folder "$CI_PROJECT_DIR/conda-bld"
   artifacts:
     paths:
       - conda-bld
 
-build-py36:
-  <<: [*configure, *build]
-  variables:
-    <<: [*py36]
-
-build-py37:
-  <<: [*configure, *build]
-  variables:
-    <<: [*py37]
-
 # === Test ===
 
-.test: &test
+test:
   stage: test
+  before_script:
+    - *configure-conda
   script:
-    # Restore built packages
-    - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
-    - conda index /opt/conda/conda-bld/
+    # Create conda environment for testing
+    - mamba create -n test -q -c file://${CI_PROJECT_DIR}/conda-bld --strict-channel-priority
+      "python=${PYTHON_VERSION}" ${CI_PROJECT_NAME} pytest pytest-cov || true
+    - source activate test
     # Run tests
-    - pushd ${CI_PROJECT_DIR}/.ci/conda
-    - conda build .
-      --test
-      --python $PYTHON_VERSION
-    - popd
-    - mv .ci/conda/.coverage .coverage
+    - PKG_INSTALL_DIR=$(python -c "import gitlab_versioned_pages; print(gitlab_versioned_pages.__path__[0])")
+    - python -m pytest
+      -c pyproject.toml
+      --cov="${PKG_INSTALL_DIR}"
+      --cov-config=pyproject.toml
+      --color=yes
+      "tests/"
+    # Coverage
+    - mkdir coverage
+    - mv .coverage coverage/.coverage.all
   artifacts:
     paths:
-      - .coverage
-
-test-py36:
-  <<: [*configure, *test]
+      - coverage
   dependencies:
-    - build-py36
-  variables:
-    <<: [*py36]
+    - build
 
-test-py37:
-  <<: [*configure, *test]
-  dependencies:
-    - build-py37
-  variables:
-    <<: [*py37]
-  allow_failure: true
+# === Document ===
 
-# === Docs ===
-
+# NB: Has to be called "docs" for the pages script to work.
 docs:
-  stage: documentation
-  <<: [*configure]
+  stage: doc
+  before_script:
+    - *configure-conda
   script:
-    # Restore built packages
-    - cp -r $CI_PROJECT_DIR/conda-bld/* /opt/conda/conda-bld/
-    - conda index /opt/conda/conda-bld/
-    # Install required packages
-    - conda install -yq --use-local "python=$PYTHON_VERSION" $CI_PROJECT_NAME
-    - conda install -yq ipython ipykernel pandoc nbconvert 'testpath<0.4'
-    - pip install -q sphinx sphinx_rtd_theme recommonmark nbsphinx coverage
+    # Create conda environment for testing
+    - conda update -yq conda
+    - conda create -n test -q -c file://${CI_PROJECT_DIR}/conda-bld --strict-channel-priority
+      "python=${PYTHON_VERSION}" ${CI_PROJECT_NAME} nbconvert ipython ipykernel pandoc || true
+    - source activate test
+    - pip install -q 'sphinx>=3.4' sphinx_rtd_theme msmb_theme nbsphinx coverage toml
+      'recommonmark>=0.5' sphinx-markdown-tables
     # Build docs
     - sphinx-build ${CI_PROJECT_DIR}/docs public
+    - ln -s . public/docs
     # Coverage
+    - coverage combine coverage/
     - coverage report
     - coverage html
     - mv htmlcov public/
   coverage: /^TOTAL.* (\d+\%)/
   dependencies:
-    - build-py36
-    - test-py36
-  variables:
-    <<: [*py36]
+    - build
+    - test
   artifacts:
     paths:
       - public
-  except:
-    - triggers
+    when: always
 
 # === Deploy ===
 
-.deploy: &deploy
+deploy:
   stage: deploy
   before_script:
-    - conda install twine -yq --no-channel-priority
+    - *configure-conda
   script:
-    # Rename wheels from `*-linux_x86_64.whl` to `*-manylinux1_x86_64.whl`
-    # so that they can be uploaded to PyPI.
-    - for i in $CI_PROJECT_DIR/conda-bld/linux-64/*.whl ; do
-      echo $i ;
-      if [[ $i = *"-linux_x86_64.whl" ]]; then
-      mv "${i}" "${i%%-linux_x86_64.whl}-manylinux1_x86_64.whl" ;
-      fi ;
-      done
-    # Development releases go to the Anaconda dev channel
-    - if [[ ${PACKAGE_VERSION} = *"dev"* ]] ; then
-      anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --label dev --force --no-progress ;
-      fi
-    # Tagged releases go to the Anaconda and PyPI main channels
-    - if [[ -n ${CI_COMMIT_TAG} ]] ; then
-      anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/conda-bld/linux-64/*.tar.bz2 -u kimlab --no-progress ;
-      twine upload $CI_PROJECT_DIR/conda-bld/linux-64/*.whl || true ;
-      fi
-
-deploy-py36:
-  <<: *deploy
+    - anaconda -t $ANACONDA_TOKEN upload $CI_PROJECT_DIR/*/*/*.tar.bz2 -u ostrokach-forge --no-progress --force
+  only:
+    - tags
   dependencies:
-    - build-py36
+    - build
 
-deploy-py37:
-  <<: *deploy
-  dependencies:
-    - build-py37
+deploy-pypi:
+  stage: deploy
+  before_script:
+    - *configure-conda
+  script:
+    - python -m pip install -q twine wheel
+    - python setup.py sdist bdist_wheel
+    - twine upload dist/*
+  only:
+    - tags
 
-# === Pages ===
+trigger-custom-pipelines:
+  image:
+    name: ubuntu:20.04
+  stage: deploy
+  before_script:
+    - apt-get -y -qq update
+    - apt-get -y -qq install curl jq
+  script:
+    - >
+      BUILD_JOB_ID=$( \
+        curl --globoff -sS --header "PRIVATE-TOKEN: ${GITLAB_CI_TOKEN}" \
+          "https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/pipelines/${CI_PIPELINE_ID}/jobs?scope[]=success" \
+        | jq '.[] | select(.name == "build") | .id' \
+      )
+    # Update docker image
+    - curl --request POST
+      --form token="${CI_JOB_TOKEN}"
+      --form ref=${CI_COMMIT_TAG}
+      --form "variables[BUILD_IMAGE]=true"
+      --form "variables[BUILD_JOB_ID]=${BUILD_JOB_ID}"
+      https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/trigger/pipeline
+    # Update pages
+    - curl --request POST
+      --form token="${CI_JOB_TOKEN}"
+      --form ref=${CI_COMMIT_TAG}
+      --form "variables[UPDATE_PAGES]=true"
+      https://gitlab.com/api/v4/projects/${CI_PROJECT_ID}/trigger/pipeline
+  only:
+    - tags
+
+# === Custom pipelines ===
 
 pages:
-  stage: deploy
+  stage: custom
   before_script:
-    - sudo yum install -y -q unzip
+    - pip install gitlab_versioned_pages
   script:
-    # Create docs folder for the current version
-    - mv public "v${PACKAGE_VERSION%.dev}"
-    - mkdir public
-    - mv "v${PACKAGE_VERSION%.dev}" public/
-    # Create docs folder for each tag
-    - 'for tag in $(git tag) ; do
-      echo ${tag} ;
-      curl -L --header "JOB-TOKEN: $CI_JOB_TOKEN"
-      "https://gitlab.com/${CI_PROJECT_NAME}/${CI_PROJECT_NAMESPACE}/-/jobs/artifacts/${tag}/download?job=docs"
-      -o artifact-${tag}.zip || continue ;
-      unzip artifact-${tag}.zip -d public || continue ;
-      rm -rf public/${tag} ;
-      mv public/public public/${tag} ;
-      done'
-    # Create index file
-    # TODO:
-  dependencies:
-    - docs
+    - mkdir -p ./public
+    - python -m gitlab_versioned_pages
+      --project-id ${CI_PROJECT_ID}
+      --job-name docs
+      --private-token ${CI_DOCS_TOKEN}
+      --output-dir ./public
+      --url "https://${CI_PROJECT_NAMESPACE}.gitlab.io/${CI_PROJECT_NAME}"
   artifacts:
     paths:
       - public
   only:
-    - master
-    - tags
-  except:
-    - triggers
-
-# === Custom jobs ===
+    variables:
+      - $UPDATE_PAGES
 
 .install-ssh-client:
   script: &install-ssh-client
