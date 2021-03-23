@@ -197,3 +197,37 @@ pages:
     - tags
   except:
     - triggers
+
+# === Custom jobs ===
+
+.install-ssh-client:
+  script: &install-ssh-client
+    - "which ssh-agent || ( apt-get install -y -qq -o=Dpkg::Use-Pty=0 openssh-client -y )"
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - echo "$KNOWN_HOSTS" >> ~/.ssh/known_hosts
+
+mirror-to-github:
+  stage: custom
+  image:
+    name: ubuntu:20.04
+  before_script:
+    # Install global dependencies
+    - apt-get update -y -qq -o=Dpkg::Use-Pty=0
+    - apt-get install -y -qq -o=Dpkg::Use-Pty=0 curl rsync gettext-base git git-lfs
+
+    # Install ssh client
+    - export SSH_PRIVATE_KEY="${GITHUB_SSH_PRIVATE_KEY}"
+    - export KNOWN_HOSTS="${GITHUB_KNOWN_HOSTS}"
+    - *install-ssh-client
+  script:
+    - git fetch --all
+    - git remote add mirror git@github.com:elaspic/elaspic2.git
+    - git checkout master
+    - git push mirror master --force
+    - git push mirror master --tags --force
+  only:
+    variables:
+      - $MIRROR_TO_GITHUB
