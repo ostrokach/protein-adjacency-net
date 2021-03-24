@@ -76,8 +76,8 @@ target/
 .ipynb_checkpoints
 
 # pagnn
-pagnn/training/data/*_10.data
-pagnn/training/data/*_10.index
+src/pagnn/training/data/*_10.data
+src/pagnn/training/data/*_10.index
 
 # Keep (some) downloads
 downloads/*

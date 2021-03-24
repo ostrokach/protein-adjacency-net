@@ -1,5 +1,5 @@
 package:
-  name: pagnn
+  name: protein-adjacency-net
   version: 0.1.14
 
 source:
@@ -44,12 +44,7 @@ test:
   imports:
     - pagnn
 
-# outputs:
-#   - name: pagnn
-#     type: conda
-#   - type: wheel
-
 about:
-  home: https://gitlab.com/kimlab/pagnn
+  home: https://gitlab.com/ostrokach/protein-adjacency-net
   license: MIT
   summary: "Protein Adjacency Graph Neural Network."

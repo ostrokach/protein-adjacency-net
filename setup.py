@@ -7,7 +7,7 @@ def read_file(file):
 
 
 setup(
-    name="pagnn",
+    name="protein-adjacency-net",
     version="0.1.14",
     description="Protein Adjacency Graph Neural Network.",
     long_description=read_file("README.md"),

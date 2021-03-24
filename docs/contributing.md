@@ -9,7 +9,7 @@ You can contribute in many ways:
 
 ### Report Bugs
 
-Report bugs at https://gitlab.com/kimlab/pagnn/issues.
+Report bugs at https://gitlab.com/ostrokach/protein-adjacency-net/issues.
 
 If you are reporting a bug, please include:
 
@@ -35,7 +35,7 @@ articles, and such.
 
 ### Submit Feedback
 
-The best way to send feedback is to file an issue at https://gitlab.com/kimlab/pagnn/issues.
+The best way to send feedback is to file an issue at https://gitlab.com/ostrokach/protein-adjacency-net/issues.
 
 If you are proposing a feature:
 
@@ -46,20 +46,20 @@ If you are proposing a feature:
 
 ## Get Started!
 
-Ready to contribute? Here's how to set up `pagnn` for local development.
+Ready to contribute? Here's how to set up `protein-adjacency-net` for local development.
 
-1. Fork the `pagnn` repo on GitLab.
+1. Fork the `protein-adjacency-net` repo on GitLab.
 1. Clone your fork locally:
 
     ```bash
-    git clone git@github.com:your_name_here/pagnn.git
+    git clone git@github.com:your_name_here/protein-adjacency-net.git
     ```
 
 1. Install your local copy into a virtualenv. Assuming you have virtualenvwrapper installed, this is how you set up your fork for local development:
 
     ```bash
-    mkvirtualenv pagnn
-    cd pagnn/
+    mkvirtualenv protein-adjacency-net
+    cd protein-adjacency-net/
     python setup.py develop
     ```
 

@@ -5,7 +5,7 @@ default_context:
     git_username: ostrokach
     anaconda_username: ostrokach-forge
     pypi_username: ostrokach
-    project_name: pagnn
+    project_name: protein-adjacency-net
     project_slug: pagnn
     project_import: pagnn
     project_short_description: Protein Adjacency Graph Neural Network.
