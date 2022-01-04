@@ -87,7 +87,7 @@ test:
   script:
     # Create conda environment for testing
     - mamba create -n test -q -c file://${CI_PROJECT_DIR}/conda-bld --strict-channel-priority
-      "python=${PYTHON_VERSION}" ${CI_PROJECT_NAME} pytest pytest-cov || true
+      "python=${PYTHON_VERSION}" ${CI_PROJECT_NAME} pytest pytest-cov pytest-benchmark || true
     - source activate test
     # Run tests
     - PKG_INSTALL_DIR=$(python -c "import pagnn; print(pagnn.__path__[0])")
